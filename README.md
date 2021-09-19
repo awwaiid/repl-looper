@@ -43,3 +43,5 @@ Eventually mayb I'll run it on a public website -- I'm not sure if using `norns.
 # Shout Outs
 
 * [Grégory Montigny for initial logo (CC-BY)](https://thenounproject.com/simpleicon/)
+* eigen on norns-study-group discord for suggesting Lattice
+* Everyone on [lines (llllllll.co)](https://llllllll.co) for being awesome
