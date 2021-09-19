@@ -13,7 +13,7 @@ npm install
 npm run dev`
 ```
 
-Eventually mayb I'll run it on a public website -- I'm not sure if using `norns.local` from a random other page will work or not (CORS and all that). Might serve it from Norns.
+Eventually maybe I'll run it on a public website -- I'm not sure if using `norns.local` from a random other page will work or not (CORS and all that). Might serve it from Norns.
 
 # Journal
 * 2021-09-19 <img src="docs/20210919-screenshot.png" align="right" width="50%" border=1 />
@@ -21,7 +21,7 @@ Eventually mayb I'll run it on a public website -- I'm not sure if using `norns.
   * Have some diagrams in my notebook too
   * Can send/receive REPL commands via websockets
   * Next need to get (probably quantized) recording going
-  * Idea is to mayeb use Lattice, so I guess one pattern per event
+  * Idea is to maybe use Lattice, so I guess one pattern per event
   * Once a loop is recorded, make that a variable on the host itself (even though it was recorded on the client kinda)
 
 # Ideas
@@ -37,6 +37,7 @@ Eventually mayb I'll run it on a public website -- I'm not sure if using `norns.
   * Like a notebook but worse
   * Let the code edit the code
   * Expand a variable into the actual values -- so like a random beat generator that then becomes a hard-coded beat
+  * Constant fzf-style autocomplete
 * Make this thing static so that it is easy to run
   * Keep all state on the Norns
 
