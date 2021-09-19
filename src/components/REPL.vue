@@ -1,8 +1,17 @@
 <template>
-  <div v-for="line in history">
-    {{ line }}
+  <div class="flex flex-col h-full min-h-0">
+    <div class="overflow-y-scroll flex-grow min-h-0">
+      <div v-for="line in history">
+        <pre>{{ line.trimEnd() }}</pre>
+      </div>
+    </div>
+    <div class="border-black border-t-4 w-full flex-none flex">
+      <div>Input:</div>
+      <div class="flex-grow w-full border-4 border-grey-50">
+        <input class="w-full" type=text @change="gotInput" v-model="currentInput" />
+      </div>
+    </div>
   </div>
-  Input: <input type=text @change="gotInput" v-model="currentInput" />
 </template>
 
 <script setup>
@@ -17,7 +26,7 @@ const norns = new WebSocket("ws://norns.local:5555/",["bus.sp.nanomsg.org"]);
 norns.onmessage = function(event) {
   console.log("got message", event);
   const data = event.data;
-  history.value.push(data);
+  history.value.push("→ " + data);
 }
 
 norns.onopen = function(event) {
