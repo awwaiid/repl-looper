@@ -1,15 +1,6 @@
-<script setup>
-import { ref } from 'vue'
-
-defineProps({
-  msg: String
-})
-
-const count = ref(0)
-</script>
-
 <template>
   <h1>{{ msg }}</h1>
+  <h2>Peeps</h2>
 
   <p>
     Recommended IDE setup:
@@ -27,11 +18,26 @@ const count = ref(0)
   </p>
 
   <button type="button" @click="count++">count is: {{ count }}</button>
+  <button type="button" @click="inc">count is: {{ count }}</button>
   <p>
     Edit
     <code>components/HelloWorld.vue</code> to test hot module replacement.
   </p>
 </template>
+
+<script setup>
+import { ref } from 'vue'
+
+defineProps({
+  msg: String
+})
+
+const count = ref(0);
+
+function inc() {
+  count.value++;
+}
+</script>
 
 <style scoped>
 a {
