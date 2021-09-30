@@ -1,6 +1,6 @@
 # Norns REPL-LOOPER
 
-> Mystically integrated UI for Norns / Matron / Grid
+> Anagogically integrated UI for Norns / Matron / Grid
 
 Experimental performance and creative tool, mashing together several things that I like. REPL for interactive code creating. Grid to have a tactile UI (maybe we'll throw in a midi pedal too). Dance between client and host, between recording loops and loops that can modify other loops and themselves.
 
