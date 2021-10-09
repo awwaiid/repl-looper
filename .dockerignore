@@ -1,0 +1,6 @@
+.git/
+.gitignore
+
+# Node modules are expected to be built inside of the container or linked in.
+node_modules
+

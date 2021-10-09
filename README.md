@@ -23,6 +23,9 @@ Eventually maybe I'll run it on a public website -- I'm not sure if using `norns
   * Next need to get (probably quantized) recording going
   * Idea is to maybe use Lattice, so I guess one pattern per event
   * Once a loop is recorded, make that a variable on the host itself (even though it was recorded on the client kinda)
+* 2021-10-02
+  * Messing with [websocketd](https://github.com/joewalnes/websocketd) for testing
+  * Running `websocketd --port 5555 sh -c 'lua -i 2>&1'`
 
 # Ideas
 
