@@ -9,8 +9,14 @@ Experimental performance and creative tool, mashing together several things that
 Optimizing for my own local development currently, but you can give it a try if you want. Should be something like this:
 
 ```sh
+cd ui
+
+# Direct
 npm install
-npm run dev`
+npm run dev
+
+# Docker
+docker-compose up
 ```
 
 Eventually maybe I'll run it on a public website -- I'm not sure if using `norns.local` from a random other page will work or not (CORS and all that). Might serve it from Norns.
@@ -26,6 +32,9 @@ Eventually maybe I'll run it on a public website -- I'm not sure if using `norns
 * 2021-10-02
   * Messing with [websocketd](https://github.com/joewalnes/websocketd) for testing
   * Running `websocketd --port 5555 sh -c 'lua -i 2>&1'`
+* 2021-10-09
+  * Got some basic recording working in UI
+  * Setting this up to start building the norns-lua side in the same repo
 
 # Ideas
 
