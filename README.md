@@ -35,6 +35,11 @@ Eventually maybe I'll run it on a public website -- I'm not sure if using `norns
 * 2021-10-09
   * Got some basic recording working in UI
   * Setting this up to start building the norns-lua side in the same repo
+  * Just came up with a clever double-JSON-encoding to send loops client->server
+  * I probably shouldn't be so pleased with myself
+  * I got loops sending AND turned into lattice patterns!
+  * A fun part of that was using negative time offsets for the pattern starts
+  * I'm moving this toward assuming an overall 16-step sequence, but not necessarily quantized yet
 
 # Ideas
 
