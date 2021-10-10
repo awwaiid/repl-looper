@@ -15,11 +15,16 @@ cd ui
 npm install
 npm run dev
 
-# Docker
+# OR Docker, if you like
 docker-compose up
 ```
 
-Eventually maybe I'll run it on a public website -- I'm not sure if using `norns.local` from a random other page will work or not (CORS and all that). Might serve it from Norns.
+On the norns side we need to run the lua server-side. During dev I do it this way:
+
+```sh
+# Auto-push to norns
+nodemon --exec ./util/sync.sh -w repl-looper.lua
+```
 
 # Journal
 * 2021-09-19 <img src="docs/20210919-screenshot.png" align="right" width="50%" border=1 />
