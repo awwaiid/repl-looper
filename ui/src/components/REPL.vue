@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col h-full min-h-0 border-2 border-grey-10 m-2 p-2">
     <div class="flex flex-row">
-      <div v-for="step in 16">
+      <div v-for="step in playbackStepCount">
         <div v-if="playbackStep + 1 === step">
           &#9635;
         </div>
@@ -51,11 +51,13 @@ const currentLoop = ref([]);
 const connected = ref(false);
 const recording = reactive({
   currentlyRecording: false,
+  loopNum: 1,
   startTime: 0,
   endTime: 0,
   events: []
 });
 const playbackStep = ref(0);
+const playbackStepCount = ref(16);
 
 console.log("Starting connection to WebSocket Server");
 const norns = new WebSocket("ws://norns.local:5555/",["bus.sp.nanomsg.org"]);
@@ -77,6 +79,7 @@ norns.onmessage = async (event) => {
     console.log("msg: ", serverMessage);
     if (serverMessage.action == "playback_step") {
       playbackStep.value = parseInt(serverMessage.step);
+      playbackStepCount.value = Math.ceil(parseFloat(serverMessage.stepCount));
     }
   } else {
     history.value.push("→ " + data);
@@ -101,6 +104,16 @@ async function gotInput(v) {
   scrollMessagesToBottom();
   currentInput.value = "";
 
+  if(command === "rec") {
+    startRecording();
+    return;
+  }
+
+  if(command === "stop") {
+    stopRecording();
+    return;
+  }
+
   if(recording.currentlyRecording) {
     const currentTime = Date.now();
     recording.events.push({
@@ -116,8 +129,9 @@ async function gotInput(v) {
   // norns.send(command);
 }
 
-function startRecording() {
+function startRecording(loopNum = 1) {
   recording.currentlyRecording = true;
+  recording.loopNum = loopNum;
   recording.startTime = Date.now();
   recording.endTime = null;
   recording.events = [];
@@ -129,11 +143,10 @@ function stopRecording() {
   recording.duration = recording.endTime - recording.startTime;
   const jsonRecording = JSON.stringify(JSON.stringify({
     command: "save_loop",
-    loop_num: 1,
+    loop_num: recording.loopNum || 1,
     loop: recording
   }));
   console.log(`JSON: ${jsonRecording}`);
-  // norns.send("recording = '" + jsonRecording + "';\n");
   console.log('SEND: messageToServer("' + jsonRecording + '"' + ")\n");
   norns.send('messageToServer(' + jsonRecording + ")\n");
 }

@@ -42,7 +42,13 @@ Eventually maybe I'll run it on a public website -- I'm not sure if using `norns
   * I'm moving this toward assuming an overall 16-step sequence, but not necessarily quantized yet
   * Next some UX improvements; command history is definitely one
   * Sweet ... got it adjusted to play back on the first loop
-  * Used `peek` command to record this cool gif
+  * Used [peek](https://github.com/phw/peek) to record this cool gif
+* 2021-10-10
+  * Last night I dreamed about loops playing loops. Good.
+  * Made loops variable length (quantize later!)
+  * Run `nodemon --exec ./util/sync.sh -w repl-looper.lua` to auto eval server code
+  * Re-worked a bunch of calculations and gave them better labels
+  * Next up is getting to record multiple loops, and then sync between them!
 
 # Ideas
 
