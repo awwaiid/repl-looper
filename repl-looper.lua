@@ -35,7 +35,7 @@ function loopToLattice(loop)
     print("Phase offset: " .. event_phase)
 
     action = function(t)
-      print("Action! @" .. t .. " next @" .. (l.ppqn * l.meter * 4))
+      print("Action! @" .. t .. " next @" .. (l.ppqn * l.meter * 4 + t))
       load(event.command)()
     end
 
@@ -44,12 +44,16 @@ function loopToLattice(loop)
       division = 16 / 4,
       enabled = true
     }
-    pattern.phase = -1 * event_phase
+    pattern.phase = (-1 * event_phase) + (l.ppqn * l.meter * 4)
   end
 
   count = 0
   l:new_pattern{
-    action = function(t) print("boom! " .. (count + 1)); count = (count + 1) % 16; end,
+    action = function(t)
+      messageFromServer({ action = "playback_step", step = count })
+      -- print("boom! " .. (count + 1))
+      count = (count + 1) % 16
+    end,
     division = 1/4,
     enabled = true
   }

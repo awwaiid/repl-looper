@@ -1,5 +1,15 @@
 <template>
   <div class="flex flex-col h-full min-h-0 border-2 border-grey-10 m-2 p-2">
+    <div class="flex flex-row">
+      <div v-for="step in 16">
+        <div v-if="playbackStep + 1 === step">
+          &#9635;
+        </div>
+        <div v-else>
+          &#9633;
+        </div>
+      </div>
+    </div>
 
     <div class="overflow-y-auto flex-grow min-h-0" id="messages">
       <div v-for="line in history" class="line">
@@ -12,12 +22,10 @@
     <!-- </div> -->
 
     <div class="border-grey-20 border-t-2 p-1 w-full flex-none flex items-center">
-      <div v-show="connected">Connected!</div>
       <div>Input:</div>
       <div class="flex-grow w-full border-4 border-grey-50">
         <input class="w-full" type=text @change="gotInput" v-model="currentInput" />
       </div>
-      {{ recording.currentlyRecording }}
       <button
         v-show="!recording.currentlyRecording"
         @click="startRecording"
@@ -47,6 +55,7 @@ const recording = reactive({
   endTime: 0,
   events: []
 });
+const playbackStep = ref(0);
 
 console.log("Starting connection to WebSocket Server");
 const norns = new WebSocket("ws://norns.local:5555/",["bus.sp.nanomsg.org"]);
@@ -62,8 +71,17 @@ async function scrollMessagesToBottom() {
 norns.onmessage = async (event) => {
   console.log("got message", event);
   const data = event.data;
-  history.value.push("→ " + data);
-  scrollMessagesToBottom();
+  let m = data.match(/SERVER MESSAGE: (.*)/);
+  if (m) {
+    let serverMessage = JSON.parse(m[1]);
+    console.log("msg: ", serverMessage);
+    if (serverMessage.action == "playback_step") {
+      playbackStep.value = parseInt(serverMessage.step);
+    }
+  } else {
+    history.value.push("→ " + data);
+    scrollMessagesToBottom();
+  }
 };
 
 norns.onopen = (event) => {

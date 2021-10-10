@@ -32,7 +32,7 @@ Eventually maybe I'll run it on a public website -- I'm not sure if using `norns
 * 2021-10-02
   * Messing with [websocketd](https://github.com/joewalnes/websocketd) for testing
   * Running `websocketd --port 5555 sh -c 'lua -i 2>&1'`
-* 2021-10-09
+* 2021-10-09 <img src="docs/20211009-demo-basic-loop.gif" align="right" width="50%" border=1 />
   * Got some basic recording working in UI
   * Setting this up to start building the norns-lua side in the same repo
   * Just came up with a clever double-JSON-encoding to send loops client->server
@@ -40,6 +40,9 @@ Eventually maybe I'll run it on a public website -- I'm not sure if using `norns
   * I got loops sending AND turned into lattice patterns!
   * A fun part of that was using negative time offsets for the pattern starts
   * I'm moving this toward assuming an overall 16-step sequence, but not necessarily quantized yet
+  * Next some UX improvements; command history is definitely one
+  * Sweet ... got it adjusted to play back on the first loop
+  * Used `peek` command to record this cool gif
 
 # Ideas
 
