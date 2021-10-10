@@ -7,9 +7,9 @@
       </div>
     </div>
 
-    <div>
-      <pre>{{ recording }}</pre>
-    </div>
+    <!-- <div> -->
+    <!--   <pre>{{ recording }}</pre> -->
+    <!-- </div> -->
 
     <div class="border-grey-20 border-t-2 p-1 w-full flex-none flex items-center">
       <div v-show="connected">Connected!</div>
@@ -72,6 +72,10 @@ norns.onopen = (event) => {
   connected.value = true;
 };
 
+norns.onclose = () => {
+  connected.value = false;
+}
+
 async function gotInput(v) {
   console.log("gotInput", { v });
   const command = v.target.value;
@@ -105,9 +109,15 @@ function stopRecording() {
   recording.currentlyRecording = false;
   recording.endTime = Date.now();
   recording.duration = recording.endTime - recording.startTime;
-  const jsonRecording = JSON.stringify(recording);
+  const jsonRecording = JSON.stringify(JSON.stringify({
+    command: "save_loop",
+    loop_num: 1,
+    loop: recording
+  }));
   console.log(`JSON: ${jsonRecording}`);
-  norns.send("recording = '" + jsonRecording + "';\n");
+  // norns.send("recording = '" + jsonRecording + "';\n");
+  console.log('SEND: messageToServer("' + jsonRecording + '"' + ")\n");
+  norns.send('messageToServer(' + jsonRecording + ")\n");
 }
 
 
