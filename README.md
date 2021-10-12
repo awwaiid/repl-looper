@@ -54,6 +54,12 @@ nodemon --exec ./util/sync.sh -w repl-looper.lua
   * Run `nodemon --exec ./util/sync.sh -w repl-looper.lua` to auto eval server code
   * Re-worked a bunch of calculations and gave them better labels
   * Next up is getting to record multiple loops, and then sync between them!
+* 2021-10-11
+  * Show the current loop position on The Grid!
+  * Turn the lua Loop into an actual object, reorganize
+  * Maybe instead of `loops[1]` I should flatten it to `l1`. Kinda evil but I kinda like it. We'll see
+  * OK... while doing that I was looking at maybe using single-letter vars. Well I went through looking at their values one by one and typed in `q` and apparently that shuts down norns. Sooo I guess don't use that one
+  * Now going to use 'a'..'h' for shortcuts (avoid 'q'!)
 
 # Ideas
 

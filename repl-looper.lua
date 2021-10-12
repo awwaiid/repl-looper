@@ -26,7 +26,7 @@ function Loop:hi()
 end
 
 function Loop:build_lattice()
-  l = lattice:new{}
+  local l = lattice:new{}
 
   -- Convert milliseconds into pulse offset
   qn_per_ms = clock.get_tempo() / 60 / 1000
@@ -112,8 +112,12 @@ loops = {}
 function messageToServer(json_msg)
   local msg = json.decode(json_msg)
   if msg.command == "save_loop" then
-    -- loops[msg.loop_num] = msg.loop
     loops[msg.loop_num] = Loop.new(msg.loop)
+
+    -- Kinda evil shortcut!
+    loop_letter = string.char(string.byte("a") + msg.loop_num - 1)
+    print("Setting loop shortcut " .. loop_letter)
+    _G[loop_letter] = loops[msg.loop_num]
   else
     print "UNKNOWN COMMAND\n"
   end
