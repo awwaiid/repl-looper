@@ -10,13 +10,11 @@
 </template>
 
 <script>
-import HelloWorld from './components/HelloWorld.vue';
 import REPL from './components/REPL.vue';
 import nightwind from "nightwind/helper";
 
 export default {
   components: {
-    HelloWorld,
     REPL
   },
   mounted() {
