@@ -8,24 +8,24 @@
 json = require("cjson")
 lattice = require("lattice")
 
-loops = {}
+-- Global Grid
+g = grid.connect()
 
--- REPL communication
-function messageToServer(json_msg)
-  local msg = json.decode(json_msg)
-  if msg.command == "save_loop" then
-    loops[msg.loop_num] = msg.loop
-  else
-    print "UNKNOWN COMMAND\n"
-  end
+local Loop = {}
+Loop.__index = Loop
+
+function Loop.new(init)
+  local self = init or {}
+  setmetatable(self, Loop)
+  self:build_lattice()
+  return self
 end
 
-function messageFromServer(msg)
-  local msg_json = json.encode(msg)
-  print("SERVER MESSAGE: " .. msg_json .. "\n")
+function Loop:hi()
+  print "hi!!!"
 end
 
-function loopToLattice(loop)
+function Loop:build_lattice()
   l = lattice:new{}
 
   -- Convert milliseconds into pulse offset
@@ -34,7 +34,7 @@ function loopToLattice(loop)
   pulse_per_measure = l.ppqn * l.meter
 
   -- We use ceil here, so will grow loop-length to the next full quarter note
-  loop_length_qn = math.ceil(loop.duration * qn_per_ms)
+  loop_length_qn = math.ceil(self.duration * qn_per_ms)
   loop_length_measure = loop_length_qn / l.meter
 
   print("pulse/ms = " .. pulse_per_ms)
@@ -43,11 +43,14 @@ function loopToLattice(loop)
   print("loop length qn = " .. loop_length_qn)
   print("loop length measure = " .. loop_length_measure)
 
-  for _, event in ipairs(loop.events) do
+  for _, event in ipairs(self.events) do
     print("Converting event " .. json.encode(event))
 
-    event_pulse_offset = pulse_per_ms * event.relativeTime
-    print("pulse offset: " .. event_pulse_offset)
+    event.pulse_offset = pulse_per_ms * event.relativeTime
+    print("pulse offset: " .. event.pulse_offset)
+
+    event.step = event.pulse_offset / l.ppqn
+    print("event step: " .. event.step)
 
     action = function(t)
       print("Command @" .. t .. " next @" .. (loop_length_measure * pulse_per_measure + t) .. " -- " .. event.command)
@@ -61,13 +64,25 @@ function loopToLattice(loop)
       enabled = true
     }
 
-    pattern.phase = loop_length_measure * pulse_per_measure - event_pulse_offset
+    pattern.phase = loop_length_measure * pulse_per_measure - event.pulse_offset
+
   end
 
+  -- Basically a quarter-note metronome
   count = 0
   l:new_pattern{
     action = function(t)
-      messageFromServer({ action = "playback_step", step = count, stepCount = loop_length_qn })
+      messageFromServer({
+        action = "playback_step",
+        step = count,
+        stepCount = loop_length_qn
+      })
+
+      -- Let's get some GRID!!
+      g:all(0)
+      g:led(count, 1, 15)
+      g:refresh()
+
       print("step " .. (count + 1) .. " @" .. t)
       count = (count + 1) % loop_length_qn
     end,
@@ -75,21 +90,38 @@ function loopToLattice(loop)
     enabled = true
   }
 
+  self.lattice = l
   return l
 end
 
-lattices = {}
-
-function play_loop(n)
-  loop_num = n or 1
-  -- lattices[n or 1] = lattices[n or 1] or loopToLattice(loop[n])
-  lattices[loop_num] = loopToLattice(loops[loop_num])
-  lattices[loop_num]:start()
+function Loop:start()
+  self.lattice:start()
 end
 
-function stop_loop(n)
-  loop_num = n or 1
-  lattices[loop_num]:stop()
+function Loop:stop()
+  self.lattice:stop()
+end
+
+------------------------------------------------------
+
+loops = {}
+
+-- g.key = function(x, y, z) ... end
+
+-- REPL communication
+function messageToServer(json_msg)
+  local msg = json.decode(json_msg)
+  if msg.command == "save_loop" then
+    -- loops[msg.loop_num] = msg.loop
+    loops[msg.loop_num] = Loop.new(msg.loop)
+  else
+    print "UNKNOWN COMMAND\n"
+  end
+end
+
+function messageFromServer(msg)
+  local msg_json = json.encode(msg)
+  print("SERVER MESSAGE: " .. msg_json .. "\n")
 end
 
 -- Music utilities
