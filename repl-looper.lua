@@ -5,6 +5,12 @@
 --
 -- Use in conjunction with laptop running the UI
 
+
+-- Add repl-looper lib dir in to load .so files like cjson.so
+if not string.find(package.cpath,"/home/we/dust/code/repl-looper/lib/") then
+  package.cpath=package.cpath..";/home/we/dust/code/repl-looper/lib/?.so"
+end
+
 json = require("cjson")
 lattice = require("lattice")
 
@@ -17,7 +23,7 @@ Loop.__index = Loop
 function Loop.new(init)
   local self = init or {}
   setmetatable(self, Loop)
-  self:build_lattice()
+  self:update_lattice()
   return self
 end
 
@@ -25,57 +31,57 @@ function Loop:hi()
   print "hi!!!"
 end
 
-function Loop:build_lattice()
-  local l = lattice:new{}
+function Loop:update_lattice()
+  self.lattice = self.lattice or lattice:new{}
 
   -- Convert milliseconds into pulse offset
   qn_per_ms = clock.get_tempo() / 60 / 1000
-  pulse_per_ms = qn_per_ms * l.ppqn
-  pulse_per_measure = l.ppqn * l.meter
+  pulse_per_ms = qn_per_ms * self.lattice.ppqn
+  pulse_per_measure = self.lattice.ppqn * self.lattice.meter
 
   -- We use ceil here, so will grow loop-length to the next full quarter note
-  loop_length_qn = math.ceil(self.duration * qn_per_ms)
-  loop_length_measure = loop_length_qn / l.meter
+  self.loop_length_qn = math.ceil(self.duration * qn_per_ms)
+  loop_length_measure = self.loop_length_qn / self.lattice.meter
 
   print("pulse/ms = " .. pulse_per_ms)
   print("qn/ms = " .. qn_per_ms)
   print("pulse/measure = " .. pulse_per_measure)
-  print("loop length qn = " .. loop_length_qn)
+  print("loop length qn = " .. self.loop_length_qn)
   print("loop length measure = " .. loop_length_measure)
 
   for _, event in ipairs(self.events) do
-    print("Converting event " .. json.encode(event))
+    -- print("Converting event " .. json.encode(event))
 
     event.pulse_offset = pulse_per_ms * event.relativeTime
     print("pulse offset: " .. event.pulse_offset)
 
-    event.step = event.pulse_offset / l.ppqn
+    event.step = event.pulse_offset / self.lattice.ppqn
     print("event step: " .. event.step)
 
     action = function(t)
-      print("Command @" .. t .. " next @" .. (loop_length_measure * pulse_per_measure + t) .. " -- " .. event.command)
+      print("@" .. t .. " (next @" .. (loop_length_measure * pulse_per_measure + t) .. ") command: " .. event.command)
       load(event.command)()
     end
 
-    pattern = l:new_pattern{
-      action = action,
-      -- division = 16 / 4,
-      division = loop_length_measure, -- division is in measures
-      enabled = true
-    }
+    event.pattern = event.pattern or self.lattice:new_pattern{}
 
-    pattern.phase = loop_length_measure * pulse_per_measure - event.pulse_offset
+    event.pattern:set_action(action)
+    event.pattern:set_division(loop_length_measure) -- division is in measures
 
+    -- Forcing the initial phase is what sets the actual offset
+    -- TODO: can this be updated while playing? Does it need to be relative to
+    -- the current lattice time or something?
+    event.pattern.phase = loop_length_measure * pulse_per_measure - event.pulse_offset
   end
 
   -- Basically a quarter-note metronome
   count = 0
-  l:new_pattern{
+  self.status_pattern = self.status_pattern or self.lattice:new_pattern{
     action = function(t)
       messageFromServer({
         action = "playback_step",
         step = count,
-        stepCount = loop_length_qn
+        stepCount = self.loop_length_qn
       })
 
       -- Let's get some GRID!!
@@ -84,18 +90,40 @@ function Loop:build_lattice()
       g:refresh()
 
       print("step " .. (count + 1) .. " @" .. t)
-      count = (count + 1) % loop_length_qn
+      count = (count + 1) % self.loop_length_qn
     end,
     division = 1/4,
     enabled = true
   }
 
-  self.lattice = l
   return l
+end
+
+function Loop:quantize()
+  qn_per_ms = clock.get_tempo() / 60 / 1000
+
+  for _, event in ipairs(self.events) do
+    event.step = math.floor(event.step + 0.5)
+    event.relativeTime = event.step / qn_per_ms
+  end
+
+  self:update_lattice()
+end
+
+function Loop:print()
+  print("Length length qn: " .. self.loop_length_qn)
+  for _, event in ipairs(self.events) do
+    print("  " .. event.step .. ": " .. event.command)
+  end
 end
 
 function Loop:start()
   self.lattice:start()
+end
+
+-- Alias for start because I keep forgetting
+function Loop:play()
+  self:start()
 end
 
 function Loop:stop()

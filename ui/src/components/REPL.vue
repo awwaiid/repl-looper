@@ -23,8 +23,8 @@
 
     <div class="border-grey-20 border-t-2 p-1 w-full flex-none flex items-center">
       <div>Input:</div>
-      <div class="flex-grow w-full border-4 border-grey-50">
-        <input class="w-full" type=text @change="gotInput" v-model="currentInput" />
+      <div class="flex-grow w-full border-2">
+        <input class="w-full bg-black text-white" type=text @keydown.enter="gotInput" v-model="currentInput" />
       </div>
       <button
         v-show="!recording.currentlyRecording"

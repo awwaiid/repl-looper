@@ -23,7 +23,7 @@ On the norns side we need to run the lua server-side. During dev I do it this wa
 
 ```sh
 # Auto-push to norns
-nodemon --exec ./util/sync.sh -w repl-looper.lua
+./util/watch-sync.sh
 ```
 
 # Journal
@@ -60,6 +60,12 @@ nodemon --exec ./util/sync.sh -w repl-looper.lua
   * Maybe instead of `loops[1]` I should flatten it to `l1`. Kinda evil but I kinda like it. We'll see
   * OK... while doing that I was looking at maybe using single-letter vars. Well I went through looking at their values one by one and typed in `q` and apparently that shuts down norns. Sooo I guess don't use that one
   * Now going to use 'a'..'h' for shortcuts (avoid 'q'!)
+* 2021-10-15 <img src="docs/20211015-screenshot.png" align="right" width="50%" border=1 />
+  * Refactored loop a bit so the lattice+patterns can be updated
+  * Built a quantizer (in-place for now)
+  * The idea is to start building some loop inspection and modification tools. Then we could loop over loops and do things to them on each loop
+  * Also inversed the colors some, we'll see how I like that as we go. I mean... it's gotta LOOK cool too, right?
+  * Also made a script to hold the watch+sync command so I don't have to remember it
 
 # Ideas
 
