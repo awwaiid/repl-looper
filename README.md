@@ -66,12 +66,18 @@ On the norns side we need to run the lua server-side. During dev I do it this wa
   * The idea is to start building some loop inspection and modification tools. Then we could loop over loops and do things to them on each loop
   * Also inversed the colors some, we'll see how I like that as we go. I mean... it's gotta LOOK cool too, right?
   * Also made a script to hold the watch+sync command so I don't have to remember it
+* 2021-10-16
+  * If we have a fixed-length loop when recording, then we should play back the loop events already recorded when we loop around. Right now the loop isn't sent to the norns until the end when it is fully formed. Tricky.
+  * Another recording mode should be that you select the step and THEN record the event, like a step sequencer instead of a loop recorder
+  * A similar record mode would be you have one event and then you place it at different steps of different loops! Even MORE like a sequencer. snare kick snare kick
+  * Got visualizing a loop+events working on the grid
 
 # Ideas
 
 * Code editor like maiden w/ ctrl+enter send
 * Grid on screen
   * Buttons are spread out over spacetime
+  * The grid is good at visualizing and selecting spacetime
   * Buttons contain events
   * Record a loop assigns the whole thing to a button or a row
   * Physical grid button triggers event
@@ -83,6 +89,12 @@ On the norns side we need to run the lua server-side. During dev I do it this wa
   * Constant fzf-style autocomplete
 * Make this thing static so that it is easy to run
   * Keep all state on the Norns
+* Loop Recording / Editing Modes
+  * Live REPL: Record REPL timing, construct sequence of events
+    * Playback: With or without fixed-length active loop playback
+  * Step first: Pick a step and record an event
+  * Event sequencing: Take an event and place (or edit) the location of the event
+  * 
 
 # Shout Outs
 

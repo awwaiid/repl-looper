@@ -33,6 +33,7 @@ end
 
 function Loop:update_lattice()
   self.lattice = self.lattice or lattice:new{}
+  self.current_step = self.current_step or 1
 
   -- Convert milliseconds into pulse offset
   qn_per_ms = clock.get_tempo() / 60 / 1000
@@ -55,7 +56,7 @@ function Loop:update_lattice()
     event.pulse_offset = pulse_per_ms * event.relativeTime
     print("pulse offset: " .. event.pulse_offset)
 
-    event.step = event.pulse_offset / self.lattice.ppqn
+    event.step = event.pulse_offset / self.lattice.ppqn + 1
     print("event step: " .. event.step)
 
     action = function(t)
@@ -78,6 +79,8 @@ function Loop:update_lattice()
   count = 0
   self.status_pattern = self.status_pattern or self.lattice:new_pattern{
     action = function(t)
+      self.current_step = (math.floor(t / self.lattice.ppqn) % self.loop_length_qn) + 1
+
       messageFromServer({
         action = "playback_step",
         step = count,
@@ -85,15 +88,19 @@ function Loop:update_lattice()
       })
 
       -- Let's get some GRID!!
+      local row = self:to_grid_row()
+      print("Row: " .. json.encode(row))
       g:all(0)
-      g:led(count, 1, 15)
+      for n = 1, self.loop_length_qn do
+        g:led(n, 1, row[n] or 0)
+        print("led " .. n .. " " .. (row[n] or 0))
+      end
       g:refresh()
 
       print("step " .. (count + 1) .. " @" .. t)
       count = (count + 1) % self.loop_length_qn
     end,
-    division = 1/4,
-    enabled = true
+    division = 1/4
   }
 
   return l
@@ -112,9 +119,35 @@ end
 
 function Loop:print()
   print("Length length qn: " .. self.loop_length_qn)
+  print("Current step: " .. self.current_step)
   for _, event in ipairs(self.events) do
     print("  " .. event.step .. ": " .. event.command)
   end
+end
+
+function Loop:to_grid_row()
+  local row = {}
+  print("Length length qn: " .. self.loop_length_qn)
+  print("Current step: " .. self.current_step)
+  for n = 1, self.loop_length_qn do
+    if n == self.current_step then
+      row[n] = 10
+    else
+      row[n] = 0
+    end
+  end
+  for _, event in ipairs(self.events) do
+    print("  " .. event.step .. ": " .. event.command)
+    local step = math.floor(event.step)
+    if step == self.current_step then
+      row[step] = 15
+    else
+      row[step] = 5
+    end
+  end
+
+
+  return row
 end
 
 function Loop:start()
