@@ -17,12 +17,32 @@ lattice = require("lattice")
 -- Global Grid
 g = grid.connect()
 
+local LoopEngine = {}
+LoopEngine.__index = LoopEngine
+
+function LoopEngine.new(init)
+  local self = init or {
+    lattice = lattice:new{},
+    loops = {}
+  }
+  setmetatable(self, Loop)
+  return self
+end
+
 local Loop = {}
 Loop.__index = Loop
+Loop.count = 0
 
 function Loop.new(init)
   local self = init or {}
   setmetatable(self, Loop)
+
+  Loop.count = Loop.count + 1
+  self.loop_id = Loop.count
+
+  self.lattice = self.lattice or lattice:new{}
+  self.current_step = self.current_step or 1
+
   self:update_lattice()
   return self
 end
@@ -31,48 +51,57 @@ function Loop:hi()
   print "hi!!!"
 end
 
+function Loop:qn_per_ms()
+  return clock.get_tempo() / 60 / 1000
+end
+
+function Loop:pulse_per_ms()
+  return self:qn_per_ms() * self.lattice.ppqn
+end
+
+function Loop:pulse_per_measure()
+  return self.lattice.ppqn * self.lattice.meter
+end
+
+function Loop:loop_length_measure()
+  return self.loop_length_qn / self.lattice.meter
+end
+
+function Loop:update_event(event)
+  event.pulse_offset = self:pulse_per_ms() * event.relativeTime
+  print("pulse offset: " .. event.pulse_offset)
+
+  event.step = event.pulse_offset / self.lattice.ppqn + 1
+  print("event step: " .. event.step)
+
+  action = function(t)
+    print("@" .. t .. " (next @" .. (self:loop_length_measure() * self:pulse_per_measure() + t) .. ") command: " .. event.command)
+    load(event.command)()
+  end
+
+  event.pattern = event.pattern or self.lattice:new_pattern{}
+
+  event.pattern:set_action(action)
+  event.pattern:set_division(self:loop_length_measure()) -- division is in measures
+
+  -- Forcing the initial phase is what sets the actual offset
+  -- TODO: can this be updated while playing? Does it need to be relative to
+  -- the current lattice time or something?
+  event.pattern.phase = self:loop_length_measure() * self:pulse_per_measure() - event.pulse_offset
+end
+
 function Loop:update_lattice()
-  self.lattice = self.lattice or lattice:new{}
-  self.current_step = self.current_step or 1
-
-  -- Convert milliseconds into pulse offset
-  qn_per_ms = clock.get_tempo() / 60 / 1000
-  pulse_per_ms = qn_per_ms * self.lattice.ppqn
-  pulse_per_measure = self.lattice.ppqn * self.lattice.meter
-
   -- We use ceil here, so will grow loop-length to the next full quarter note
-  self.loop_length_qn = math.ceil(self.duration * qn_per_ms)
-  loop_length_measure = self.loop_length_qn / self.lattice.meter
+  self.loop_length_qn = math.ceil(self.duration * self:qn_per_ms())
 
-  print("pulse/ms = " .. pulse_per_ms)
-  print("qn/ms = " .. qn_per_ms)
-  print("pulse/measure = " .. pulse_per_measure)
+  print("pulse/ms = " .. self:pulse_per_ms())
+  print("qn/ms = " .. self:qn_per_ms())
+  print("pulse/measure = " .. self:pulse_per_measure())
   print("loop length qn = " .. self.loop_length_qn)
-  print("loop length measure = " .. loop_length_measure)
+  print("loop length measure = " .. self:loop_length_measure())
 
   for _, event in ipairs(self.events) do
-    -- print("Converting event " .. json.encode(event))
-
-    event.pulse_offset = pulse_per_ms * event.relativeTime
-    print("pulse offset: " .. event.pulse_offset)
-
-    event.step = event.pulse_offset / self.lattice.ppqn + 1
-    print("event step: " .. event.step)
-
-    action = function(t)
-      print("@" .. t .. " (next @" .. (loop_length_measure * pulse_per_measure + t) .. ") command: " .. event.command)
-      load(event.command)()
-    end
-
-    event.pattern = event.pattern or self.lattice:new_pattern{}
-
-    event.pattern:set_action(action)
-    event.pattern:set_division(loop_length_measure) -- division is in measures
-
-    -- Forcing the initial phase is what sets the actual offset
-    -- TODO: can this be updated while playing? Does it need to be relative to
-    -- the current lattice time or something?
-    event.pattern.phase = loop_length_measure * pulse_per_measure - event.pulse_offset
+    self:update_event(event)
   end
 
   -- Basically a quarter-note metronome
@@ -107,11 +136,9 @@ function Loop:update_lattice()
 end
 
 function Loop:quantize()
-  qn_per_ms = clock.get_tempo() / 60 / 1000
-
   for _, event in ipairs(self.events) do
     event.step = math.floor(event.step + 0.5)
-    event.relativeTime = event.step / qn_per_ms
+    event.relativeTime = event.step / self:qn_per_ms()
   end
 
   self:update_lattice()
