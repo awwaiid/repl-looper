@@ -177,6 +177,16 @@ function Loop:to_grid_row()
   return row
 end
 
+function Loop:play_events_at_step(step)
+  for _, event in ipairs(self.events) do
+    local event_step = math.floor(event.step)
+    if event_step == step then
+      print("command: " .. event.command)
+      load(event.command)()
+    end
+  end
+end
+
 function Loop:start()
   self.lattice:start()
 end
@@ -194,7 +204,13 @@ end
 
 loops = {}
 
--- g.key = function(x, y, z) ... end
+g.key = function(col, row, state)
+  -- print("Key: ", col, row, state)
+  -- loops[1]:print()
+  if state == 1 then
+    loops[1]:play_events_at_step(col)
+  end
+end
 
 -- REPL communication
 function messageToServer(json_msg)
