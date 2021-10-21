@@ -118,15 +118,15 @@ function Loop:update_lattice()
 
       -- Let's get some GRID!!
       local row = self:to_grid_row()
-      print("Row: " .. json.encode(row))
+      -- print("Row: " .. json.encode(row))
       g:all(0)
       for n = 1, self.loop_length_qn do
         g:led(n, 1, row[n] or 0)
-        print("led " .. n .. " " .. (row[n] or 0))
+        -- print("led " .. n .. " " .. (row[n] or 0))
       end
       g:refresh()
 
-      print("step " .. (count + 1) .. " @" .. t)
+      -- print("step " .. (count + 1) .. " @" .. t)
       count = (count + 1) % self.loop_length_qn
     end,
     division = 1/4
@@ -154,8 +154,8 @@ end
 
 function Loop:to_grid_row()
   local row = {}
-  print("Length length qn: " .. self.loop_length_qn)
-  print("Current step: " .. self.current_step)
+  -- print("Length length qn: " .. self.loop_length_qn)
+  -- print("Current step: " .. self.current_step)
   for n = 1, self.loop_length_qn do
     if n == self.current_step then
       row[n] = 10
@@ -164,7 +164,7 @@ function Loop:to_grid_row()
     end
   end
   for _, event in ipairs(self.events) do
-    print("  " .. event.step .. ": " .. event.command)
+    -- print("  " .. event.step .. ": " .. event.command)
     local step = math.floor(event.step)
     if step == self.current_step then
       row[step] = 15
