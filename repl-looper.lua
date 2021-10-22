@@ -76,7 +76,7 @@ function Loop:update_event(event)
 
   action = function(t)
     print("@" .. t .. " (next @" .. (self:loop_length_measure() * self:pulse_per_measure() + t) .. ") command: " .. event.command)
-    load(event.command)()
+    live_event(event.command)
   end
 
   event.pattern = event.pattern or self.lattice:new_pattern{}
@@ -187,7 +187,7 @@ function Loop:play_events_at_step(step)
     local event_step = math.floor(event.step)
     if event_step == step then
       print("command: " .. event.command)
-      load(event.command)()
+      live_event(event.command)
     end
   end
 end
@@ -235,6 +235,18 @@ end
 function messageFromServer(msg)
   local msg_json = json.encode(msg)
   print("SERVER MESSAGE: " .. msg_json .. "\n")
+end
+
+function live_event(command)
+  print("Got live_event: " .. command)
+  local live_event_command, live_event_errors = load("live_event_result, live_event_errors = " .. command, "CMD")
+  if live_event_errors then
+    print(live_event_errors)
+    return live_event_errors
+  else
+    live_event_command()
+    return live_event_result
+  end
 end
 
 -- Music utilities

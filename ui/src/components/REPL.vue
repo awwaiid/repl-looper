@@ -129,8 +129,10 @@ async function gotInput(v) {
     console.log({ recording });
   }
 
-  console.log(`Sending to norns [${command}]`);
-  norns.send(command + "\n");
+  // console.log(`Sending to norns [live_event(${command})]`);
+  console.log("Sending to norns: live_event(" + JSON.stringify(command) + ")\n");
+  norns.send("live_event(" + JSON.stringify(command) + ")\n");
+  // norns.send(command + "\n");
   // norns.send(command);
 }
 
