@@ -104,6 +104,11 @@ async function gotInput(v) {
   scrollMessagesToBottom();
   currentInput.value = "";
 
+  let matches;
+  if(matches = command.match(/rec\(?\s?(\d+)\)?/)) {
+    startRecording(parseInt(matches[1]));
+    return;
+  }
   if(command === "rec") {
     startRecording();
     return;

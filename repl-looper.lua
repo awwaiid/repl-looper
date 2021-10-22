@@ -119,9 +119,14 @@ function Loop:update_lattice()
       -- Let's get some GRID!!
       local row = self:to_grid_row()
       -- print("Row: " .. json.encode(row))
-      g:all(0)
+
+      -- Clear the whole row
+      for n = 1, 16 do
+        g:led(n, self.loopNum, 0)
+      end
+
       for n = 1, self.loop_length_qn do
-        g:led(n, 1, row[n] or 0)
+        g:led(n, self.loopNum, row[n] or 0)
         -- print("led " .. n .. " " .. (row[n] or 0))
       end
       g:refresh()
@@ -208,7 +213,7 @@ g.key = function(col, row, state)
   -- print("Key: ", col, row, state)
   -- loops[1]:print()
   if state == 1 then
-    loops[1]:play_events_at_step(col)
+    loops[row]:play_events_at_step(col)
   end
 end
 
