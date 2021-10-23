@@ -71,6 +71,13 @@ On the norns side we need to run the lua server-side. During dev I do it this wa
   * Another recording mode should be that you select the step and THEN record the event, like a step sequencer instead of a loop recorder
   * A similar record mode would be you have one event and then you place it at different steps of different loops! Even MORE like a sequencer. snare kick snare kick
   * Got visualizing a loop+events working on the grid
+* 2021-10-23
+  * Couple things over the week -- one big one is that now you can grid button press to manually trigger events! This worked WAY better than I expected. I think because the engine is non-blocking, with simple note playing it is very responsive and you can play multiple notes at once and all that
+  * Also doing the `load` right on a string all the time seems fine so far. If need be I can cache the resulting function later
+  * I've now moved the loop-recording over to lua, which should let us go a bit meta (triggeirng recording/playback from within a recording loop, for example)
+  * Got more than one loop recording and playback! And made cool single-letter shortcuts. So you start right off with a..h (8 loops) ready to go
+  * Hmm. If I'm playing back a loop and recording a loop at the same time ... I think right now it'll record the playback. Feedback loop. Probably a cool mode, but would be a weird default
+  * OK, I made a new loop flag called `record_feedback` that decides what to do there, default false. Manually triggered events look the same as hand-typed ones currently
 
 # Ideas
 
