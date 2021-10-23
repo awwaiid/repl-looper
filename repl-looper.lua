@@ -256,20 +256,19 @@ function Loop:play()
 end
 
 function Loop:stop()
-  self.lattice:stop()
+  if self.mode == "recording" then
+    self.end_rec_time = util.time() * 1000
+    self.mode = "stop_recording"
+    self.duration = self.end_rec_time - self.start_rec_time
+    self:update_lattice()
+  else
+    self.lattice:stop()
+  end
 end
 
-function Loop:start_rec()
+function Loop:rec()
   self.start_rec_time = util.time() * 1000
   self.mode = "start_recording"
-end
-
-function Loop:stop_rec()
-  self.end_rec_time = util.time() * 1000
-  self.mode = "stop_recording"
-  self.duration = self.end_rec_time - self.start_rec_time
-  self:update_lattice()
-
 end
 
 function Loop:add_event_command(cmd)
