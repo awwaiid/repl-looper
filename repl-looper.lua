@@ -17,38 +17,91 @@ lattice = require("lattice")
 -- Global Grid
 g = grid.connect()
 
-local LoopEngine = {}
-LoopEngine.__index = LoopEngine
+local Command = {}
+Command.__index = Command
+Command.last_id = 0
 
-function LoopEngine.new(init)
+function Command.new(init)
   local self = init or {
-    lattice = lattice:new{},
-    loops = {}
+    string = ""
+    -- fn = function () end
   }
-  setmetatable(self, Loop)
+  setmetatable(self, Command)
+
+  Command.last_id = Command.last_id + 1
+  self.id = Command.last_id
+
   return self
 end
 
-local Loop = {}
+-- Not sure, but what we COULD do here is cache the result of the `load` in
+-- `self.fn` or something
+function Command:eval()
+  return live_event(self.string)
+end
+
+---------------------------------------
+
+local Event = {}
+Event.__index = Event
+Event.last_id = 0
+
+function Event.new(init)
+  local self = init or {
+    command = Command.new(),
+    relative_time = 0,
+    pulse_offset = 0,
+    step = 0
+  }
+  setmetatable(self, Event)
+
+  Event.last_id = Event.last_id + 1
+  self.id = Event.last_id
+
+  return self
+end
+
+function Event:to_string()
+  return "Step " .. self.step .. " @" .. self.pulse_offset .. " -- " .. self.command.string
+end
+
+function Event:eval()
+  return self.command:eval()
+end
+
+---------------------------------------
+
+Loop = {}
 Loop.__index = Loop
-Loop.count = 0
+Loop.last_id = 0
 
 function Loop.new(init)
-  local self = init or {}
+  local self = init or {
+    events = {},
+    loop_length_qn = 0,
+    current_step = 1,
+    duration = 0,
+    lattice = lattice:new{}
+  }
+
   setmetatable(self, Loop)
 
-  Loop.count = Loop.count + 1
-  self.loop_id = Loop.count
+  Loop.last_id = Loop.last_id + 1
+  self.id = Loop.last_id
 
-  self.lattice = self.lattice or lattice:new{}
-  self.current_step = self.current_step or 1
+  -- Register with global list of loops
+  loops[self.id] = self
+
+  -- Kinda evil shortcut!
+  -- for loops 1..8 make global var 'a' .. 'h'
+  if self.id < 9 then
+    local loop_letter = string.char(string.byte("a") + self.id - 1)
+    print("Setting loop shortcut " .. loop_letter)
+    _G[loop_letter] = self
+  end
 
   self:update_lattice()
   return self
-end
-
-function Loop:hi()
-  print "hi!!!"
 end
 
 function Loop:qn_per_ms()
@@ -68,15 +121,16 @@ function Loop:loop_length_measure()
 end
 
 function Loop:update_event(event)
-  event.pulse_offset = self:pulse_per_ms() * event.relativeTime
+  event.pulse_offset = self:pulse_per_ms() * event.relative_time
   print("pulse offset: " .. event.pulse_offset)
 
   event.step = event.pulse_offset / self.lattice.ppqn + 1
   print("event step: " .. event.step)
 
   action = function(t)
-    print("@" .. t .. " (next @" .. (self:loop_length_measure() * self:pulse_per_measure() + t) .. ") command: " .. event.command)
-    live_event(event.command)
+    print("@" .. t .. " (next @" .. (self:loop_length_measure() * self:pulse_per_measure() + t) .. ") command: " .. event.command.string)
+    event.command:eval()
+    -- live_event(event.command)
   end
 
   event.pattern = event.pattern or self.lattice:new_pattern{}
@@ -105,7 +159,7 @@ function Loop:update_lattice()
   end
 
   -- Basically a quarter-note metronome
-  count = 0
+  count = count or 0
   self.status_pattern = self.status_pattern or self.lattice:new_pattern{
     action = function(t)
       self.current_step = (math.floor(t / self.lattice.ppqn) % self.loop_length_qn) + 1
@@ -122,11 +176,11 @@ function Loop:update_lattice()
 
       -- Clear the whole row
       for n = 1, 16 do
-        g:led(n, self.loopNum, 0)
+        g:led(n, self.id, 0)
       end
 
       for n = 1, self.loop_length_qn do
-        g:led(n, self.loopNum, row[n] or 0)
+        g:led(n, self.id, row[n] or 0)
         -- print("led " .. n .. " " .. (row[n] or 0))
       end
       g:refresh()
@@ -143,7 +197,7 @@ end
 function Loop:quantize()
   for _, event in ipairs(self.events) do
     event.step = math.floor(event.step + 0.5)
-    event.relativeTime = event.step / self:qn_per_ms()
+    event.relative_time = event.step / self:qn_per_ms()
   end
 
   self:update_lattice()
@@ -153,7 +207,7 @@ function Loop:print()
   print("Length length qn: " .. self.loop_length_qn)
   print("Current step: " .. self.current_step)
   for _, event in ipairs(self.events) do
-    print("  " .. event.step .. ": " .. event.command)
+    print("  " .. event:to_string())
   end
 end
 
@@ -178,7 +232,6 @@ function Loop:to_grid_row()
     end
   end
 
-
   return row
 end
 
@@ -186,8 +239,9 @@ function Loop:play_events_at_step(step)
   for _, event in ipairs(self.events) do
     local event_step = math.floor(event.step)
     if event_step == step then
-      print("command: " .. event.command)
-      live_event(event.command)
+      print("command: " .. event.command.string)
+      event.command:eval()
+      -- live_event(event.command)
     end
   end
 end
@@ -205,9 +259,41 @@ function Loop:stop()
   self.lattice:stop()
 end
 
+function Loop:start_rec()
+  self.start_rec_time = util.time() * 1000
+  self.mode = "start_recording"
+end
+
+function Loop:stop_rec()
+  self.end_rec_time = util.time() * 1000
+  self.mode = "stop_recording"
+  self.duration = self.end_rec_time - self.start_rec_time
+  self:update_lattice()
+
+end
+
+function Loop:add_event_command(cmd)
+  local current_time = util.time() * 1000
+  event = Event.new({
+    absolute_time = current_time,
+    relative_time = current_time - self.start_rec_time,
+    command = Command.new({
+      string = cmd
+    })
+  })
+  -- self:update_event(event)
+  table.insert(self.events, event)
+  return event
+end
+
 ------------------------------------------------------
 
 loops = {}
+
+-- Pre-create 8 loops
+for n = 1, 8 do
+  Loop.new()
+end
 
 g.key = function(col, row, state)
   -- print("Key: ", col, row, state)
@@ -222,11 +308,6 @@ function messageToServer(json_msg)
   local msg = json.decode(json_msg)
   if msg.command == "save_loop" then
     loops[msg.loop_num] = Loop.new(msg.loop)
-
-    -- Kinda evil shortcut!
-    loop_letter = string.char(string.byte("a") + msg.loop_num - 1)
-    print("Setting loop shortcut " .. loop_letter)
-    _G[loop_letter] = loops[msg.loop_num]
   else
     print "UNKNOWN COMMAND\n"
   end
@@ -237,14 +318,30 @@ function messageFromServer(msg)
   print("SERVER MESSAGE: " .. msg_json .. "\n")
 end
 
+-- Doing the eval w/ `return` first and then falling back to without
+-- https://github.com/hoelzro/lua-repl/blob/master/repl/plugins/autoreturn.lua
 function live_event(command)
   print("Got live_event: " .. command)
-  local live_event_command, live_event_errors = load("live_event_result, live_event_errors = " .. command, "CMD")
+  local live_event_command, live_event_errors = load("return " .. command, "CMD")
+  if not live_event_command then
+    live_event_command, live_event_errors = load(command, "CMD")
+  end
   if live_event_errors then
-    print(live_event_errors)
     return live_event_errors
   else
-    live_event_command()
+    local live_event_result = live_event_command()
+    for _, loop in ipairs(loops) do
+      if loop.mode == "stop_recording" then
+        loop.mode = "stopped"
+      end
+      if loop.mode == "recording" then
+        print("Recording event")
+        loop:add_event_command(command)
+      end
+      if loop.mode == "start_recording" then
+        loop.mode = "recording"
+      end
+    end
     return live_event_result
   end
 end
