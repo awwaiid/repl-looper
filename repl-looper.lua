@@ -15,7 +15,7 @@ json = require("cjson")
 lattice = require("lattice")
 
 -- Global Grid
-g = grid.connect()
+grrr = grid.connect()
 
 local Command = {}
 Command.__index = Command
@@ -36,8 +36,8 @@ end
 
 -- Not sure, but what we COULD do here is cache the result of the `load` in
 -- `self.fn` or something
-function Command:eval()
-  return live_event(self.string)
+function Command:eval(from_playing_loop)
+  return live_event(self.string, from_playing_loop)
 end
 
 ---------------------------------------
@@ -65,8 +65,8 @@ function Event:to_string()
   return "Step " .. self.step .. " @" .. self.pulse_offset .. " -- " .. self.command.string
 end
 
-function Event:eval()
-  return self.command:eval()
+function Event:eval(from_playing_loop)
+  return self.command:eval(from_playing_loop)
 end
 
 ---------------------------------------
@@ -78,10 +78,11 @@ Loop.last_id = 0
 function Loop.new(init)
   local self = init or {
     events = {},
-    loop_length_qn = 0,
+    loop_length_qn = 1,
     current_step = 1,
-    duration = 0,
-    lattice = lattice:new{}
+    duration = 1,
+    lattice = lattice:new{},
+    record_feedback = false
   }
 
   setmetatable(self, Loop)
@@ -129,7 +130,7 @@ function Loop:update_event(event)
 
   action = function(t)
     print("@" .. t .. " (next @" .. (self:loop_length_measure() * self:pulse_per_measure() + t) .. ") command: " .. event.command.string)
-    event.command:eval()
+    event:eval(true) -- `true` to indicate we are a playback event
     -- live_event(event.command)
   end
 
@@ -176,14 +177,15 @@ function Loop:update_lattice()
 
       -- Clear the whole row
       for n = 1, 16 do
-        g:led(n, self.id, 0)
+        -- print("grrr:led(", g, n, self.id, 0, ")")
+        grrr:led(n, self.id, 0)
       end
 
       for n = 1, self.loop_length_qn do
-        g:led(n, self.id, row[n] or 0)
+        grrr:led(n, self.id, row[n] or 0)
         -- print("led " .. n .. " " .. (row[n] or 0))
       end
-      g:refresh()
+      grrr:refresh()
 
       -- print("step " .. (count + 1) .. " @" .. t)
       count = (count + 1) % self.loop_length_qn
@@ -246,13 +248,8 @@ function Loop:play_events_at_step(step)
   end
 end
 
-function Loop:start()
-  self.lattice:start()
-end
-
--- Alias for start because I keep forgetting
 function Loop:play()
-  self:start()
+  self.lattice:start()
 end
 
 function Loop:stop()
@@ -294,7 +291,7 @@ for n = 1, 8 do
   Loop.new()
 end
 
-g.key = function(col, row, state)
+grrr.key = function(col, row, state)
   -- print("Key: ", col, row, state)
   -- loops[1]:print()
   if state == 1 then
@@ -319,7 +316,7 @@ end
 
 -- Doing the eval w/ `return` first and then falling back to without
 -- https://github.com/hoelzro/lua-repl/blob/master/repl/plugins/autoreturn.lua
-function live_event(command)
+function live_event(command, from_playing_loop)
   print("Got live_event: " .. command)
   local live_event_command, live_event_errors = load("return " .. command, "CMD")
   if not live_event_command then
@@ -334,8 +331,10 @@ function live_event(command)
         loop.mode = "stopped"
       end
       if loop.mode == "recording" then
-        print("Recording event")
-        loop:add_event_command(command)
+        if not from_playing_loop or loop.record_feedback then
+          print("Recording event")
+          loop:add_event_command(command)
+        end
       end
       if loop.mode == "start_recording" then
         loop.mode = "recording"
