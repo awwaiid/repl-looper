@@ -82,7 +82,9 @@ function Loop.new(init)
     current_step = 1,
     duration = 1,
     lattice = lattice:new{},
-    record_feedback = false
+    record_feedback = false,
+    auto_quantize = true,
+    send_feedback = false
   }
 
   setmetatable(self, Loop)
@@ -128,10 +130,15 @@ function Loop:update_event(event)
   event.step = event.pulse_offset / self.lattice.ppqn + 1
   print("event step: " .. event.step)
 
+  if self.auto_quantize then
+    event.step = math.floor(event.step + 0.5)
+    event.relative_time = (event.step - 1) / self:qn_per_ms()
+    event.pulse_offset = self:pulse_per_ms() * event.relative_time
+  end
+
   action = function(t)
     print("@" .. t .. " (next @" .. (self:loop_length_measure() * self:pulse_per_measure() + t) .. ") command: " .. event.command.string)
-    event:eval(true) -- `true` to indicate we are a playback event
-    -- live_event(event.command)
+    event:eval(self.send_feedback) -- `true` to indicate we are a playback event
   end
 
   event.pattern = event.pattern or self.lattice:new_pattern{}
@@ -171,21 +178,7 @@ function Loop:update_lattice()
         stepCount = self.loop_length_qn
       })
 
-      -- Let's get some GRID!!
-      local row = self:to_grid_row()
-      -- print("Row: " .. json.encode(row))
-
-      -- Clear the whole row
-      for n = 1, 16 do
-        -- print("grrr:led(", g, n, self.id, 0, ")")
-        grrr:led(n, self.id, 0)
-      end
-
-      for n = 1, self.loop_length_qn do
-        grrr:led(n, self.id, row[n] or 0)
-        -- print("led " .. n .. " " .. (row[n] or 0))
-      end
-      grrr:refresh()
+      self:draw_grid_row()
 
       -- print("step " .. (count + 1) .. " @" .. t)
       count = (count + 1) % self.loop_length_qn
@@ -196,18 +189,35 @@ function Loop:update_lattice()
   return l
 end
 
+function Loop:draw_grid_row()
+  -- Let's get some GRID!!
+  local row = self:to_grid_row()
+  -- print("Row: " .. json.encode(row))
+
+  -- Clear the whole row
+  for n = 1, 16 do
+    -- print("grrr:led(", g, n, self.id, 0, ")")
+    grrr:led(n, self.id, 0)
+  end
+
+  for n = 1, self.loop_length_qn do
+    grrr:led(n, self.id, row[n] or 0)
+    -- print("led " .. n .. " " .. (row[n] or 0))
+  end
+  grrr:refresh()
+end
+
 function Loop:quantize()
   for _, event in ipairs(self.events) do
     event.step = math.floor(event.step + 0.5)
-    event.relative_time = event.step / self:qn_per_ms()
+    event.relative_time = (event.step - 1) / self:qn_per_ms()
   end
 
   self:update_lattice()
 end
 
 function Loop:print()
-  print("Length length qn: " .. self.loop_length_qn)
-  print("Current step: " .. self.current_step)
+  print("ID:", self.id, "Length:", self.loop_length_qn, "Current Step:", self.current_step)
   for _, event in ipairs(self.events) do
     print("  " .. event:to_string())
   end
@@ -248,6 +258,49 @@ function Loop:play_events_at_step(step)
   end
 end
 
+function Loop:commands_at_step(step)
+  local commands = {}
+  for _, event in ipairs(self.events) do
+    local event_step = math.floor(event.step)
+    if event_step == step then
+      table.insert(commands, event.command)
+    end
+  end
+  return commands
+end
+
+function Loop:toggle_commands_at_step(step, commands)
+  print("toggle_commands_at_step: ", step)
+  local found_commands = false
+  for i = #self.events, 1, -1 do
+    local event = self.events[i]
+    local event_step = math.floor(event.step)
+    if event_step == step then
+      if self.events[i].pattern then
+        self.events[i].pattern:destroy()
+      end
+      table.remove(self.events, i)
+      found_commands = true
+    end
+  end
+
+  if not found_commands then
+    for _, command in ipairs(commands) do
+      local new_event = Event.new({
+        -- absolute_time = current_time,
+        relative_time = (step - 1) / self:qn_per_ms(),
+        command = command,
+        step = step,
+        pulse_offset = step * self.lattice.ppqn
+      })
+
+      table.insert(self.events, new_event)
+
+      self:update_event(new_event)
+    end
+  end
+end
+
 function Loop:play()
   self.lattice:start()
 end
@@ -258,6 +311,7 @@ function Loop:stop()
     self.mode = "stop_recording"
     self.duration = self.end_rec_time - self.start_rec_time
     self:update_lattice()
+    self:draw_grid_row()
   else
     self.lattice:stop()
   end
@@ -291,11 +345,48 @@ for n = 1, 8 do
   Loop.new()
 end
 
+function clear_grid_row(row)
+  for n = 1, 16 do
+    grrr:led(n, row, 0)
+  end
+end
+
+local grid_mode = "one-shot"
+grrr:led(1, 8, 15)
+local grid_data = {}
+
 grrr.key = function(col, row, state)
-  -- print("Key: ", col, row, state)
-  -- loops[1]:print()
-  if state == 1 then
-    loops[row]:play_events_at_step(col)
+  if state == 0 then
+    return
+  end
+  if row == 8 then
+    if col == 1 then
+      grid_mode = "one-shot"
+      print("grid: one-shot mode")
+      clear_grid_row(8)
+      grrr:led(1, 8, 15)
+    elseif col == 2 then
+      grid_mode = "sequence"
+      print("grid: sequence mode")
+      grid_data = {}
+      clear_grid_row(8)
+      grrr:led(2, 8, 15)
+    end
+    grrr:refresh()
+  else
+    local loop_id = row
+    local step = col
+    if grid_mode == "one-shot" then
+      loops[loop_id]:play_events_at_step(col)
+    elseif grid_mode == "sequence" then
+      if not grid_data.commands then
+        grid_data.commands = loops[loop_id]:commands_at_step(step)
+        loops[loop_id]:draw_grid_row()
+      else
+        loops[loop_id]:toggle_commands_at_step(step, grid_data.commands)
+        loops[loop_id]:draw_grid_row()
+      end
+    end
   end
 end
 
