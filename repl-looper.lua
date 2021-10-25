@@ -7,7 +7,7 @@
 
 
 -- Add repl-looper lib dir in to load .so files like cjson.so
-if not string.find(package.cpath,"/home/we/dust/code/repl-looper/lib/") then
+if not string.find(package.cpath, "/home/we/dust/code/repl-looper/lib/", 1, true) then
   package.cpath=package.cpath..";/home/we/dust/code/repl-looper/lib/?.so"
 end
 
