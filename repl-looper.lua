@@ -62,7 +62,8 @@ function Event.new(init)
 end
 
 function Event:to_string()
-  return "Step " .. self.step .. " @" .. self.pulse_offset .. " -- " .. self.command.string
+  -- return "Step " .. self.step .. " @" .. self.pulse_offset .. " -- " .. self.command.string
+  return "Step " .. self.step .. " (" .. self.pattern.phase .. ") -- " .. self.command.string
 end
 
 function Event:eval(from_playing_loop)
@@ -78,9 +79,9 @@ Loop.last_id = 0
 function Loop.new(init)
   local self = init or {
     events = {},
-    loop_length_qn = 1,
+    loop_length_qn = 16,
     current_step = 1,
-    duration = 1,
+    duration = 10212,
     lattice = lattice:new{},
     record_feedback = false,
     auto_quantize = true,
@@ -133,7 +134,7 @@ function Loop:update_event(event)
   if self.auto_quantize then
     event.step = math.floor(event.step + 0.5)
     event.relative_time = (event.step - 1) / self:qn_per_ms()
-    event.pulse_offset = self:pulse_per_ms() * event.relative_time
+    event.pulse_offset = self:pulse_per_ms() * event.relative_time - self.lattice.transport
   end
 
   action = function(t)
@@ -149,11 +150,12 @@ function Loop:update_event(event)
   -- Forcing the initial phase is what sets the actual offset
   -- TODO: can this be updated while playing? Does it need to be relative to
   -- the current lattice time or something?
-  event.pattern.phase = self:loop_length_measure() * self:pulse_per_measure() - event.pulse_offset
+  event.pattern.phase = self:loop_length_measure() * self:pulse_per_measure() - event.pulse_offset - self.lattice.transport
 end
 
 function Loop:update_lattice()
   -- We use ceil here, so will grow loop-length to the next full quarter note
+  -- self.loop_length_qn = self.loop_length_qn or math.ceil(self.duration * self:qn_per_ms())
   self.loop_length_qn = math.ceil(self.duration * self:qn_per_ms())
 
   print("pulse/ms = " .. self:pulse_per_ms())
@@ -167,21 +169,16 @@ function Loop:update_lattice()
   end
 
   -- Basically a quarter-note metronome
-  count = count or 0
   self.status_pattern = self.status_pattern or self.lattice:new_pattern{
     action = function(t)
       self.current_step = (math.floor(t / self.lattice.ppqn) % self.loop_length_qn) + 1
+      self:draw_grid_row()
 
       messageFromServer({
         action = "playback_step",
-        step = count,
+        step = self.current_step,
         stepCount = self.loop_length_qn
       })
-
-      self:draw_grid_row()
-
-      -- print("step " .. (count + 1) .. " @" .. t)
-      count = (count + 1) % self.loop_length_qn
     end,
     division = 1/4
   }
@@ -189,21 +186,15 @@ function Loop:update_lattice()
   return l
 end
 
+-- Let's get some GRID!!
 function Loop:draw_grid_row()
-  -- Let's get some GRID!!
+  clear_grid_row(self.id)
+
   local row = self:to_grid_row()
-  -- print("Row: " .. json.encode(row))
-
-  -- Clear the whole row
-  for n = 1, 16 do
-    -- print("grrr:led(", g, n, self.id, 0, ")")
-    grrr:led(n, self.id, 0)
-  end
-
   for n = 1, self.loop_length_qn do
     grrr:led(n, self.id, row[n] or 0)
-    -- print("led " .. n .. " " .. (row[n] or 0))
   end
+
   grrr:refresh()
 end
 
@@ -211,13 +202,14 @@ function Loop:quantize()
   for _, event in ipairs(self.events) do
     event.step = math.floor(event.step + 0.5)
     event.relative_time = (event.step - 1) / self:qn_per_ms()
+    event.pulse_offset = self:pulse_per_ms() * event.relative_time - self.lattice.transport
   end
 
   self:update_lattice()
 end
 
 function Loop:print()
-  print("ID:", self.id, "Length:", self.loop_length_qn, "Current Step:", self.current_step)
+  print("ID:", self.id, "Step:", self.current_step .. "/" .. self.loop_length_qn, "@" .. self.lattice.transport)
   for _, event in ipairs(self.events) do
     print("  " .. event:to_string())
   end
@@ -225,17 +217,14 @@ end
 
 function Loop:to_grid_row()
   local row = {}
-  -- print("Length length qn: " .. self.loop_length_qn)
-  -- print("Current step: " .. self.current_step)
   for n = 1, self.loop_length_qn do
     if n == self.current_step then
       row[n] = 10
     else
-      row[n] = 0
+      row[n] = 2
     end
   end
   for _, event in ipairs(self.events) do
-    -- print("  " .. event.step .. ": " .. event.command)
     local step = math.floor(event.step)
     if step == self.current_step then
       row[step] = 15
@@ -251,9 +240,8 @@ function Loop:play_events_at_step(step)
   for _, event in ipairs(self.events) do
     local event_step = math.floor(event.step)
     if event_step == step then
-      print("command: " .. event.command.string)
+      -- print("Loop", self.id, "one-shot command:", event.command.string)
       event.command:eval()
-      -- live_event(event.command)
     end
   end
 end
@@ -319,19 +307,22 @@ end
 
 function Loop:rec()
   self.start_rec_time = util.time() * 1000
+  self.start_rec_transport = self.lattice.transport
   self.mode = "start_recording"
 end
 
 function Loop:add_event_command(cmd)
   local current_time = util.time() * 1000
+  local relative_time = current_time - self.start_rec_time
   event = Event.new({
     absolute_time = current_time,
-    relative_time = current_time - self.start_rec_time,
+    relative_time = relative_time,
+    -- relative_pulse = self:pulse_per_ms() * relative_time + self.start_rec_transport
     command = Command.new({
       string = cmd
     })
   })
-  -- self:update_event(event)
+  self:update_event(event)
   table.insert(self.events, event)
   return event
 end
@@ -351,7 +342,7 @@ function clear_grid_row(row)
   end
 end
 
-local grid_mode = "one-shot"
+grid_mode = "one-shot"
 grrr:led(1, 8, 15)
 local grid_data = {}
 
@@ -373,6 +364,7 @@ grrr.key = function(col, row, state)
       grrr:led(2, 8, 15)
     end
     grrr:refresh()
+    redraw()
   else
     local loop_id = row
     local step = col
@@ -388,6 +380,22 @@ grrr.key = function(col, row, state)
       end
     end
   end
+end
+
+recent_command = ""
+function redraw()
+  screen.ping()
+  screen.clear()
+  screen.move(0,5)
+  screen.text("REPL-LOOPER")
+
+  screen.move(0,62)
+  screen.text(grid_mode)
+
+  screen.move(63,34)
+  screen.text_center(recent_command)
+
+  screen.update()
 end
 
 -- REPL communication
@@ -408,7 +416,7 @@ end
 -- Doing the eval w/ `return` first and then falling back to without
 -- https://github.com/hoelzro/lua-repl/blob/master/repl/plugins/autoreturn.lua
 function live_event(command, from_playing_loop)
-  print("Got live_event: " .. command)
+  -- print("Got live_event: " .. command)
   local live_event_command, live_event_errors = load("return " .. command, "CMD")
   if not live_event_command then
     live_event_command, live_event_errors = load(command, "CMD")
@@ -416,6 +424,7 @@ function live_event(command, from_playing_loop)
   if live_event_errors then
     return live_event_errors
   else
+    recent_command = command
     local live_event_result = live_event_command()
     for _, loop in ipairs(loops) do
       if loop.mode == "stop_recording" then
@@ -431,13 +440,100 @@ function live_event(command, from_playing_loop)
         loop.mode = "recording"
       end
     end
+    redraw()
     return live_event_result
   end
 end
 
 -- Music utilities
-engine.load('PolyPerc')
+-- engine.load('PolyPerc')
 
-function beep(freq)
-  engine.hz(freq or 440)
+-- function beep(freq)
+--   engine.hz(freq or 440)
+-- end
+
+-- The Other Way
+
+Timber = include("timber/lib/timber_engine")
+engine.load('Timber')
+engine.name = "Timber"
+Timber.add_params() -- Add the general params
+
+-- Each sample needs params
+Timber.add_sample_params(0)
+Timber.load_sample(0, "/home/we/dust/code/timber/audio/piano-c.wav")
+
+MusicUtil = require "musicutil"
+note_name_num = {}
+for num=1,127 do
+  local name = MusicUtil.note_num_to_name(num, true)
+  note_name_num[name] = num
 end
+
+MusicUtil.note_name_to_num = function(name) return note_name_num[name] end
+MusicUtil.note_name_to_freq = function(name) return MusicUtil.note_num_to_freq(MusicUtil.note_name_to_num(name)) end
+
+function piano_freq(hz, voice)
+  engine.noteOn(voice, hz, 1, 0)
+end
+
+-- Play a note or a chord
+-- The note can be either a midi number OR a note-string like "C3"
+-- Or you can pass a table-list of notes that are played all at once
+function p(note, voice_id, sample_id)
+  local voice_id = voice_id or 0
+  local sample_id = sample_id or 0
+  local note = note or 60
+  local freq = 0
+
+  -- If we got an array, play them all!
+  if type(note) == "table" then
+    for i, n in ipairs(note) do
+      p(n, voice_id + i, sample_id)
+    end
+    return
+  end
+
+  if string.match(note, "^%a") then
+    if not string.find(note, "%d") then
+      note = note .. "3"
+    end
+    note = string.upper(note)
+    freq = MusicUtil.note_name_to_freq(note)
+  else
+    freq = MusicUtil.note_num_to_freq(note)
+  end
+
+  engine.playMode(sample_id, 3) -- one-shot
+  engine.noteOn(voice_id, freq, 1, sample_id)
+end
+
+-- p"C"
+-- p"C#4"
+
+-- engine.noteOn(0, 440, 0.75, 0) -- voice, freq, vol, sample_id
+-- engine.noteOn(1, 220, 1, 0)
+
+-- for i = 0, 9 do engine.playMode(i, 3) end -- 3 = one-shot playback instead of loop
+
+-- engine.playMode(0, 0) -- loop (or should it be infinite-loop?)
+
+-- percentage 55.9
+-- start 0
+-- end 0.75
+-- loop-start 0.04
+-- loop-end 0.42
+-- freq mod lfo1 0.16
+-- freq mod lfo2 0.11
+-- filter type low-pass
+-- filter cutoff 224 Hz
+-- filter resonance 0.84
+-- filter cutoff mod LFO1 0.27
+-- filter cutoff mod LFO2 0.06
+-- Filter cutoff mod Env 0.42
+-- Filter cutoff mod Vel 0.18
+-- Filter cutoff mod Pres 0.4
+--
+
+Timber.add_sample_params(1)
+Timber.load_sample(1, "/home/we/dust/audio/common/808/808-BD.wav")

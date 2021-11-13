@@ -11,9 +11,10 @@
       </div>
     </div>
 
+    Offset: {{offset}}
     <div class="overflow-y-auto flex-grow min-h-0" id="messages">
-      <div v-for="line in history" class="line">
-        <pre>{{ line.trimEnd() }}</pre>
+      <div v-for="line, lineNum in history" class="line">
+        <pre :class="{ historySelected: offset == lineNum, historyNotSelected: offset !== lineNum }">{{ line.trimEnd() }}</pre>
       </div>
     </div>
 
@@ -24,13 +25,20 @@
     <div class="border-grey-20 border-t-2 p-1 w-full flex-none flex items-center">
       <div>Input:</div>
       <div class="flex-grow w-full border-2">
-        <input class="w-full bg-black text-white" type=text @keydown.enter="gotInput" v-model="currentInput" />
+        <input
+          class="w-full bg-black text-white"
+          type=text
+          @keydown.enter="gotInput"
+          @keydown.arrow-up="historyUp"
+          @keydown.arrow-down="historyDown"
+          v-model="currentInput" />
       </div>
       <button
         v-show="!recording.currentlyRecording"
         @click="startRecording"
       >
-        Rec
+        Record
+
       </button>
       <button
         v-show="recording.currentlyRecording"
@@ -67,7 +75,17 @@ async function scrollMessagesToBottom() {
   // Scroll to the bottom!
   await nextTick(); // Need the new DOM node to be done
   const element = document.querySelector("#messages .line:last-child");
-  element.scrollIntoView({behavior: "smooth", block: "end"});
+  console.log("scrolling to bottom to", element);
+  element.scrollIntoView({behavior: "smooth", block: "nearest"});
+}
+
+async function scrollMessagesToSelected() {
+  // Scroll to the bottom!
+  await nextTick(); // Need the new DOM node to be done
+  const element = document.querySelector("#messages .line .historySelected");
+  console.log("Srolling to", element);
+  // element.scrollIntoView({behavior: "smooth", block: "nearest"});
+  element.scrollIntoView({ block: 'nearest' }); // {behavior: "smooth", block: "nearest"});
 }
 
 norns.onmessage = async (event) => {
@@ -82,6 +100,7 @@ norns.onmessage = async (event) => {
       playbackStepCount.value = Math.ceil(parseFloat(serverMessage.stepCount));
     }
   } else {
+    // history.value = history.value.slice(1,20)
     history.value.push("→ " + data);
     scrollMessagesToBottom();
   }
@@ -97,10 +116,41 @@ norns.onclose = () => {
   connected.value = false;
 }
 
+let offset = ref(undefined);
+
+async function historyUp(v) {
+  console.log("historyUp", { v });
+  if (!offset.value) {
+    offset.value = history.value.length - 1;
+  } else {
+    offset.value = offset.value - 1;
+    if (offset.value < 0) {
+      offset.value = history.value.length - 1;
+    }
+  }
+  currentInput.value = history.value[offset.value];
+  await scrollMessagesToSelected();
+}
+
+async function historyDown(v) {
+  console.log("historyDown", { v });
+  if (offset.value == undefined) {
+    offset.value = 0
+  } else {
+    offset.value = offset.value + 1;
+    if (offset.value >= history.value.length) {
+      offset.value = 0;
+    }
+  }
+  currentInput.value = history.value[offset.value];
+  await scrollMessagesToSelected();
+}
+
 async function gotInput(v) {
   console.log("gotInput", { v });
   const command = v.target.value;
   history.value.push(command);
+  offset.value = undefined;
   scrollMessagesToBottom();
   currentInput.value = "";
 
@@ -161,3 +211,11 @@ function stopRecording() {
 
 </script>
 
+<style>
+  .historySelected {
+    border: 1px solid white;
+}
+  .historyNotSelected {
+    border: 1px solid black;
+}
+</style>

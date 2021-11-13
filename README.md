@@ -78,6 +78,14 @@ On the norns side we need to run the lua server-side. During dev I do it this wa
   * Got more than one loop recording and playback! And made cool single-letter shortcuts. So you start right off with a..h (8 loops) ready to go
   * Hmm. If I'm playing back a loop and recording a loop at the same time ... I think right now it'll record the playback. Feedback loop. Probably a cool mode, but would be a weird default
   * OK, I made a new loop flag called `record_feedback` that decides what to do there, default false. Manually triggered events look the same as hand-typed ones currently
+* 2021-10-24
+  * Added basic sequence editing. Now you can go into sequence-edit mode, select a step, and then when you press other buttons it will toggle those commands at those buttons -- basically paste or delete
+  * Kinda neat, but it does ALL the commands -- so it copies/pastes/erases them all. Not sure how to make it more granular, but it could at least not erase other commands
+  * New mantra elaborating on Mrs Denton's wise words:
+    * Loops Are Fun!
+    * Globals Are Evil!
+    * => Loopy Globals Are Evil Fun!
+  * One of these days I need to work on the "music" bit haha
 
 # Ideas
 
