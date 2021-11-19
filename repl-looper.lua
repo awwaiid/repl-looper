@@ -8,10 +8,12 @@
 
 -- Add repl-looper lib dir in to load .so files like cjson.so
 if not string.find(package.cpath, "/home/we/dust/code/repl-looper/lib/", 1, true) then
-  package.cpath=package.cpath..";/home/we/dust/code/repl-looper/lib/?.so"
+  package.cpath = package.cpath .. ";/home/we/dust/code/repl-looper/lib/?.so"
+  package.path = package.path .. ";/home/we/dust/code/repl-looper/lib/?.lua"
 end
 
 json = require("cjson")
+-- json = require("lib/dkjson")
 lattice = require("lattice")
 
 -- Global Grid
@@ -35,7 +37,7 @@ function Command.new(init)
 end
 
 -- Not sure, but what we COULD do here is cache the result of the `load` in
--- `self.fn` or something
+-- `self.fn` or something instead of re-parsing it each time
 function Command:eval(from_playing_loop)
   return live_event(self.string, from_playing_loop)
 end
@@ -64,6 +66,10 @@ end
 function Event:to_string()
   -- return "Step " .. self.step .. " @" .. self.pulse_offset .. " -- " .. self.command.string
   return "Step " .. self.step .. " (" .. self.pattern.phase .. ") -- " .. self.command.string
+end
+
+function Event:to_lua()
+  return "{ step = " .. self.step .. ", pattern_phase = " .. self.pattern.phase .. ", command = " .. json.encode(self.command.string) .. "}"
 end
 
 function Event:eval(from_playing_loop)
@@ -139,7 +145,7 @@ function Loop:update_event(event)
 
   action = function(t)
     print("@" .. t .. " (next @" .. (self:loop_length_measure() * self:pulse_per_measure() + t) .. ") command: " .. event.command.string)
-    event:eval(self.send_feedback) -- `true` to indicate we are a playback event
+    event:eval(not self.send_feedback) -- `true` to indicate we are a playback event
   end
 
   event.pattern = event.pattern or self.lattice:new_pattern{}
@@ -208,11 +214,30 @@ function Loop:quantize()
   self:update_lattice()
 end
 
-function Loop:print()
-  print("ID:", self.id, "Step:", self.current_step .. "/" .. self.loop_length_qn, "@" .. self.lattice.transport)
+function Loop:to_string()
+  local output = ""
+  output = output .. "ID:" .. self.id .. "Step:" .. self.current_step .. "/" .. self.loop_length_qn .. "@" .. self.lattice.transport .. "\n"
   for _, event in ipairs(self.events) do
-    print("  " .. event:to_string())
+    output = output .. "  " .. event:to_string() .. "\n"
   end
+  return output
+end
+
+function Loop:to_lua()
+  local output = ""
+  output = output .. "{"
+  output = output
+    .. "current_step = " .. self.current_step .. ", "
+    .. "loop_length_qn = " .. self.loop_length_qn .. ", "
+    .. "events = {"
+  for _, event in ipairs(self.events) do
+    output = output .. event:to_lua()
+  end
+  return output
+end
+
+function Loop:print()
+  print(self:to_string())
 end
 
 function Loop:to_grid_row()
@@ -413,19 +438,32 @@ function messageFromServer(msg)
   print("SERVER MESSAGE: " .. msg_json .. "\n")
 end
 
--- Doing the eval w/ `return` first and then falling back to without
--- https://github.com/hoelzro/lua-repl/blob/master/repl/plugins/autoreturn.lua
 function live_event(command, from_playing_loop)
   -- print("Got live_event: " .. command)
+
+
+  -- This little trick tries to eval first in expression context with a
+  -- `return`, and if that doesn't parse (shouldn't even get executed) then try
+  -- again in regular command context. Got this method from
+  -- https://github.com/hoelzro/lua-repl/blob/master/repl/plugins/autoreturn.lua
+  --
+  -- Either way we get a function back that we then invoke
   local live_event_command, live_event_errors = load("return " .. command, "CMD")
   if not live_event_command then
     live_event_command, live_event_errors = load(command, "CMD")
   end
+
   if live_event_errors then
     return live_event_errors
   else
-    recent_command = command
+    recent_command = command -- to display on the screen
     local live_event_result = live_event_command()
+
+    -- crazyness. If we got a function ... invoke it. This lets us do weird things.
+    if type(live_event_result) == "function" then
+      live_event_result = live_event_result()
+    end
+
     for _, loop in ipairs(loops) do
       if loop.mode == "stop_recording" then
         loop.mode = "stopped"
@@ -440,10 +478,33 @@ function live_event(command, from_playing_loop)
         loop.mode = "recording"
       end
     end
+
     redraw()
-    return live_event_result
+
+    return "RESPONSE:" .. json.encode({
+      action = "live_event",
+      command = recent_command,
+      result = live_event_result
+    })
   end
 end
+
+comp = require("completion")
+function completions(command)
+  local comps = comp.complete(command)
+  return "RESPONSE:" .. json.encode({
+    action = "completions",
+    command = command,
+    result = comps
+  })
+end
+
+-- Script utilities
+
+-- function hard_reset()
+--   norns.script.reload()
+-- end
+
 
 -- Music utilities
 -- engine.load('PolyPerc')
@@ -460,8 +521,6 @@ engine.name = "Timber"
 Timber.add_params() -- Add the general params
 
 -- Each sample needs params
-Timber.add_sample_params(0)
-Timber.load_sample(0, "/home/we/dust/code/timber/audio/piano-c.wav")
 
 MusicUtil = require "musicutil"
 note_name_num = {}
@@ -535,5 +594,118 @@ end
 -- Filter cutoff mod Pres 0.4
 --
 
-Timber.add_sample_params(1)
-Timber.load_sample(1, "/home/we/dust/audio/common/808/808-BD.wav")
+
+
+Sample = {}
+Sample.__index = Sample
+Sample.next_id = 0
+
+function Sample.new(init)
+  local self = init or {
+    params = {}
+  }
+  setmetatable(self, Sample)
+
+  self.id = Sample.next_id
+  Sample.next_id = Sample.next_id + 1
+
+  return self
+end
+
+-- Control a sample from Timber
+function Sample:pitchBend(n) self.params.pitchBend = n; engine.pitchBendSample(self.id, n) end
+function Sample:pressure(n) self.params.pressure = n; engine.pressureSample(self.id, n) end
+function Sample:transpose(n) self.params.transpose = n; engine.transpose(self.id, n) end
+function Sample:detuneCents(n) self.params.detuneCents = n; engine.detuneCents(self.id, n) end
+function Sample:startFrame(n) self.params.startFrame = n; engine.startFrame(self.id, n) end
+function Sample:endFrame(n) self.params.endFrame = n; engine.endFrame(self.id, n) end
+function Sample:playMode(n) self.params.playMode = n; engine.playMode(self.id, n) end
+function Sample:loopStartFrame(n) self.params.loopStartFrame = n; engine.loopStartFrame(self.id, n) end
+function Sample:loopEndFrame(n) self.params.loopEndFrame = n; engine.loopEndFrame(self.id, n) end
+function Sample:lfo1Fade(n) self.params.lfo1Fade = n; engine.lfo1Fade(self.id, n) end
+function Sample:lfo2Fade(n) self.params.lfo2Fade = n; engine.lfo2Fade(self.id, n) end
+function Sample:freqModLfo1(n) self.params.freqModLfo1 = n; engine.freqModLfo1(self.id, n) end
+function Sample:freqModLfo2(n) self.params.freqModLfo2 = n; engine.freqModLfo2(self.id, n) end
+function Sample:freqModEnv(n) self.params.freqModEnv = n; engine.freqModEnv(self.id, n) end
+function Sample:freqMultiplier(n) self.params.freqMultiplier = n; engine.freqMultiplier(self.id, n) end
+function Sample:ampAttack(n) self.params.ampAttack = n; engine.ampAttack(self.id, n) end
+function Sample:ampDecay(n) self.params.ampDecay = n; engine.ampDecay(self.id, n) end
+function Sample:ampSustain(n) self.params.ampSustain = n; engine.ampSustain(self.id, n) end
+function Sample:ampRelease(n) self.params.ampRelease = n; engine.ampRelease(self.id, n) end
+function Sample:modAttack(n) self.params.modAttack = n; engine.modAttack(self.id, n) end
+function Sample:modDecay(n) self.params.modDecay = n; engine.modDecay(self.id, n) end
+function Sample:modSustain(n) self.params.modSustain = n; engine.modSustain(self.id, n) end
+function Sample:modRelease(n) self.params.modRelease = n; engine.modRelease(self.id, n) end
+function Sample:downSampleTo(n) self.params.downSampleTo = n; engine.downSampleTo(self.id, n) end
+function Sample:bitDepth(n) self.params.bitDepth = n; engine.bitDepth(self.id, n) end
+function Sample:filterFreq(n) self.params.filterFreq = n; engine.filterFreq(self.id, n) end
+function Sample:filterReso(n) self.params.filterReso = n; engine.filterReso(self.id, n) end
+function Sample:filterType(n) self.params.filterType = n; engine.filterType(self.id, n) end
+function Sample:filterTracking(n) self.params.filterTracking = n; engine.filterTracking(self.id, n) end
+function Sample:filterFreqModLfo1(n) self.params.filterFreqModLfo1 = n; engine.filterFreqModLfo1(self.id, n) end
+function Sample:filterFreqModLfo2(n) self.params.filterFreqModLfo2 = n; engine.filterFreqModLfo2(self.id, n) end
+function Sample:filterFreqModEnv(n) self.params.filterFreqModEnv = n; engine.filterFreqModEnv(self.id, n) end
+function Sample:filterFreqModVel(n) self.params.filterFreqModVel = n; engine.filterFreqModVel(self.id, n) end
+function Sample:filterFreqModPressure(n) self.params.filterFreqModPressure = n; engine.filterFreqModPressure(self.id, n) end
+function Sample:pan(n) self.params.pan = n; engine.pan(self.id, n) end
+function Sample:panModLfo1(n) self.params.panModLfo1 = n; engine.panModLfo1(self.id, n) end
+function Sample:panModLfo2(n) self.params.panModLfo2 = n; engine.panModLfo2(self.id, n) end
+function Sample:panModEnv(n) self.params.panModEnv = n; engine.panModEnv(self.id, n) end
+function Sample:amp(n) self.params.amp = n; engine.amp(self.id, n) end
+function Sample:ampModLfo1(n) self.params.ampModLfo1 = n; engine.ampModLfo1(self.id, n) end
+function Sample:ampModLfo2(n) self.params.ampModLfo2 = n; engine.ampModLfo2(self.id, n) end
+function Sample:lfo1Freq(n) self.params.lfo1Freq = n; engine.lfo1Freq(self.id, n) end
+function Sample:lfo1WaveShape(n) self.params.lfo1WaveShape = n; engine.lfo1WaveShape(self.id, n) end
+function Sample:lfo2Freq(n) self.params.lfo2Freq = n; engine.lfo2Freq(self.id, n) end
+function Sample:lfo2WaveShape(n) self.params.lfo2WaveShape = n; engine.lfo2WaveShape(self.id, n) end
+
+function Sample:noteOn(freq, vol, voice)
+  freq = freq or 200
+  vol = vol or 1
+  voice = voice or 0
+  engine.noteOn(voice, freq, vol, self.id)
+end
+
+function Sample:noteOff() engine.noteOff(self.id) end
+function Sample:noteKill() engine.noteKill(self.id) end
+
+
+function Sample:timber_setup(filename)
+  Timber.add_sample_params(self.id)
+  Timber.load_sample(self.id, filename)
+end
+
+s = Sample.new()
+s:timber_setup("/home/we/dust/code/timber/audio/piano-c.wav")
+
+s2 = Sample.new()
+s2:timber_setup("/home/we/dust/audio/common/808/808-BD.wav")
+
+function tabkeys(tab)
+  local keyset={}
+  local n=0
+
+  for k,v in pairs(tab) do
+    n=n+1
+    keyset[n]=k
+  end
+  return keyset
+end
+
+function ls(o)
+  return tabkeys(getmetatable(o))
+end
+
+		-- this.addCommand(\generateWaveform, "i", {
+		-- this.addCommand(\noteOffAll, "", {
+		-- this.addCommand(\noteKillAll, "", {
+		-- this.addCommand(\pitchBendVoice, "if", {
+		-- this.addCommand(\pitchBendAll, "f", {
+		-- this.addCommand(\pressureVoice, "if", {
+		-- this.addCommand(\pressureAll, "f", {
+    --
+		-- this.addCommand(\loadSample, "is", {
+		-- this.addCommand(\clearSamples, "ii", {
+		-- this.addCommand(\moveSample, "ii", {
+		-- this.addCommand(\copySample, "iii", {
+		-- this.addCommand(\copyParams, "iii", {

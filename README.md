@@ -74,7 +74,7 @@ On the norns side we need to run the lua server-side. During dev I do it this wa
 * 2021-10-23
   * Couple things over the week -- one big one is that now you can grid button press to manually trigger events! This worked WAY better than I expected. I think because the engine is non-blocking, with simple note playing it is very responsive and you can play multiple notes at once and all that
   * Also doing the `load` right on a string all the time seems fine so far. If need be I can cache the resulting function later
-  * I've now moved the loop-recording over to lua, which should let us go a bit meta (triggeirng recording/playback from within a recording loop, for example)
+  * I've now moved the loop-recording over to lua, which should let us go a bit meta (triggering recording/playback from within a recording loop, for example)
   * Got more than one loop recording and playback! And made cool single-letter shortcuts. So you start right off with a..h (8 loops) ready to go
   * Hmm. If I'm playing back a loop and recording a loop at the same time ... I think right now it'll record the playback. Feedback loop. Probably a cool mode, but would be a weird default
   * OK, I made a new loop flag called `record_feedback` that decides what to do there, default false. Manually triggered events look the same as hand-typed ones currently
@@ -86,6 +86,13 @@ On the norns side we need to run the lua server-side. During dev I do it this wa
     * Globals Are Evil!
     * => Loopy Globals Are Evil Fun!
   * One of these days I need to work on the "music" bit haha
+* 2021-11-18
+  * I've added SO MANY THINGS since the last update!
+  * Tonight I added tab-completion!!!
+  * Let's see.... what else have I added ....
+  * History, playing samples, Timber, a piano shortcut, cross-loop recording
+  * I've started to practice being musical with Timber, I made this cool super low-frequencing slow throbbing sound that I call Dragon's Breath. But I don't remember how
+  * I'm wrapping some OOP around Timber samples and voices
 
 # Ideas
 
@@ -109,10 +116,10 @@ On the norns side we need to run the lua server-side. During dev I do it this wa
     * Playback: With or without fixed-length active loop playback
   * Step first: Pick a step and record an event
   * Event sequencing: Take an event and place (or edit) the location of the event
-  * 
 
 # Shout Outs
 
 * [Grégory Montigny for initial logo (CC-BY)](https://thenounproject.com/simpleicon/)
 * eigen on norns-study-group discord for suggesting Lattice
 * Everyone on [lines (llllllll.co)](https://llllllll.co) for being awesome
+* [Hoelzro for lua-repl](https://github.com/hoelzro/lua-repl) from which I've adopted bits

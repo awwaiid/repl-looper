@@ -1,5 +1,6 @@
 <template>
   <div class="flex flex-col h-full min-h-0 border-2 border-grey-10 m-2 p-2">
+
     <div class="flex flex-row">
       <div v-for="step in playbackStepCount">
         <div v-if="playbackStep + 1 === step">
@@ -11,41 +12,34 @@
       </div>
     </div>
 
-    Offset: {{offset}}
-    <div class="overflow-y-auto flex-grow min-h-0" id="messages">
-      <div v-for="line, lineNum in history" class="line">
-        <pre :class="{ historySelected: offset == lineNum, historyNotSelected: offset !== lineNum }">{{ line.trimEnd() }}</pre>
+    <div class="grid grid-cols-3 min-h-0">
+
+      <div class="col-span-2 overflow-y-scroll overflow-x-hidden" id="messages" style="-webkit-scrollbar-color: black black">
+        <div v-for="line, lineNum in history" class="line">
+          <pre :class="{ historySelected: offset == lineNum, historyNotSelected: offset !== lineNum }">{{ line.trimEnd() }}</pre>
+        </div>
       </div>
+
+      <div class="flex-1 overflow-y-scroll overflow-x-scroll text-red-400 text-xs" id="server-messages">
+        <div v-for="line, lineNum in serverHistory" class="line">
+          <pre>{{ line.trimEnd() }}</pre>
+        </div>
+      </div>
+
     </div>
 
-    <!-- <div> -->
-    <!--   <pre>{{ recording }}</pre> -->
-    <!-- </div> -->
-
     <div class="border-grey-20 border-t-2 p-1 w-full flex-none flex items-center">
-      <div>Input:</div>
       <div class="flex-grow w-full border-2">
         <input
+          id="command-input"
           class="w-full bg-black text-white"
           type=text
-          @keydown.enter="gotInput"
-          @keydown.arrow-up="historyUp"
-          @keydown.arrow-down="historyDown"
+          @keydown.enter.prevent="gotInput"
+          @keydown.arrow-up.prevent="historyUp"
+          @keydown.arrow-down.prevent="historyDown"
+          @keydown.tab.prevent="requestCompletions"
           v-model="currentInput" />
       </div>
-      <button
-        v-show="!recording.currentlyRecording"
-        @click="startRecording"
-      >
-        Record
-
-      </button>
-      <button
-        v-show="recording.currentlyRecording"
-        @click="stopRecording"
-      >
-        Stop
-      </button>
     </div>
   </div>
 </template>
@@ -55,42 +49,30 @@ import { ref, nextTick, reactive } from 'vue';
 
 const currentInput = ref("");
 const history = ref([]);
-const currentLoop = ref([]);
+const serverHistory = ref([]);
 const connected = ref(false);
-const recording = reactive({
-  currentlyRecording: false,
-  loopNum: 1,
-  startTime: 0,
-  endTime: 0,
-  events: []
-});
 const playbackStep = ref(0);
 const playbackStepCount = ref(16);
 
 console.log("Starting connection to WebSocket Server");
 const norns = new WebSocket("ws://norns.local:5555/",["bus.sp.nanomsg.org"]);
-// const norns = new WebSocket("ws://localhost:5555/");
 
-async function scrollMessagesToBottom() {
-  // Scroll to the bottom!
-  await nextTick(); // Need the new DOM node to be done
-  const element = document.querySelector("#messages .line:last-child");
-  console.log("scrolling to bottom to", element);
-  element.scrollIntoView({behavior: "smooth", block: "nearest"});
-}
+function longestPrefix(words){
+  // check border cases size 1 array and empty first word)
+  if (!words[0] || words.length ==  1) return words[0] || "";
+  let i = 0;
+  // while all words have the same character at position i, increment i
+  while(words[0][i] && words.every(w => w[i] === words[0][i]))
+    i++;
 
-async function scrollMessagesToSelected() {
-  // Scroll to the bottom!
-  await nextTick(); // Need the new DOM node to be done
-  const element = document.querySelector("#messages .line .historySelected");
-  console.log("Srolling to", element);
-  // element.scrollIntoView({behavior: "smooth", block: "nearest"});
-  element.scrollIntoView({ block: 'nearest' }); // {behavior: "smooth", block: "nearest"});
+  // prefix is the substring from the beginning to the last successfully checked i
+  return words[0].substr(0, i);
 }
 
 norns.onmessage = async (event) => {
   console.log("got message", event);
   const data = event.data;
+
   let m = data.match(/SERVER MESSAGE: (.*)/);
   if (m) {
     let serverMessage = JSON.parse(m[1]);
@@ -99,10 +81,42 @@ norns.onmessage = async (event) => {
       playbackStep.value = parseInt(serverMessage.step);
       playbackStepCount.value = Math.ceil(parseFloat(serverMessage.stepCount));
     }
-  } else {
-    // history.value = history.value.slice(1,20)
-    history.value.push("→ " + data);
-    scrollMessagesToBottom();
+    return;
+  }
+
+  m = data.match(/RESPONSE:(.*)/);
+  if (m) {
+    let serverMessage = JSON.parse(m[1]);
+    console.log("msg: ", serverMessage);
+    if (serverMessage.action == "live_event" && serverMessage.result !== undefined) {
+      // history.value.push(">> [" + serverMessage.result + "]");
+      history.value.push(JSON.stringify(serverMessage.result, null, 2));
+      await scrollMessagesToBottom();
+    } else if (serverMessage.action == "completions"
+        && serverMessage.result !== undefined
+        && serverMessage.result.length > 0
+        && Array.isArray(serverMessage.result)) {
+      console.log("completions:", serverMessage.result);
+
+      if(serverMessage.result.length > 1) {
+        serverMessage.result.forEach( completion => {
+          history.value.push(completion)
+        });
+      }
+
+      currentInput.value = longestPrefix(serverMessage.result);
+      cursorToEnd();
+
+      await scrollMessagesToBottom();
+    }
+    return;
+  }
+
+  // history.value = history.value.slice(1,20)
+  const trimmedData = data.trim()
+  if (trimmedData) {
+    serverHistory.value.push("→ [" + trimmedData + "]");
+    await scrollServerMessagesToBottom();
   }
 };
 
@@ -115,6 +129,43 @@ norns.onopen = (event) => {
 norns.onclose = () => {
   connected.value = false;
 }
+
+async function scrollServerMessagesToBottom() {
+  // Scroll to the bottom!
+  await nextTick(); // Need the new DOM node to be done
+  const element = document.querySelector("#server-messages .line:last-child");
+  console.log("scrolling to bottom to", element);
+  // element.scrollIntoView({behavior: "smooth", block: "nearest"});
+  element.scrollIntoView({block: "nearest"});
+}
+
+async function scrollMessagesToBottom() {
+  // Scroll to the bottom!
+  await nextTick(); // Need the new DOM node to be done
+  const element = document.querySelector("#messages .line:last-child");
+  console.log("scrolling to bottom to", element);
+  // element.scrollIntoView({behavior: "smooth", block: "nearest"});
+  if (element) {
+    element.scrollIntoView({block: "end"});
+  }
+}
+
+async function scrollMessagesToSelected() {
+  await nextTick(); // Need the new DOM node to be done
+  const element = document.querySelector("#messages .line .historySelected");
+  console.log("Srolling to", element);
+  // element.scrollIntoView({behavior: "smooth", block: "nearest"});
+  element.scrollIntoView({ block: 'nearest' }); // {behavior: "smooth", block: "nearest"});
+}
+
+function cursorToEnd() {
+  const element = document.querySelector("#command-input");
+  const len = element.value.length;
+  console.log("moving cursor to end", element, len);
+  element.focus();
+  element.setSelectionRange(len, len);
+}
+
 
 let offset = ref(undefined);
 
@@ -130,6 +181,7 @@ async function historyUp(v) {
   }
   currentInput.value = history.value[offset.value];
   await scrollMessagesToSelected();
+  cursorToEnd();
 }
 
 async function historyDown(v) {
@@ -144,6 +196,7 @@ async function historyDown(v) {
   }
   currentInput.value = history.value[offset.value];
   await scrollMessagesToSelected();
+  cursorToEnd();
 }
 
 async function gotInput(v) {
@@ -151,63 +204,26 @@ async function gotInput(v) {
   const command = v.target.value;
   history.value.push(command);
   offset.value = undefined;
-  scrollMessagesToBottom();
+  await scrollMessagesToBottom();
   currentInput.value = "";
 
-  let matches;
-  if(matches = command.match(/rec\(?\s?(\d+)\)?/)) {
-    startRecording(parseInt(matches[1]));
-    return;
-  }
-  if(command === "rec") {
-    startRecording();
-    return;
-  }
-
-  if(command === "stop") {
-    stopRecording();
-    return;
-  }
-
-  if(recording.currentlyRecording) {
-    const currentTime = Date.now();
-    recording.events.push({
-      absoluteTime: currentTime,
-      relativeTime: currentTime - recording.startTime,
-      command
-    });
-    console.log({ recording });
-  }
-
-  // console.log(`Sending to norns [live_event(${command})]`);
   console.log("Sending to norns: live_event(" + JSON.stringify(command) + ")\n");
   norns.send("live_event(" + JSON.stringify(command) + ")\n");
   // norns.send(command + "\n");
   // norns.send(command);
 }
 
-function startRecording(loopNum = 1) {
-  recording.currentlyRecording = true;
-  recording.loopNum = loopNum;
-  recording.startTime = Date.now();
-  recording.endTime = null;
-  recording.events = [];
-}
+async function requestCompletions(v) {
+  console.log("gotInput", { v });
+  const command = v.target.value;
 
-function stopRecording() {
-  recording.currentlyRecording = false;
-  recording.endTime = Date.now();
-  recording.duration = recording.endTime - recording.startTime;
-  const jsonRecording = JSON.stringify(JSON.stringify({
-    command: "save_loop",
-    loop_num: recording.loopNum || 1,
-    loop: recording
-  }));
-  console.log(`JSON: ${jsonRecording}`);
-  console.log('SEND: messageToServer("' + jsonRecording + '"' + ")\n");
-  norns.send('messageToServer(' + jsonRecording + ")\n");
-}
+  offset.value = undefined; // Unselect from history
 
+  console.log("Sending to norns: live_event(" + JSON.stringify(command) + ")\n");
+  norns.send("completions(" + JSON.stringify(command) + ")\n");
+  // norns.send(command + "\n");
+  // norns.send(command);
+}
 
 </script>
 
@@ -218,4 +234,5 @@ function stopRecording() {
   .historyNotSelected {
     border: 1px solid black;
 }
+
 </style>
