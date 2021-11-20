@@ -201,7 +201,10 @@ async function historyDown(v) {
 
 async function gotInput(v) {
   console.log("gotInput", { v });
-  const command = v.target.value;
+  let command = v.target.value;
+  if(!command) {
+    command = history.value[history.value.length - 1];
+  }
   history.value.push(command);
   offset.value = undefined;
   await scrollMessagesToBottom();

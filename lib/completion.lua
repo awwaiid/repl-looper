@@ -178,8 +178,6 @@ local function extract_innermost_expr(expr)
   return ssub(expr, 1, index - 1), ssub(expr, index)
 end
 
--- XXX is this logic (namely, returning the entire line) too specific to
---     linenoise?
 local function complete(expr, callback)
   -- print("Trying to do an autocomplete")
   if ends_in_unfinished_string(expr) then

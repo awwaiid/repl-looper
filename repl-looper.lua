@@ -600,14 +600,25 @@ Sample = {}
 Sample.__index = Sample
 Sample.next_id = 0
 
-function Sample.new(init)
-  local self = init or {
+function Sample.new(filename, play_mode)
+  local self = {
     params = {}
   }
   setmetatable(self, Sample)
 
   self.id = Sample.next_id
   Sample.next_id = Sample.next_id + 1
+
+
+  if filename then
+    self:timber_setup(filename)
+  end
+
+  if play_mode then
+    if play_mode == "one-shot" then
+      self:playMode(2)
+    end
+  end
 
   return self
 end
@@ -662,7 +673,7 @@ function Sample:lfo2WaveShape(n) self.params.lfo2WaveShape = n; engine.lfo2WaveS
 function Sample:noteOn(freq, vol, voice)
   freq = freq or 200
   vol = vol or 1
-  voice = voice or 0
+  voice = voice or self.id -- TODO: voice management
   engine.noteOn(voice, freq, vol, self.id)
 end
 
@@ -675,11 +686,49 @@ function Sample:timber_setup(filename)
   Timber.load_sample(self.id, filename)
 end
 
-s = Sample.new()
-s:timber_setup("/home/we/dust/code/timber/audio/piano-c.wav")
+s = Sample.new("/home/we/dust/code/timber/audio/piano-c.wav")
 
-s2 = Sample.new()
-s2:timber_setup("/home/we/dust/audio/common/808/808-BD.wav")
+s808 = {}
+
+s808.BD = Sample.new("/home/we/dust/audio/common/808/808-BD.wav", "one-shot")
+s808.CH = Sample.new("/home/we/dust/audio/common/808/808-CH.wav", "one-shot")
+s808.CY = Sample.new("/home/we/dust/audio/common/808/808-CY.wav", "one-shot")
+s808.LC = Sample.new("/home/we/dust/audio/common/808/808-LC.wav", "one-shot")
+s808.MC = Sample.new("/home/we/dust/audio/common/808/808-MC.wav", "one-shot")
+s808.RS = Sample.new("/home/we/dust/audio/common/808/808-RS.wav", "one-shot")
+s808.BS = Sample.new("/home/we/dust/audio/common/808/808-BS.wav", "one-shot")
+s808.CL = Sample.new("/home/we/dust/audio/common/808/808-CL.wav", "one-shot")
+s808.HC = Sample.new("/home/we/dust/audio/common/808/808-HC.wav", "one-shot")
+s808.LT = Sample.new("/home/we/dust/audio/common/808/808-LT.wav", "one-shot")
+s808.MT = Sample.new("/home/we/dust/audio/common/808/808-MT.wav", "one-shot")
+s808.SD = Sample.new("/home/we/dust/audio/common/808/808-SD.wav", "one-shot")
+s808.CB = Sample.new("/home/we/dust/audio/common/808/808-CB.wav", "one-shot")
+s808.CP = Sample.new("/home/we/dust/audio/common/808/808-CP.wav", "one-shot")
+s808.HT = Sample.new("/home/we/dust/audio/common/808/808-HT.wav", "one-shot")
+s808.MA = Sample.new("/home/we/dust/audio/common/808/808-MA.wav", "one-shot")
+s808.OH = Sample.new("/home/we/dust/audio/common/808/808-OH.wav", "one-shot")
+
+function BD() s808.BD:noteOn() end
+function BD() s808.BD:noteOn() end
+function CH() s808.CH:noteOn() end
+function CY() s808.CY:noteOn() end
+function LC() s808.LC:noteOn() end
+function MC() s808.MC:noteOn() end
+function RS() s808.RS:noteOn() end
+function BS() s808.BS:noteOn() end
+function CL() s808.CL:noteOn() end
+function HC() s808.HC:noteOn() end
+function LT() s808.LT:noteOn() end
+function MT() s808.MT:noteOn() end
+function SD() s808.SD:noteOn() end
+function CB() s808.CB:noteOn() end
+function CP() s808.CP:noteOn() end
+function HT() s808.HT:noteOn() end
+function MA() s808.MA:noteOn() end
+function OH() s808.OH:noteOn() end
+
+-- s3:timber_setup("/home/we/dust/code/repl-looper/audio/excerpts/The-Call-of-the-Polar-Star_fma-115766_001_00-00-01.ogg")
+s3 = Sample.new("/home/we/dust/code/repl-looper/audio/one_shots/The-Call-of-the-Polar-Star_fma-115766_001_00-00-01.ogg")
 
 function tabkeys(tab)
   local keyset={}
