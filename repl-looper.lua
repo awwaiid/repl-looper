@@ -611,7 +611,7 @@ function Sample.new(filename, play_mode)
 
 
   if filename then
-    self:timber_setup(filename)
+    self:load_sample(filename)
   end
 
   if play_mode then
@@ -681,9 +681,10 @@ function Sample:noteOff() engine.noteOff(self.id) end
 function Sample:noteKill() engine.noteKill(self.id) end
 
 
-function Sample:timber_setup(filename)
+function Sample:load_sample(filename)
   Timber.add_sample_params(self.id)
   Timber.load_sample(self.id, filename)
+  self.sample_filename = filename
 end
 
 s = Sample.new("/home/we/dust/code/timber/audio/piano-c.wav")
