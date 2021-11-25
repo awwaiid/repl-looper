@@ -133,8 +133,9 @@ norns.onmessage = async (event) => {
     let serverMessage = JSON.parse(m[1]);
     console.log("msg: ", serverMessage);
     if (serverMessage.action == "playback_step") {
-      playbackStep.value = parseInt(serverMessage.step);
-      playbackStepCount.value = Math.ceil(parseFloat(serverMessage.stepCount));
+      const loop_id = parseInt(serverMessage.loop_id) - 1;
+      playbackStep.value[loop_id] = parseInt(serverMessage.step);
+      playbackStepCount.value[loop_id] = Math.ceil(parseFloat(serverMessage.stepCount));
     }
     return;
   }
