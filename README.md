@@ -123,3 +123,4 @@ On the norns side we need to run the lua server-side. During dev I do it this wa
 * eigen on norns-study-group discord for suggesting Lattice
 * Everyone on [lines (llllllll.co)](https://llllllll.co) for being awesome
 * [Hoelzro for lua-repl](https://github.com/hoelzro/lua-repl) from which I've adopted bits
+* [Ensequence for js2lua (MIT, embedded)](https://github.com/Ensequence/js2lua)

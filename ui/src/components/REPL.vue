@@ -1,13 +1,13 @@
 <template>
   <div class="flex flex-col h-full min-h-0 border-2 border-grey-10 m-2 p-2">
 
-    <div class="flex flex-row">
-      <div v-for="step in playbackStepCount">
-        <div v-if="playbackStep + 1 === step">
-          &#9635;
-        </div>
-        <div v-else>
-          &#9633;
+    <div class="flex flex-col m-0 p-0 border-grey-10">
+      <div class="flex flex-row border-grey-10" v-for="(loop, loop_id) in playbackStepCount">
+        <div v-for="step in playbackStepCount[loop_id]">
+          <div v-if="playbackStep[loop_id] === step" style="width: 10px; height: 10px" class="bg-white">
+          </div>
+          <div v-else style="width: 10px; height: 10px">
+          </div>
         </div>
       </div>
     </div>
@@ -30,13 +30,14 @@
 
     <div class="border-grey-20 border-t-2 p-1 w-full flex-none flex items-center">
       <div class="flex-grow w-full border-2">
-        <input
+        <textarea
           id="command-input"
           class="w-full bg-black text-white"
           type=text
-          @keydown.enter.prevent="gotInput"
-          @keydown.arrow-up.prevent="historyUp"
-          @keydown.arrow-down.prevent="historyDown"
+          rows=5
+          @keydown.enter.exact.prevent="gotInput"
+          @keydown.arrow-up.exact.prevent="historyUp"
+          @keydown.arrow-down.exact.prevent="historyDown"
           @keydown.tab.prevent="requestCompletions"
           v-model="currentInput" />
       </div>
@@ -47,12 +48,66 @@
 <script setup>
 import { ref, nextTick, reactive } from 'vue';
 
+function js2lua(obj, indentation) {
+    var whitespace = 1;
+    // Setup whitespace
+    if (indentation && typeof indentation === 'number') whitespace = indentation, indentation = '';
+
+    // Get type of obj
+    var type = typeof obj;
+
+    // Handle type
+    if (~['number', 'boolean'].indexOf(type)) {
+        return obj;
+    } else if (type === 'string') {
+        return '"' + escapeLuaString(obj) + '"';
+    } else if (type === 'undefined' || obj === null) {
+        // Return 'nil' for null || undefined
+        return 'nil';
+    } else {
+        // Object
+        // Increase indentation
+        for (var i = 0, previous = indentation || '', indentation = indentation || ''; i < whitespace; indentation += ' ', i++);
+
+        // Check if array
+        if (Array.isArray(obj)) {
+            // Convert each item in array, checking for whitespace
+      if (whitespace && obj.length > 2) return '{\n' + indentation + obj.map(function (prop) { return js2lua(prop, indentation); }).join(',\n' + indentation) + '\n' + previous + '}';
+            else return '{' + obj.map(function (prop) { return js2lua(prop); }).join(', ') + '}';
+        } else {
+            // Build out each property
+            var props = [];
+            for (var key in obj) {
+                props.push(key + (whitespace ? ' = ' + js2lua(obj[key], indentation) : ' = ' + js2lua(obj[key])));
+            }
+
+            // Join properties && return
+      if (whitespace && props.length > 2) { return '{\n' + indentation + props.join(',\n' + indentation) + '\n' + previous + '}'; }
+            else return '{' + props.join(', ') + '}';
+        }
+    }
+}
+
+// ### escapeLuaString
+// Escape string for serialization to lua object
+//
+// * `str`: string to escape
+function escapeLuaString(str) {
+    return str
+        .replace(/\n/g,'\\n')
+        .replace(/\r/g,'\\r')
+        .replace(/"/g,'\\"')
+        .replace(/\\$/g, '\\\\');
+}
+
+
+
 const currentInput = ref("");
 const history = ref([]);
 const serverHistory = ref([]);
 const connected = ref(false);
-const playbackStep = ref(0);
-const playbackStepCount = ref(16);
+const playbackStep = ref([]);
+const playbackStepCount = ref([]);
 
 console.log("Starting connection to WebSocket Server");
 const norns = new WebSocket("ws://norns.local:5555/",["bus.sp.nanomsg.org"]);
@@ -90,7 +145,12 @@ norns.onmessage = async (event) => {
     console.log("msg: ", serverMessage);
     if (serverMessage.action == "live_event" && serverMessage.result !== undefined) {
       // history.value.push(">> [" + serverMessage.result + "]");
-      history.value.push(JSON.stringify(serverMessage.result, null, 2));
+      console.log("JS2LUA:",
+        "[" + js2lua(serverMessage.result, null, 2) + "]",
+        typeof(js2lua(serverMessage.result, null, 2))
+      );
+      // history.value.push(JSON.stringify(serverMessage.result, null, 2));
+      history.value.push(String(js2lua(serverMessage.result, null, 2)));
       await scrollMessagesToBottom();
     } else if (serverMessage.action == "completions"
         && serverMessage.result !== undefined

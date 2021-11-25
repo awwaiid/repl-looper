@@ -68,8 +68,12 @@ function Event:to_string()
   return "Step " .. self.step .. " (" .. self.pattern.phase .. ") -- " .. self.command.string
 end
 
-function Event:to_lua()
-  return "{ step = " .. self.step .. ", pattern_phase = " .. self.pattern.phase .. ", command = " .. json.encode(self.command.string) .. "}"
+function Event:lua()
+  return {
+    step = self.step,
+    -- pattern_phase = self.pattern.phase,
+    command = self.command.string
+  }
 end
 
 function Event:eval(from_playing_loop)
@@ -183,7 +187,8 @@ function Loop:update_lattice()
       messageFromServer({
         action = "playback_step",
         step = self.current_step,
-        stepCount = self.loop_length_qn
+        stepCount = self.loop_length_qn,
+        loop_id = self.id
       })
     end,
     division = 1/4
@@ -223,15 +228,13 @@ function Loop:to_string()
   return output
 end
 
-function Loop:to_lua()
-  local output = ""
-  output = output .. "{"
-  output = output
-    .. "current_step = " .. self.current_step .. ", "
-    .. "loop_length_qn = " .. self.loop_length_qn .. ", "
-    .. "events = {"
+function Loop:lua()
+  local output = {}
+  output.current_step = self.current_step
+  output.loop_length_qn = self.loop_length_qn
+  output.events = {}
   for _, event in ipairs(self.events) do
-    output = output .. event:to_lua()
+    table.insert(output.events, event:lua())
   end
   return output
 end
