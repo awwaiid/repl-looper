@@ -2,11 +2,11 @@
   <div class="flex flex-col h-full min-h-0 border-2 border-grey-10 m-2 p-2">
 
     <div class="flex flex-col m-0 p-0 border-grey-10">
-      <div class="flex flex-row border-grey-10" v-for="(loop, loop_id) in playbackStepCount">
+      <div class="flex flex-row" v-for="(loop, loop_id) in playbackStepCount">
         <div v-for="step in playbackStepCount[loop_id]">
-          <div v-if="playbackStep[loop_id] === step" style="width: 10px; height: 10px" class="bg-white">
+          <div v-if="playbackStep[loop_id] === step" style="width: 10px; height: 10px; border: 1px solid #888" class="bg-white">
           </div>
-          <div v-else style="width: 10px; height: 10px">
+          <div v-else style="width: 10px; height: 10px; border: 1px solid #888">
           </div>
         </div>
       </div>
@@ -170,6 +170,10 @@ norns.onmessage = async (event) => {
 
       await scrollMessagesToBottom();
     }
+    return;
+  }
+
+  if(data.match(/ParamSet/)) {
     return;
   }
 
