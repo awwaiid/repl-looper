@@ -19,6 +19,11 @@ lattice = require("lattice")
 -- Global Grid
 grrr = grid.connect()
 
+
+---------------------------------------------------------------------
+-- Loop-related objects ---------------------------------------------
+---------------------------------------------------------------------
+
 local Command = {}
 Command.__index = Command
 Command.last_id = 0
@@ -26,7 +31,6 @@ Command.last_id = 0
 function Command.new(init)
   local self = init or {
     string = ""
-    -- fn = function () end
   }
   setmetatable(self, Command)
 
@@ -64,14 +68,14 @@ function Event.new(init)
 end
 
 function Event:to_string()
-  -- return "Step " .. self.step .. " @" .. self.pulse_offset .. " -- " .. self.command.string
   return "Step " .. self.step .. " (" .. self.pattern.phase .. ") -- " .. self.command.string
 end
 
 function Event:lua()
   return {
+    pulse = self.pulse, -- The absolute time
+    pulse_offset = self.pulse_offset, -- current relative time
     step = self.step,
-    -- pattern_phase = self.pattern.phase,
     command = self.command.string
   }
 end
@@ -110,11 +114,27 @@ function Loop.new(init)
   -- for loops 1..8 make global var 'a' .. 'h'
   if self.id < 9 then
     local loop_letter = string.char(string.byte("a") + self.id - 1)
-    print("Setting loop shortcut " .. loop_letter)
+    -- print("Setting loop shortcut " .. loop_letter)
     _G[loop_letter] = self
   end
 
-  self:update_lattice()
+  -- Basically a quarter-note metronome
+  -- This is used to update the grid and client
+  self.status_pattern = self.status_pattern or self.lattice:new_pattern {
+    action = function(t)
+      self.current_step = (math.floor(t / self.lattice.ppqn) % self.loop_length_qn) + 1
+      self:draw_grid_row()
+
+      messageFromServer {
+        action = "playback_step",
+        step = self.current_step,
+        stepCount = self.loop_length_qn,
+        loop_id = self.id
+      }
+    end,
+    division = 1/4
+  }
+
   return self
 end
 
@@ -134,21 +154,34 @@ function Loop:loop_length_measure()
   return self.loop_length_qn / self.lattice.meter
 end
 
-function Loop:update_event(event)
-  event.pulse_offset = self:pulse_per_ms() * event.relative_time
-  print("pulse offset: " .. event.pulse_offset)
+function Loop:loop_length_pulse()
+  return self.loop_length_qn * self.lattice.ppqn
+end
 
+function Loop:set_length(qn)
+  self.loop_length_qn = qn
+  self:update_lattice()
+end
+
+function Loop:update_event(event)
+  event.pulse_offset = event.pulse % self:loop_length_pulse()
   event.step = event.pulse_offset / self.lattice.ppqn + 1
-  print("event step: " .. event.step)
+
+  print("update_event id", event.id,
+    "pulse", event.pulse,
+    "loop_length_pulse", self:loop_length_pulse(),
+    "pulse_offset", event.pulse_offset,
+    "step", event.step
+  )
 
   if self.auto_quantize then
-    event.step = math.floor(event.step + 0.5)
-    event.relative_time = (event.step - 1) / self:qn_per_ms()
-    event.pulse_offset = self:pulse_per_ms() * event.relative_time - self.lattice.transport
+    event.step = math.floor(event.step + 0.5) -- nearest whole step
+    event.pulse_offset = (event.step - 1) * self.lattice.ppqn
   end
 
   action = function(t)
-    print("@" .. t .. " (next @" .. (self:loop_length_measure() * self:pulse_per_measure() + t) .. ") command: " .. event.command.string)
+    print(
+      "@" .. t .. " (next @" .. (event.pulse_offset + t) .. ") command: " .. event.command.string)
     event:eval(not self.send_feedback) -- `true` to indicate we are a playback event
   end
 
@@ -157,44 +190,16 @@ function Loop:update_event(event)
   event.pattern:set_action(action)
   event.pattern:set_division(self:loop_length_measure()) -- division is in measures
 
-  -- Forcing the initial phase is what sets the actual offset
-  -- TODO: can this be updated while playing? Does it need to be relative to
-  -- the current lattice time or something?
-  event.pattern.phase = self:loop_length_measure() * self:pulse_per_measure() - event.pulse_offset - self.lattice.transport
+  -- Forcing the phase is what sets the actual offset for this pattern
+  local loop_phase = self.lattice.transport % self:loop_length_pulse()
+  event.pattern.phase = (event.pulse_offset - loop_phase) % self:loop_length_pulse()
 end
 
+-- Update all events; this is handy for re-working the loop length
 function Loop:update_lattice()
-  -- We use ceil here, so will grow loop-length to the next full quarter note
-  -- self.loop_length_qn = self.loop_length_qn or math.ceil(self.duration * self:qn_per_ms())
-  self.loop_length_qn = math.ceil(self.duration * self:qn_per_ms())
-
-  print("pulse/ms = " .. self:pulse_per_ms())
-  print("qn/ms = " .. self:qn_per_ms())
-  print("pulse/measure = " .. self:pulse_per_measure())
-  print("loop length qn = " .. self.loop_length_qn)
-  print("loop length measure = " .. self:loop_length_measure())
-
   for _, event in ipairs(self.events) do
     self:update_event(event)
   end
-
-  -- Basically a quarter-note metronome
-  self.status_pattern = self.status_pattern or self.lattice:new_pattern{
-    action = function(t)
-      self.current_step = (math.floor(t / self.lattice.ppqn) % self.loop_length_qn) + 1
-      self:draw_grid_row()
-
-      messageFromServer({
-        action = "playback_step",
-        step = self.current_step,
-        stepCount = self.loop_length_qn,
-        loop_id = self.id
-      })
-    end,
-    division = 1/4
-  }
-
-  return l
 end
 
 -- Let's get some GRID!!
@@ -209,11 +214,13 @@ function Loop:draw_grid_row()
   grrr:refresh()
 end
 
+-- Do a one-time permanent quantize
 function Loop:quantize()
   for _, event in ipairs(self.events) do
-    event.step = math.floor(event.step + 0.5)
-    event.relative_time = (event.step - 1) / self:qn_per_ms()
-    event.pulse_offset = self:pulse_per_ms() * event.relative_time - self.lattice.transport
+    event.step = math.floor(event.step + 0.5) -- nearest whole step
+
+    -- Update the absolute-time pulse
+    event.pulse = (event.step - 1) * self.lattice.ppqn
   end
 
   self:update_lattice()
@@ -268,7 +275,6 @@ function Loop:play_events_at_step(step)
   for _, event in ipairs(self.events) do
     local event_step = math.floor(event.step)
     if event_step == step then
-      -- print("Loop", self.id, "one-shot command:", event.command.string)
       event.command:eval()
     end
   end
@@ -323,10 +329,7 @@ end
 
 function Loop:stop()
   if self.mode == "recording" then
-    self.end_rec_time = util.time() * 1000
     self.mode = "stop_recording"
-    self.duration = self.end_rec_time - self.start_rec_time
-    self:update_lattice()
     self:draw_grid_row()
   else
     self.lattice:stop()
@@ -334,18 +337,13 @@ function Loop:stop()
 end
 
 function Loop:rec()
-  self.start_rec_time = util.time() * 1000
-  self.start_rec_transport = self.lattice.transport
   self.mode = "start_recording"
+  self.lattice:start()
 end
 
 function Loop:add_event_command(cmd)
-  local current_time = util.time() * 1000
-  local relative_time = current_time - self.start_rec_time
   event = Event.new({
-    absolute_time = current_time,
-    relative_time = relative_time,
-    -- relative_pulse = self:pulse_per_ms() * relative_time + self.start_rec_transport
+    pulse = self.lattice.transport,
     command = Command.new({
       string = cmd
     })
@@ -426,7 +424,10 @@ function redraw()
   screen.update()
 end
 
--- REPL communication
+----------------------------------------------------------------------
+-- REPL communication ------------------------------------------------
+----------------------------------------------------------------------
+
 function messageToServer(json_msg)
   local msg = json.decode(json_msg)
   if msg.command == "save_loop" then
@@ -440,6 +441,8 @@ function messageFromServer(msg)
   local msg_json = json.encode(msg)
   print("SERVER MESSAGE: " .. msg_json .. "\n")
 end
+
+last = nil -- the output from the last command
 
 function live_event(command, from_playing_loop)
   -- print("Got live_event: " .. command)
@@ -468,15 +471,19 @@ function live_event(command, from_playing_loop)
     end
 
     for _, loop in ipairs(loops) do
+
+      -- Don't record the "stop" command
       if loop.mode == "stop_recording" then
-        loop.mode = "stopped"
+        loop.mode = "stopped_recording"
       end
+
       if loop.mode == "recording" then
         if not from_playing_loop or loop.record_feedback then
-          print("Recording event")
           loop:add_event_command(command)
         end
       end
+
+      -- Don't record the "rec" command
       if loop.mode == "start_recording" then
         loop.mode = "recording"
       end
@@ -484,6 +491,7 @@ function live_event(command, from_playing_loop)
 
     redraw()
 
+    last = live_event_result
     return "RESPONSE:" .. json.encode({
       action = "live_event",
       command = recent_command,
@@ -509,35 +517,36 @@ end
 -- end
 
 
--- Music utilities
+------------------------------------------------------------------
+-- Music utilities -----------------------------------------------
+------------------------------------------------------------------
+
 -- engine.load('PolyPerc')
 
 -- function beep(freq)
 --   engine.hz(freq or 440)
 -- end
 
--- The Other Way
+-- Tiiiimmmmmbbbbeeerrrrr!!!!!
 
 Timber = include("timber/lib/timber_engine")
 engine.load('Timber')
 engine.name = "Timber"
 Timber.add_params() -- Add the general params
 
--- Each sample needs params
 
 MusicUtil = require "musicutil"
+
+-- Reverse note name -> num lookup
 note_name_num = {}
 for num=1,127 do
   local name = MusicUtil.note_num_to_name(num, true)
   note_name_num[name] = num
 end
 
+-- Add these into MusicUtil because why not
 MusicUtil.note_name_to_num = function(name) return note_name_num[name] end
 MusicUtil.note_name_to_freq = function(name) return MusicUtil.note_num_to_freq(MusicUtil.note_name_to_num(name)) end
-
-function piano_freq(hz, voice)
-  engine.noteOn(voice, hz, 1, 0)
-end
 
 -- Play a note or a chord
 -- The note can be either a midi number OR a note-string like "C3"
@@ -570,15 +579,6 @@ function p(note, voice_id, sample_id)
   engine.noteOn(voice_id, freq, 1, sample_id)
 end
 
--- p"C"
--- p"C#4"
-
--- engine.noteOn(0, 440, 0.75, 0) -- voice, freq, vol, sample_id
--- engine.noteOn(1, 220, 1, 0)
-
--- for i = 0, 9 do engine.playMode(i, 3) end -- 3 = one-shot playback instead of loop
-
--- engine.playMode(0, 0) -- loop (or should it be infinite-loop?)
 
 -- percentage 55.9
 -- start 0
@@ -595,8 +595,6 @@ end
 -- Filter cutoff mod Env 0.42
 -- Filter cutoff mod Vel 0.18
 -- Filter cutoff mod Pres 0.4
---
-
 
 
 Sample = {}
@@ -680,15 +678,35 @@ function Sample:noteOn(freq, vol, voice)
   engine.noteOn(voice, freq, vol, self.id)
 end
 
+function Sample:play() self:noteOn() end
+function Sample:stop() self:noteOff() end
+
 function Sample:noteOff() engine.noteOff(self.id) end
 function Sample:noteKill() engine.noteKill(self.id) end
-
 
 function Sample:load_sample(filename)
   Timber.add_sample_params(self.id)
   Timber.load_sample(self.id, filename)
   self.sample_filename = filename
 end
+
+function Sample:info()
+  return Timber.samples_meta[self.id]
+end
+
+function Sample:reverse()
+  self:startFrame(self:info().num_frames - 1)
+  self:endFrame(0)
+end
+
+function Sample:forward()
+  self:startFrame(0)
+  self:endFrame(self:info().num_frames - 1)
+end
+
+---------------------------------------------------------------------
+-- Load up and mess with some samples for performance ---------------
+---------------------------------------------------------------------
 
 s = Sample.new("/home/we/dust/code/timber/audio/piano-c.wav")
 
@@ -712,6 +730,7 @@ s808.HT = Sample.new("/home/we/dust/audio/common/808/808-HT.wav", "one-shot")
 s808.MA = Sample.new("/home/we/dust/audio/common/808/808-MA.wav", "one-shot")
 s808.OH = Sample.new("/home/we/dust/audio/common/808/808-OH.wav", "one-shot")
 
+-- Handy shortcuts
 function BD() s808.BD:noteOn() end
 function BD() s808.BD:noteOn() end
 function CH() s808.CH:noteOn() end
@@ -749,16 +768,17 @@ function ls(o)
   return tabkeys(getmetatable(o))
 end
 
-		-- this.addCommand(\generateWaveform, "i", {
-		-- this.addCommand(\noteOffAll, "", {
-		-- this.addCommand(\noteKillAll, "", {
-		-- this.addCommand(\pitchBendVoice, "if", {
-		-- this.addCommand(\pitchBendAll, "f", {
-		-- this.addCommand(\pressureVoice, "if", {
-		-- this.addCommand(\pressureAll, "f", {
-    --
-		-- this.addCommand(\loadSample, "is", {
-		-- this.addCommand(\clearSamples, "ii", {
-		-- this.addCommand(\moveSample, "ii", {
-		-- this.addCommand(\copySample, "iii", {
-		-- this.addCommand(\copyParams, "iii", {
+-- this.addCommand(\generateWaveform, "i", {
+-- this.addCommand(\noteOffAll, "", {
+-- this.addCommand(\noteKillAll, "", {
+-- this.addCommand(\pitchBendVoice, "if", {
+-- this.addCommand(\pitchBendAll, "f", {
+-- this.addCommand(\pressureVoice, "if", {
+-- this.addCommand(\pressureAll, "f", {
+
+-- this.addCommand(\loadSample, "is", {
+-- this.addCommand(\clearSamples, "ii", {
+-- this.addCommand(\moveSample, "ii", {
+-- this.addCommand(\copySample, "iii", {
+-- this.addCommand(\copyParams, "iii", {
+
