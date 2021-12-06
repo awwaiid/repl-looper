@@ -93,6 +93,18 @@ On the norns side we need to run the lua server-side. During dev I do it this wa
   * History, playing samples, Timber, a piano shortcut, cross-loop recording
   * I've started to practice being musical with Timber, I made this cool super low-frequencing slow throbbing sound that I call Dragon's Breath. But I don't remember how
   * I'm wrapping some OOP around Timber samples and voices
+* 2021-11-30
+  * Tab completion is so great
+  * Got fixed-length playback-during-record working
+  * I'm starting to get familiar with Timber's filters, though there are a few that I don't know how to work yet. I added reverse() shortcuts
+  * I got a bunch of 808 samples wired in!
+  * A really simple thing -- if you run a command and then press 'enter' again it will re-send the same command. Really nice for laying down a beat or making some incremental change!
+* 2021-12-05
+  * Improved event recording timing. One weird thing is that if auto-quantize is turned on and you record (and thus trigger) an event but it gets rounded to the future then it'll play again. I turned auto-quantize off for now
+  * Started creating some generators. First is `gen` which does some string-lambda work to let you fill out all 16 steps with a parameterized event
+  * The the event log is flooding the UI and causing it to get behind after a while. I'm not sure which end is buffering, I kinda think it is the Norns side, but I'm not sure. I will likely disable event-history-log output
+  * I'm starting to work out some performance plans and basic structure. Like I'll probably leave auto-quantize off, but use `gen` to fill in some drums that will act as a metronome. Also filling a row with different notes and then using the grid to play those while recording the commands to another loop is working great!
+  * One thing that is weird is that the loop doesn't really own the samples, so stopping the loop doesn't necessarily stop the samples. But I think that's probably good overall
 
 # Ideas
 

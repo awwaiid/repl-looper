@@ -74,7 +74,8 @@ end
 function Event:lua()
   return {
     pulse = self.pulse, -- The absolute time
-    pulse_offset = self.pulse_offset, -- current relative time
+    pulse_offset = self.pulse_offset, -- loop relative time
+    phase = self.pattern.phase, -- current countdown in pulses
     step = self.step,
     command = self.command.string
   }
@@ -82,6 +83,10 @@ end
 
 function Event:eval(from_playing_loop)
   return self.command:eval(from_playing_loop)
+end
+
+function Event:destroy()
+  self.pattern:destroy()
 end
 
 ---------------------------------------
@@ -98,7 +103,7 @@ function Loop.new(init)
     duration = 10212,
     lattice = lattice:new{},
     record_feedback = false,
-    auto_quantize = true,
+    auto_quantize = false,
     send_feedback = false
   }
 
@@ -190,9 +195,12 @@ function Loop:update_event(event)
   event.pattern:set_action(action)
   event.pattern:set_division(self:loop_length_measure()) -- division is in measures
 
-  -- Forcing the phase is what sets the actual offset for this pattern
+  -- Forcing the phase is what sets the actual offset for this pattern based on
+  -- the current transport (play position). The phase is a count-down until the
+  -- event is fired
   local loop_phase = self.lattice.transport % self:loop_length_pulse()
-  event.pattern.phase = (event.pulse_offset - loop_phase) % self:loop_length_pulse()
+  local phase_distance = (event.pulse_offset - loop_phase) % self:loop_length_pulse()
+  event.pattern.phase = self:loop_length_pulse() - phase_distance
 end
 
 -- Update all events; this is handy for re-working the loop length
@@ -239,6 +247,7 @@ function Loop:lua()
   local output = {}
   output.current_step = self.current_step
   output.loop_length_qn = self.loop_length_qn
+  output.transport = self.lattice.transport
   output.events = {}
   for _, event in ipairs(self.events) do
     table.insert(output.events, event:lua())
@@ -309,11 +318,8 @@ function Loop:toggle_commands_at_step(step, commands)
   if not found_commands then
     for _, command in ipairs(commands) do
       local new_event = Event.new({
-        -- absolute_time = current_time,
-        relative_time = (step - 1) / self:qn_per_ms(),
         command = command,
-        step = step,
-        pulse_offset = step * self.lattice.ppqn
+        pulse = step * self.lattice.ppqn
       })
 
       table.insert(self.events, new_event)
@@ -351,6 +357,38 @@ function Loop:add_event_command(cmd)
   self:update_event(event)
   table.insert(self.events, event)
   return event
+end
+
+function Loop:gen(code_string)
+  for n = 1, self.loop_length_qn do
+    local expanded_code_string =
+      string.gsub(
+        code_string,
+        "`([^`]+)`",
+        function (snippet)
+          local injected_snippet = "local n = dynamic('n'); return " .. snippet
+          print("FROM:", snippet, "EVAL:", injected_snippet)
+          return eval(injected_snippet)
+        end
+      )
+    event = Event.new({
+      pulse = (n - 1) * self.lattice.ppqn,
+      command = Command.new({
+        string = expanded_code_string
+      })
+    })
+    self:update_event(event)
+    table.insert(self.events, event)
+  end
+  self:draw_grid_row()
+end
+
+function Loop:clear()
+  for _, event in ipairs(self.events) do
+    event:destroy()
+  end
+  self.events = {}
+  self:draw_grid_row()
 end
 
 ------------------------------------------------------
@@ -442,28 +480,58 @@ function messageFromServer(msg)
   print("SERVER MESSAGE: " .. msg_json .. "\n")
 end
 
-last = nil -- the output from the last command
+-- Look up a variable via dynamic scope
+-- Code from https://leafo.net/guides/dynamic-scoping-in-lua.html
+function dynamic(name)
+  local level = 2
+  -- iterate to the top
+  while true do
+    local i = 1
+    -- iterate over each local by index
+    while true do
+      local found_name, found_val = debug.getlocal(level, i)
+      if not found_name then break end
+      if found_name == name then
+        return found_val
+      end
+      i = i + 1
+    end
+    level = level + 1
+  end
+end
 
-function live_event(command, from_playing_loop)
-  -- print("Got live_event: " .. command)
-
-
+-- TODO: Consider memoizing
+function eval(code_string)
   -- This little trick tries to eval first in expression context with a
   -- `return`, and if that doesn't parse (shouldn't even get executed) then try
   -- again in regular command context. Got this method from
   -- https://github.com/hoelzro/lua-repl/blob/master/repl/plugins/autoreturn.lua
   --
   -- Either way we get a function back that we then invoke
-  local live_event_command, live_event_errors = load("return " .. command, "CMD")
-  if not live_event_command then
-    live_event_command, live_event_errors = load(command, "CMD")
+  local eval_command, eval_errors = load("return " .. code_string, "EVAL")
+  if not eval_command then
+    eval_command, eval_errors = load(code_string, "EVAL")
   end
+
+  if eval_errors then
+    return nil, eval_errors
+  end
+
+  return eval_command()
+end
+
+last = nil -- the output from the last command
+
+function live_event(command, from_playing_loop)
+  -- print("Got live_event: " .. command)
+
+  local live_event_result, live_event_errors = eval(command)
 
   if live_event_errors then
     return live_event_errors
   else
     recent_command = command -- to display on the screen
-    local live_event_result = live_event_command()
+    -- local live_event_result = live_event_command()
 
     -- crazyness. If we got a function ... invoke it. This lets us do weird things.
     if type(live_event_result) == "function" then
