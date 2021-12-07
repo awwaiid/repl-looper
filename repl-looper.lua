@@ -17,7 +17,7 @@ json = require("cjson")
 lattice = require("lattice")
 
 -- Global Grid
-grrr = grid.connect()
+grid_device = grid.connect()
 
 
 ---------------------------------------------------------------------
@@ -134,7 +134,8 @@ function Loop.new(init)
         action = "playback_step",
         step = self.current_step,
         stepCount = self.loop_length_qn,
-        loop_id = self.id
+        loop_id = self.id,
+        command = self.recent_command
       }
     end,
     division = 1/4
@@ -172,12 +173,12 @@ function Loop:update_event(event)
   event.pulse_offset = event.pulse % self:loop_length_pulse()
   event.step = event.pulse_offset / self.lattice.ppqn + 1
 
-  print("update_event id", event.id,
-    "pulse", event.pulse,
-    "loop_length_pulse", self:loop_length_pulse(),
-    "pulse_offset", event.pulse_offset,
-    "step", event.step
-  )
+  -- print("update_event id", event.id,
+  --   "pulse", event.pulse,
+  --   "loop_length_pulse", self:loop_length_pulse(),
+  --   "pulse_offset", event.pulse_offset,
+  --   "step", event.step
+  -- )
 
   if self.auto_quantize then
     event.step = math.floor(event.step + 0.5) -- nearest whole step
@@ -185,8 +186,8 @@ function Loop:update_event(event)
   end
 
   action = function(t)
-    print(
-      "@" .. t .. " (next @" .. (event.pulse_offset + t) .. ") command: " .. event.command.string)
+    -- print("@" .. t .. " (next @" .. (event.pulse_offset + t) .. ") command: " .. event.command.string)
+    self.recent_command = event.command.string
     event:eval(not self.send_feedback) -- `true` to indicate we are a playback event
   end
 
@@ -216,10 +217,10 @@ function Loop:draw_grid_row()
 
   local row = self:to_grid_row()
   for n = 1, self.loop_length_qn do
-    grrr:led(n, self.id, row[n] or 0)
+    grid_device:led(n, self.id, row[n] or 0)
   end
 
-  grrr:refresh()
+  grid_device:refresh()
 end
 
 -- Do a one-time permanent quantize
@@ -402,15 +403,15 @@ end
 
 function clear_grid_row(row)
   for n = 1, 16 do
-    grrr:led(n, row, 0)
+    grid_device:led(n, row, 0)
   end
 end
 
 grid_mode = "one-shot"
-grrr:led(1, 8, 15)
+grid_device:led(1, 8, 15)
 local grid_data = {}
 
-grrr.key = function(col, row, state)
+grid_device.key = function(col, row, state)
   if state == 0 then
     return
   end
@@ -419,15 +420,15 @@ grrr.key = function(col, row, state)
       grid_mode = "one-shot"
       print("grid: one-shot mode")
       clear_grid_row(8)
-      grrr:led(1, 8, 15)
+      grid_device:led(1, 8, 15)
     elseif col == 2 then
       grid_mode = "sequence"
       print("grid: sequence mode")
       grid_data = {}
       clear_grid_row(8)
-      grrr:led(2, 8, 15)
+      grid_device:led(2, 8, 15)
     end
-    grrr:refresh()
+    grid_device:refresh()
     redraw()
   else
     local loop_id = row
