@@ -782,7 +782,7 @@ end
 -- Load up and mess with some samples for performance ---------------
 ---------------------------------------------------------------------
 
-s = Sample.new("/home/we/dust/code/timber/audio/piano-c.wav")
+piano = Sample.new("/home/we/dust/code/timber/audio/piano-c.wav")
 
 s808 = {}
 
