@@ -4,7 +4,7 @@
     <div class="flex flex-col m-0 p-0 border-grey-10">
       <div class="flex flex-row" v-for="(loop, loop_id) in playbackStepCount">
         <div v-for="step in playbackStepCount[loop_id]">
-          <div v-if="playbackStep[loop_id] === step" style="width: 1rem; height: 1rem; border: 1px solid #888" class="bg-white">
+          <div v-if="playbackStep[loop_id] === step" style="width: 1rem; height: 1rem; border: 1px solid #888" :class="playbackMode[loop_id] == 'recording' ? 'bg-red-700' : 'bg-white'">
           </div>
           <div v-else style="width: 1rem; height: 1rem; border: 1px solid #888">
           </div>
@@ -110,6 +110,7 @@ const connected = ref(false);
 const playbackStep = ref([]);
 const playbackStepCount = ref([]);
 const playbackCommand = ref([]);
+const playbackMode = ref([]);
 
 console.log("Starting connection to WebSocket Server");
 const norns = new WebSocket("ws://norns.local:5555/",["bus.sp.nanomsg.org"]);
@@ -139,6 +140,7 @@ norns.onmessage = async (event) => {
       playbackStep.value[loop_id] = parseInt(serverMessage.step);
       playbackStepCount.value[loop_id] = Math.ceil(parseFloat(serverMessage.stepCount));
       playbackCommand.value[loop_id] = serverMessage.command;
+      playbackMode.value[loop_id] = serverMessage.mode;
     }
     return;
   }

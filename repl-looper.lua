@@ -135,7 +135,8 @@ function Loop.new(init)
         step = self.current_step,
         stepCount = self.loop_length_qn,
         loop_id = self.id,
-        command = self.recent_command
+        command = self.recent_command,
+        mode = self.mode
       }
     end,
     division = 1/4
