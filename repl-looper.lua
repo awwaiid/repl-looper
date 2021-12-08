@@ -361,26 +361,30 @@ function Loop:add_event_command(cmd)
   return event
 end
 
-function Loop:gen(code_string)
+function Loop:gen(code_string, condition)
+  condition = condition or "true"
   for n = 1, self.loop_length_qn do
-    local expanded_code_string =
-      string.gsub(
-        code_string,
-        "`([^`]+)`",
-        function (snippet)
-          local injected_snippet = "local n = dynamic('n'); return " .. snippet
-          print("FROM:", snippet, "EVAL:", injected_snippet)
-          return eval(injected_snippet)
-        end
-      )
-    event = Event.new({
-      pulse = (n - 1) * self.lattice.ppqn,
-      command = Command.new({
-        string = expanded_code_string
+    local condition_met = eval("local n = dynamic('n'); return " .. condition);
+    if condition_met then
+      local expanded_code_string =
+        string.gsub(
+          code_string,
+          "`([^`]+)`",
+          function (snippet)
+            local injected_snippet = "local n = dynamic('n'); return " .. snippet
+            print("FROM:", snippet, "EVAL:", injected_snippet)
+            return eval(injected_snippet)
+          end
+        )
+      event = Event.new({
+        pulse = (n - 1) * self.lattice.ppqn,
+        command = Command.new({
+          string = expanded_code_string
+        })
       })
-    })
-    self:update_event(event)
-    table.insert(self.events, event)
+      self:update_event(event)
+      table.insert(self.events, event)
+    end
   end
   self:draw_grid_row()
 end
