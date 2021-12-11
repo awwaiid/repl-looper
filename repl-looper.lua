@@ -383,7 +383,7 @@ function Loop:gen(code_string, condition)
           "`([^`]+)`",
           function (snippet)
             local injected_snippet = "local n = dynamic('n'); return " .. snippet
-            print("FROM:", snippet, "EVAL:", injected_snippet)
+            -- print("FROM:", snippet, "EVAL:", injected_snippet)
             return eval(injected_snippet)
           end
         )
