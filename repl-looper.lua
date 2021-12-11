@@ -118,31 +118,37 @@ function Loop.new(init)
   -- Kinda evil shortcut!
   -- for loops 1..8 make global var 'a' .. 'h'
   if self.id < 9 then
-    local loop_letter = string.char(string.byte("a") + self.id - 1)
+    self.loop_letter = string.char(string.byte("a") + self.id - 1)
     -- print("Setting loop shortcut " .. loop_letter)
-    _G[loop_letter] = self
+    _G[self.loop_letter] = self
   end
 
   -- Basically a quarter-note metronome
   -- This is used to update the grid and client
   self.status_pattern = self.status_pattern or self.lattice:new_pattern {
     action = function(t)
-      self.current_step = (math.floor(t / self.lattice.ppqn) % self.loop_length_qn) + 1
-      self:draw_grid_row()
-
-      messageFromServer {
-        action = "playback_step",
-        step = self.current_step,
-        stepCount = self.loop_length_qn,
-        loop_id = self.id,
-        command = self.recent_command,
-        mode = self.mode
-      }
+      self:send_status(t)
     end,
     division = 1/4
   }
 
   return self
+end
+
+function Loop:send_status(t)
+  t = t or 0
+  self.current_step = (math.floor(t / self.lattice.ppqn) % self.loop_length_qn) + 1
+  self:draw_grid_row()
+
+  messageFromServer {
+    action = "playback_step",
+    step = self.current_step,
+    stepCount = self.loop_length_qn,
+    loop_id = self.id,
+    command = self.recent_command,
+    mode = self.mode,
+    loop_letter = self.loop_letter
+  }
 end
 
 function Loop:qn_per_ms()
@@ -263,13 +269,18 @@ end
 
 function Loop:to_grid_row()
   local row = {}
+
+  -- Highlight the current step even if we're not
+  -- on an event; all the rest are dark by default
   for n = 1, self.loop_length_qn do
     if n == self.current_step then
       row[n] = 10
     else
-      row[n] = 2
+      row[n] = 0
     end
   end
+
+  -- Entries with events glow. Event+current glow a lot
   for _, event in ipairs(self.events) do
     local step = math.floor(event.step)
     if step == self.current_step then
@@ -413,29 +424,29 @@ function clear_grid_row(row)
 end
 
 grid_mode = "one-shot"
-grid_device:led(1, 8, 15)
+-- grid_device:led(1, 8, 15)
 local grid_data = {}
 
 grid_device.key = function(col, row, state)
   if state == 0 then
     return
   end
-  if row == 8 then
-    if col == 1 then
-      grid_mode = "one-shot"
-      print("grid: one-shot mode")
-      clear_grid_row(8)
-      grid_device:led(1, 8, 15)
-    elseif col == 2 then
-      grid_mode = "sequence"
-      print("grid: sequence mode")
-      grid_data = {}
-      clear_grid_row(8)
-      grid_device:led(2, 8, 15)
-    end
-    grid_device:refresh()
-    redraw()
-  else
+  -- if row == 8 then
+  --   if col == 1 then
+  --     grid_mode = "one-shot"
+  --     print("grid: one-shot mode")
+  --     clear_grid_row(8)
+  --     grid_device:led(1, 8, 15)
+  --   elseif col == 2 then
+  --     grid_mode = "sequence"
+  --     print("grid: sequence mode")
+  --     grid_data = {}
+  --     clear_grid_row(8)
+  --     grid_device:led(2, 8, 15)
+  --   end
+  --   grid_device:refresh()
+  --   redraw()
+  -- else
     local loop_id = row
     local step = col
     if grid_mode == "one-shot" then
@@ -449,7 +460,7 @@ grid_device.key = function(col, row, state)
         loops[loop_id]:draw_grid_row()
       end
     end
-  end
+  -- end
 end
 
 recent_command = ""
