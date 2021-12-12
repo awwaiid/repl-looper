@@ -224,7 +224,8 @@ function Loop:draw_grid_row()
 
   local row = self:to_grid_row()
   for n = 1, self.loop_length_qn do
-    grid_device:led(n, self.id, row[n] or 0)
+    -- Mod-16 so we can show long sequences overlaid; maybe confusing
+    grid_device:led((n % 16), self.id, row[n] or 0)
   end
 
   grid_device:refresh()
