@@ -911,6 +911,34 @@ function Sample:forward()
   self:endFrame(self:info().num_frames - 1)
 end
 
+function Sample:note(note)
+  local voice_id = self.id
+  local sample_id = self.id
+  local note = note or 60
+  local freq = 0
+
+  -- If we got an array, play them all!
+  if type(note) == "table" then
+    for i, n in ipairs(note) do
+      p(n, voice_id + i, sample_id)
+    end
+    return
+  end
+
+  if string.match(note, "^%a") then
+    if not string.find(note, "%d") then
+      note = note .. "3"
+    end
+    note = string.upper(note)
+    freq = MusicUtil.note_name_to_freq(note)
+  else
+    freq = MusicUtil.note_num_to_freq(note)
+  end
+
+  engine.playMode(sample_id, 3) -- one-shot
+  engine.noteOn(voice_id, freq, 1, sample_id)
+end
+
 ---------------------------------------------------------------------
 -- Load up and mess with some samples for performance ---------------
 ---------------------------------------------------------------------
