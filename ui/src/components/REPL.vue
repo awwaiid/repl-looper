@@ -50,44 +50,51 @@
 <script setup>
 import { ref, nextTick, reactive } from 'vue';
 
-function js2lua(obj, indentation) {
-    var whitespace = 1;
-    // Setup whitespace
-    if (indentation && typeof indentation === 'number') whitespace = indentation, indentation = '';
+function js2lua(obj, indentation, newline = "\n") {
+  var max_length = 120;
+  var whitespace = 1;
+  // Setup whitespace
+  if (indentation && typeof indentation === 'number') whitespace = indentation, indentation = '';
 
-    // Get type of obj
-    var type = typeof obj;
+  // Get type of obj
+  var type = typeof obj;
 
-    // Handle type
-    if (~['number', 'boolean'].indexOf(type)) {
-        return obj;
-    } else if (type === 'string') {
-        return '"' + escapeLuaString(obj) + '"';
-    } else if (type === 'undefined' || obj === null) {
-        // Return 'nil' for null || undefined
-        return 'nil';
+  // Handle type
+  if (~['number', 'boolean'].indexOf(type)) {
+    return obj;
+  } else if (type === 'string') {
+    return '"' + escapeLuaString(obj) + '"';
+  } else if (type === 'undefined' || obj === null) {
+    // Return 'nil' for null || undefined
+    return 'nil';
+  } else {
+    // Object
+    // Increase indentation
+    for (var i = 0, previous = indentation || '', indentation = indentation || ''; i < whitespace; indentation += ' ', i++);
+
+    // Check if array
+    if (Array.isArray(obj)) {
+      let no_whitespace = '{' + obj.map(function (prop) { return js2lua(prop); }).join(', ') + '}';
+      if(no_whitespace.length > max_length) {
+        return '{\n' + indentation + obj.map(function (prop) { return js2lua(prop, indentation); }).join(',\n' + indentation) + '\n' + previous + '}';
+      } else {
+        return no_whitespace;
+      }
     } else {
-        // Object
-        // Increase indentation
-        for (var i = 0, previous = indentation || '', indentation = indentation || ''; i < whitespace; indentation += ' ', i++);
+      // Build out each property
+      var props = [];
+      for (var key in obj) {
+        props.push(key + (whitespace ? ' = ' + js2lua(obj[key], indentation) : ' = ' + js2lua(obj[key])));
+      }
 
-        // Check if array
-        if (Array.isArray(obj)) {
-            // Convert each item in array, checking for whitespace
-      if (whitespace && obj.length > 2) return '{\n' + indentation + obj.map(function (prop) { return js2lua(prop, indentation); }).join(',\n' + indentation) + '\n' + previous + '}';
-            else return '{' + obj.map(function (prop) { return js2lua(prop); }).join(', ') + '}';
-        } else {
-            // Build out each property
-            var props = [];
-            for (var key in obj) {
-                props.push(key + (whitespace ? ' = ' + js2lua(obj[key], indentation) : ' = ' + js2lua(obj[key])));
-            }
-
-            // Join properties && return
-      if (whitespace && props.length > 2) { return '{\n' + indentation + props.join(',\n' + indentation) + '\n' + previous + '}'; }
-            else return '{' + props.join(', ') + '}';
-        }
+      let no_whitespace = '{' + props.join(', ') + '}';
+      if(no_whitespace.length > max_length) {
+        return '{\n' + indentation + props.join(',\n' + indentation) + '\n' + previous + '}';
+      } else {
+        return no_whitespace;
+      }
     }
+  }
 }
 
 // ### escapeLuaString
