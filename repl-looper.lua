@@ -89,6 +89,15 @@ function Event:destroy()
   self.pattern:destroy()
 end
 
+function Event:clone()
+  return Event.new({
+    pulse = self.pulse,
+    command = Command.new({
+      string = self.command.string
+    })
+  })
+end
+
 ---------------------------------------
 
 Loop = {}
@@ -192,7 +201,7 @@ function Loop:update_event(event)
     event.pulse_offset = (event.step - 1) * self.lattice.ppqn
   end
 
-  action = function(t)
+  local action = function(t)
     -- print("@" .. t .. " (next @" .. (event.pulse_offset + t) .. ") command: " .. event.command.string)
     self.recent_command = event.command.string
     event:eval(not self.send_feedback) -- `true` to indicate we are a playback event
@@ -218,6 +227,112 @@ function Loop:update_lattice()
   end
 end
 
+function Loop:remove_event(event_to_remove)
+  -- Go backwards so that when we remove nothing weird happens
+  for i = #self.events, 1, -1 do
+    local event = self.events[i]
+    if event == event_to_remove then
+      event.pattern:destroy()
+      event.pattern = nil
+      table.remove(self.events, i)
+    end
+  end
+end
+
+function Loop:merge(other_loop)
+  --for i = #other_loop.events, 1, -1 do
+  for _, event in ipairs(other_loop.events) do
+    -- local event = other_loop[i]
+    -- other_loop:remove_event(event)
+    self:add_event(event:clone())
+  end
+  b:clear()
+  self:draw_grid_row()
+end
+
+-- Helper string distance function
+function leven(s,t)
+  if s == '' then return t:len() end
+  if t == '' then return s:len() end
+
+  local s1 = s:sub(2, -1)
+  local t1 = t:sub(2, -1)
+
+  if s:sub(0, 1) == t:sub(0, 1) then
+    return leven(s1, t1)
+  end
+
+  return 1 + math.min(
+    leven(s1, t1),
+    leven(s,  t1),
+    leven(s1, t )
+  )
+end
+
+function Loop:split(other_loop)
+  if #self.events < 2 then
+    return
+  end
+
+  local events = {}
+  for _, event in ipairs(self.events) do
+    table.insert(events, event:clone())
+  end
+
+  local base_command = events[1].command.string
+  local distances = {}
+  local total_dist = 0
+  for _, event in ipairs(events) do
+    local dist = leven(base_command, event.command.string)
+    total_dist = total_dist + dist
+
+    -- for debugging and to minimize sort calcs
+    distances[event.command.string] = dist
+  end
+
+  table.sort(events, function(a, b)
+    local a_dist = distances[a.command.string]
+    local b_dist = distances[b.command.string]
+    return a_dist < b_dist
+  end)
+
+  local mean_dist = total_dist / #events
+
+  self:clear()
+  other_loop:clear()
+
+  for _, event in ipairs(events) do
+    local event_dist = leven(base_command, event.command.string)
+    if event_dist <= mean_dist then
+      self:add_event(event)
+    else
+      other_loop:add_event(event)
+    end
+  end
+
+  self:draw_grid_row()
+  other_loop:draw_grid_row()
+
+  return {
+    mean_dist = mean_dist,
+    distances = distances
+  }
+end
+
+function Loop:add_event(event)
+  self:update_event(event)
+  table.insert(self.events, event)
+  return event
+end
+
+function Loop:clone(other_loop)
+  other_loop:clear()
+  for _, event in ipairs(self.events) do
+    other_loop:add_event(event:clone())
+  end
+  self:draw_grid_row()
+end
+
 -- Let's get some GRID!!
 function Loop:draw_grid_row()
   clear_grid_row(self.id)
@@ -225,7 +340,7 @@ function Loop:draw_grid_row()
   local row = self:to_grid_row()
   for n = 1, self.loop_length_qn do
     -- Mod-16 so we can show long sequences overlaid; maybe confusing
-    grid_device:led((n % 16), self.id, row[n] or 0)
+    grid_device:led((((n-1) % 16)+1), self.id, row[n] or 0)
   end
 
   grid_device:refresh()
@@ -362,7 +477,7 @@ function Loop:rec()
 end
 
 function Loop:add_event_command(cmd)
-  event = Event.new({
+  local event = Event.new({
     pulse = self.lattice.transport,
     command = Command.new({
       string = cmd
@@ -388,7 +503,7 @@ function Loop:gen(code_string, condition)
             return eval(injected_snippet)
           end
         )
-      event = Event.new({
+      local event = Event.new({
         pulse = (n - 1) * self.lattice.ppqn,
         command = Command.new({
           string = expanded_code_string
