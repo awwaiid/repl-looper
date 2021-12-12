@@ -1,7 +1,7 @@
 <template>
-  <div class="flex flex-col h-full min-h-0 border-2 border-grey-10 m-2 p-2">
+  <div class="flex flex-col h-full min-h-0 border-2 border-gray-800 m-2 p-2">
 
-    <div class="flex flex-col m-0 p-0 border-grey-10">
+    <div class="flex flex-col m-0 p-0">
       <div class="flex flex-row" v-for="(loop, loop_id) in playbackStepCount">
         <div class="text-xs"><pre><code>{{ playbackLoopLetter[loop_id] }}</code></pre></div>
         <div v-for="step in playbackStepCount[loop_id]">
@@ -16,13 +16,13 @@
 
     <div class="grid grid-cols-3 min-h-0">
 
-      <div class="col-span-2 overflow-y-scroll overflow-x-hidden" id="messages" style="-webkit-scrollbar-color: black black">
+      <div class="special-scrollbar col-span-2 overflow-y-scroll overflow-x-hidden" id="messages">
         <div v-for="line, lineNum in history" class="line">
           <pre :class="{ historySelected: offset == lineNum, historyNotSelected: offset !== lineNum }">{{ line.trimEnd() }}</pre>
         </div>
       </div>
 
-      <div class="flex-1 overflow-y-scroll overflow-x-scroll text-red-400 text-xs" id="server-messages">
+      <div class="flex-1 overflow-y-scroll overflow-x-hidden text-red-400 text-xs" id="server-messages">
         <div v-for="line, lineNum in serverHistory" class="line">
           <pre>{{ line.trimEnd() }}</pre>
         </div>
@@ -30,11 +30,11 @@
 
     </div>
 
-    <div class="border-grey-20 border-t-2 p-1 w-full flex-none flex items-center">
-      <div class="flex-grow w-full border-2">
+    <div class="w-full flex-none flex items-center">
+      <div class="flex-grow w-full border-2 border-gray-800">
         <textarea
           id="command-input"
-          class="w-full bg-black text-white"
+          class="w-full bg-black text-white outline-none"
           type=text
           rows=5
           @keydown.enter.exact.prevent="gotInput"
@@ -310,5 +310,14 @@ async function requestCompletions(v) {
   .historyNotSelected {
     border: 1px solid black;
 }
+
+::-webkit-scrollbar, ::-webkit-scrollbar-corner {
+    width: 5px;
+    height: 8px;
+    background-color: #333;
+  }
+::-webkit-scrollbar-thumb {
+    background-color: #666;
+  }
 
 </style>
