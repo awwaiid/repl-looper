@@ -488,7 +488,13 @@ function Loop:add_event_command(cmd)
   return event
 end
 
-function Loop:gen(code_string, condition)
+-- a:gen("CH") puts the "CH" function on every step
+-- a:gen("CH", "n >= 8") puts the "CH" on the second half of steps
+-- a:gen("CH", 1, 4) puts the "CH" on 1 of ever 4 steps
+function Loop:gen(code_string, condition, mod_base)
+  if mod_base then
+    condition = "(n-1) % " .. mod_base .. " == (" .. (condition - 1) .. ")"
+  end
   condition = condition or "true"
   for n = 1, self.loop_length_qn do
     local condition_met = eval("local n = dynamic('n'); return " .. condition);
