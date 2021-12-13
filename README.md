@@ -105,6 +105,14 @@ On the norns side we need to run the lua server-side. During dev I do it this wa
   * The the event log is flooding the UI and causing it to get behind after a while. I'm not sure which end is buffering, I kinda think it is the Norns side, but I'm not sure. I will likely disable event-history-log output
   * I'm starting to work out some performance plans and basic structure. Like I'll probably leave auto-quantize off, but use `gen` to fill in some drums that will act as a metronome. Also filling a row with different notes and then using the grid to play those while recording the commands to another loop is working great!
   * One thing that is weird is that the loop doesn't really own the samples, so stopping the loop doesn't necessarily stop the samples. But I think that's probably good overall
+* 2021-12-12
+  * Been working on the generator some. Turns out most of the macros were really about spreading beats, so I added explicit params for that
+  * Tuned up the UI a bit. Some colors, but also show the loop-letters and a recent command for each
+  * Been practicing different techniques almost nightly. I renamed the piano sample to ... `piano` ... so that when I'm then doing weird things to it the audience will be able to follow at least a little. I take the piano and reverse and bit crunch it into a cool thing
+  * Tonight I forked Timber so that I could configure how log of a sample it would allow. Then I combined that with the generator to make a slicer across a row!
+  * Been thinking about merging MollyThePolly engine into this one as a big super-engine so that I can do more than weird things to the piano sample. I started doing research on how to do thus but I'm not sure if I'll go for it or not
+  * Added clone and merge for loops. Even weirder I added `split` for loops. This does text edit distance to group all of the event-commands into two groups and then moves one group onto another row. That way if you find that you had put too much stuff onto one loop you can automatically break it into to separate loops. I think there is going to be some timing issues, since each loop has it's own clock ... though that could be fixed through a reset() and start() on both at the same time or something like that
+  * Another visual thing is the UI lua-pretty-printer now tries to put more on a single line, making looking at loop contents much nicer
 
 # Ideas
 
