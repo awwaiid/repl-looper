@@ -189,13 +189,6 @@ function Loop:update_event(event)
   event.pulse_offset = event.pulse % self:loop_length_pulse()
   event.step = event.pulse_offset / self.lattice.ppqn + 1
 
-  -- print("update_event id", event.id,
-  --   "pulse", event.pulse,
-  --   "loop_length_pulse", self:loop_length_pulse(),
-  --   "pulse_offset", event.pulse_offset,
-  --   "step", event.step
-  -- )
-
   if self.auto_quantize then
     event.step = math.floor(event.step + 0.5) -- nearest whole step
     event.pulse_offset = (event.step - 1) * self.lattice.ppqn
@@ -240,10 +233,7 @@ function Loop:remove_event(event_to_remove)
 end
 
 function Loop:merge(other_loop)
-  --for i = #other_loop.events, 1, -1 do
   for _, event in ipairs(other_loop.events) do
-    -- local event = other_loop[i]
-    -- other_loop:remove_event(event)
     self:add_event(event:clone())
   end
   other_loop:clear()
@@ -546,13 +536,15 @@ function clear_grid_row(row)
 end
 
 grid_mode = "one-shot"
--- grid_device:led(1, 8, 15)
 local grid_data = {}
 
 grid_device.key = function(col, row, state)
   if state == 0 then
     return
   end
+  -- Experiment with using bottom-row as a set of controls,
+  -- like having a copy/paste mode
+  --
   -- if row == 8 then
   --   if col == 1 then
   --     grid_mode = "one-shot"
@@ -670,7 +662,6 @@ function live_event(command, from_playing_loop)
     return live_event_errors
   else
     recent_command = command -- to display on the screen
-    -- local live_event_result = live_event_command()
 
     -- crazyness. If we got a function ... invoke it. This lets us do weird things.
     if type(live_event_result) == "function" then
@@ -786,24 +777,6 @@ function p(note, voice_id, sample_id)
   engine.noteOn(voice_id, freq, 1, sample_id)
 end
 
-
--- percentage 55.9
--- start 0
--- end 0.75
--- loop-start 0.04
--- loop-end 0.42
--- freq mod lfo1 0.16
--- freq mod lfo2 0.11
--- filter type low-pass
--- filter cutoff 224 Hz
--- filter resonance 0.84
--- filter cutoff mod LFO1 0.27
--- filter cutoff mod LFO2 0.06
--- Filter cutoff mod Env 0.42
--- Filter cutoff mod Vel 0.18
--- Filter cutoff mod Pres 0.4
-
-
 Sample = {}
 Sample.__index = Sample
 Sample.next_id = 0
@@ -873,10 +846,6 @@ function Sample:panModEnv(n) self.params.panModEnv = n; engine.panModEnv(self.id
 function Sample:amp(n) self.params.amp = n; engine.amp(self.id, n) end
 function Sample:ampModLfo1(n) self.params.ampModLfo1 = n; engine.ampModLfo1(self.id, n) end
 function Sample:ampModLfo2(n) self.params.ampModLfo2 = n; engine.ampModLfo2(self.id, n) end
-function Sample:lfo1Freq(n) self.params.lfo1Freq = n; engine.lfo1Freq(self.id, n) end
-function Sample:lfo1WaveShape(n) self.params.lfo1WaveShape = n; engine.lfo1WaveShape(self.id, n) end
-function Sample:lfo2Freq(n) self.params.lfo2Freq = n; engine.lfo2Freq(self.id, n) end
-function Sample:lfo2WaveShape(n) self.params.lfo2WaveShape = n; engine.lfo2WaveShape(self.id, n) end
 
 function Sample:noteOn(freq, vol, voice)
   freq = freq or 200
@@ -1010,6 +979,11 @@ end
 -- this.addCommand(\pitchBendAll, "f", {
 -- this.addCommand(\pressureVoice, "if", {
 -- this.addCommand(\pressureAll, "f", {
+
+-- this.addCommand(\lfo1Freq, "f", { arg msg;
+-- this.addCommand(\lfo1WaveShape, "i", { arg msg;
+-- this.addCommand(\lfo2Freq, "f", { arg msg;
+-- this.addCommand(\lfo2WaveShape, "i", { arg msg;
 
 -- this.addCommand(\loadSample, "is", {
 -- this.addCommand(\clearSamples, "ii", {
