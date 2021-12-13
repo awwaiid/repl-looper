@@ -736,10 +736,10 @@ end
 
 -- Tiiiimmmmmbbbbeeerrrrr!!!!!
 
-Timber = include("timber/lib/timber_engine")
-engine.load('Timber')
-engine.name = "Timber"
-Timber.add_params() -- Add the general params
+TimberMod = include("repl-looper/lib/timbermod_engine")
+engine.load('TimberMod')
+engine.name = "TimberMod"
+TimberMod.add_params() -- Add the general params
 
 
 MusicUtil = require "musicutil"
@@ -892,13 +892,13 @@ function Sample:noteOff() engine.noteOff(self.id) end
 function Sample:noteKill() engine.noteKill(self.id) end
 
 function Sample:load_sample(filename)
-  Timber.add_sample_params(self.id)
-  Timber.load_sample(self.id, filename)
+  TimberMod.add_sample_params(self.id)
+  TimberMod.load_sample(self.id, filename)
   self.sample_filename = filename
 end
 
 function Sample:info()
-  return Timber.samples_meta[self.id]
+  return TimberMod.samples_meta[self.id]
 end
 
 function Sample:reverse()
