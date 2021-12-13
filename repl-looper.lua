@@ -246,7 +246,7 @@ function Loop:merge(other_loop)
     -- other_loop:remove_event(event)
     self:add_event(event:clone())
   end
-  b:clear()
+  other_loop:clear()
   self:draw_grid_row()
 end
 
