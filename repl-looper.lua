@@ -414,14 +414,14 @@ function Loop:gen(code_string, condition, mod_base)
   end
   condition = condition or "true"
   for n = 1, self.loop_length_qn do
-    local condition_met = eval("local n = dynamic('n'); return " .. condition);
+    local condition_met = eval("local n = dynamic('n'); local m = n - 1; return " .. condition);
     if condition_met then
       local expanded_code_string =
         string.gsub(
           code_string,
           "`([^`]+)`",
           function (snippet)
-            local injected_snippet = "local n = dynamic('n'); return " .. snippet
+            local injected_snippet = "local n = dynamic('n'); local m = n - 1; return " .. snippet
             -- print("FROM:", snippet, "EVAL:", injected_snippet)
             return eval(injected_snippet)
           end
