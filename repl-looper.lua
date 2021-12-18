@@ -232,95 +232,10 @@ function Loop:remove_event(event_to_remove)
   end
 end
 
-function Loop:merge(other_loop)
-  for _, event in ipairs(other_loop.events) do
-    self:add_event(event:clone())
-  end
-  other_loop:clear()
-  self:draw_grid_row()
-end
-
--- Helper string distance function
-function leven(s,t)
-  if s == '' then return t:len() end
-  if t == '' then return s:len() end
-
-  local s1 = s:sub(2, -1)
-  local t1 = t:sub(2, -1)
-
-  if s:sub(0, 1) == t:sub(0, 1) then
-    return leven(s1, t1)
-  end
-
-  return 1 + math.min(
-    leven(s1, t1),
-    leven(s,  t1),
-    leven(s1, t )
-  )
-end
-
-function Loop:split(other_loop)
-  if #self.events < 2 then
-    return
-  end
-
-  local events = {}
-  for _, event in ipairs(self.events) do
-    table.insert(events, event:clone())
-  end
-
-  local base_command = events[1].command.string
-  local distances = {}
-  local total_dist = 0
-  for _, event in ipairs(events) do
-    local dist = leven(base_command, event.command.string)
-    total_dist = total_dist + dist
-
-    -- for debugging and to minimize sort calcs
-    distances[event.command.string] = dist
-  end
-
-  table.sort(events, function(a, b)
-    local a_dist = distances[a.command.string]
-    local b_dist = distances[b.command.string]
-    return a_dist < b_dist
-  end)
-
-  local mean_dist = total_dist / #events
-
-  self:clear()
-  other_loop:clear()
-
-  for _, event in ipairs(events) do
-    local event_dist = leven(base_command, event.command.string)
-    if event_dist <= mean_dist then
-      self:add_event(event)
-    else
-      other_loop:add_event(event)
-    end
-  end
-
-  self:draw_grid_row()
-  other_loop:draw_grid_row()
-
-  return {
-    mean_dist = mean_dist,
-    distances = distances
-  }
-end
-
 function Loop:add_event(event)
   self:update_event(event)
   table.insert(self.events, event)
   return event
-end
-
-function Loop:clone(other_loop)
-  other_loop:clear()
-  for _, event in ipairs(self.events) do
-    other_loop:add_event(event:clone())
-  end
-  self:draw_grid_row()
 end
 
 -- Let's get some GRID!!
@@ -334,18 +249,6 @@ function Loop:draw_grid_row()
   end
 
   grid_device:refresh()
-end
-
--- Do a one-time permanent quantize
-function Loop:quantize()
-  for _, event in ipairs(self.events) do
-    event.step = math.floor(event.step + 0.5) -- nearest whole step
-
-    -- Update the absolute-time pulse
-    event.pulse = (event.step - 1) * self.lattice.ppqn
-  end
-
-  self:update_lattice()
 end
 
 function Loop:to_string()
@@ -478,6 +381,30 @@ function Loop:add_event_command(cmd)
   return event
 end
 
+-- Loop Manipulation
+--------------------
+
+-- Do a one-time permanent quantize
+function Loop:quantize()
+  for _, event in ipairs(self.events) do
+    event.step = math.floor(event.step + 0.5) -- nearest whole step
+
+    -- Update the absolute-time pulse
+    event.pulse = (event.step - 1) * self.lattice.ppqn
+  end
+
+  self:update_lattice()
+end
+
+-- Copy all of the events to another loop
+function Loop:clone(other_loop)
+  other_loop:clear()
+  for _, event in ipairs(self.events) do
+    other_loop:add_event(event:clone())
+  end
+  self:draw_grid_row()
+end
+
 -- a:gen("CH") puts the "CH" function on every step
 -- a:gen("CH", "n >= 8") puts the "CH" on the second half of steps
 -- a:gen("CH", 1, 4) puts the "CH" on 1 of ever 4 steps
@@ -518,6 +445,83 @@ function Loop:clear()
   end
   self.events = {}
   self:draw_grid_row()
+end
+
+function Loop:merge(other_loop)
+  for _, event in ipairs(other_loop.events) do
+    self:add_event(event:clone())
+  end
+  other_loop:clear()
+  self:draw_grid_row()
+end
+
+-- Helper string distance function
+function leven(s,t)
+  if s == '' then return t:len() end
+  if t == '' then return s:len() end
+
+  local s1 = s:sub(2, -1)
+  local t1 = t:sub(2, -1)
+
+  if s:sub(0, 1) == t:sub(0, 1) then
+    return leven(s1, t1)
+  end
+
+  return 1 + math.min(
+    leven(s1, t1),
+    leven(s,  t1),
+    leven(s1, t )
+  )
+end
+
+function Loop:split(other_loop)
+  if #self.events < 2 then
+    return
+  end
+
+  local events = {}
+  for _, event in ipairs(self.events) do
+    table.insert(events, event:clone())
+  end
+
+  local base_command = events[1].command.string
+  local distances = {}
+  local total_dist = 0
+  for _, event in ipairs(events) do
+    local dist = leven(base_command, event.command.string)
+    total_dist = total_dist + dist
+
+    -- for debugging and to minimize sort calcs
+    distances[event.command.string] = dist
+  end
+
+  table.sort(events, function(a, b)
+    local a_dist = distances[a.command.string]
+    local b_dist = distances[b.command.string]
+    return a_dist < b_dist
+  end)
+
+  local mean_dist = total_dist / #events
+
+  self:clear()
+  other_loop:clear()
+
+  for _, event in ipairs(events) do
+    local event_dist = leven(base_command, event.command.string)
+    if event_dist <= mean_dist then
+      self:add_event(event)
+    else
+      other_loop:add_event(event)
+    end
+  end
+
+  self:draw_grid_row()
+  other_loop:draw_grid_row()
+
+  return {
+    mean_dist = mean_dist,
+    distances = distances
+  }
 end
 
 ------------------------------------------------------
