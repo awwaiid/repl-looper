@@ -954,7 +954,7 @@ function HT() s808.HT:noteOn() end
 function MA() s808.MA:noteOn() end
 function OH() s808.OH:noteOn() end
 
--- s3:timber_setup("/home/we/dust/code/repl-looper/audio/excerpts/The-Call-of-the-Polar-Star_fma-115766_001_00-00-01.ogg")
+-- s4 = Sample.new("/home/we/dust/code/repl-looper/audio/excerpts/The-Call-of-the-Polar-Star_fma-115766_001_00-00-01.ogg")
 s3 = Sample.new("/home/we/dust/code/repl-looper/audio/one_shots/The-Call-of-the-Polar-Star_fma-115766_001_00-00-01.ogg")
 
 function tabkeys(tab)

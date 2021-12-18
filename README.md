@@ -136,6 +136,7 @@ On the norns side we need to run the lua server-side. During dev I do it this wa
     * Playback: With or without fixed-length active loop playback
   * Step first: Pick a step and record an event
   * Event sequencing: Take an event and place (or edit) the location of the event
+* Sync loops together better?
 
 # Shout Outs
 
