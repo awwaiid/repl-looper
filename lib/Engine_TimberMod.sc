@@ -39,7 +39,7 @@ Engine_TimberMod : CroneEngine {
 	// var debugBuffer;
 
 
-  ///////// MOLLY THE POLLY SLICE ////////////////////////
+  ///////// MOLLY THE POLY SLICE ////////////////////////
 
 	classvar mollyMaxNumVoices = 10;
 	var mollyVoiceGroup;
@@ -88,7 +88,7 @@ Engine_TimberMod : CroneEngine {
 	var mollyRingModMix = 0;
 	var mollyChorusMix = 0;
 
-  ///////// END MOLLY THE POLLY SLICE ////////////////////////
+  ///////// END MOLLY THE POLY SLICE ////////////////////////
 
 	*new { arg context, doneCallback;
 		^super.new(context, doneCallback);
@@ -451,9 +451,9 @@ Engine_TimberMod : CroneEngine {
 
 		this.addCommands;
 
-    ////////////////////////////////////////////////////////
-    ///////// MOLLY THE POLLY SLICE ////////////////////////
-    ////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////
+    ///////// MOLLY THE POLY SLICE ////////////////////////
+    ///////////////////////////////////////////////////////
 
 		mollyVoiceGroup = Group.new(context.xg);
 		mollyVoiceList = List.new();
@@ -956,7 +956,7 @@ Engine_TimberMod : CroneEngine {
 			mollyLfo.set(\mollyRingModFreq, msg[1]);
 		});
 
-    ///////// END MOLLY THE POLLY SLICE ////////////////////////
+    ///////// END MOLLY THE POLY SLICE ////////////////////////
 
 
 	}
@@ -1985,13 +1985,13 @@ Engine_TimberMod : CroneEngine {
 		lfos.free;
 		mixer.free;
 
-    ///////// MOLLY THE POLLY SLICE ////////////////////////
-/*
+    ///////// MOLLY THE POLY SLICE ////////////////////////
+
 		mollyVoiceGroup.free;
 		mollyLfo.free;
 		mollyMixer.free;
-*/
-    ///////// END MOLLY THE POLLY SLICE ////////////////////////
+
+    ///////// END MOLLY THE POLY SLICE ////////////////////////
 
 	}
 }

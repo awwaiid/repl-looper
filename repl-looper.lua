@@ -935,6 +935,36 @@ function Sample:note(note)
   engine.noteOn(voice_id, freq, 1, sample_id)
 end
 
+
+molly = {}
+
+function molly.p(note, voice_id, sample_id)
+  local voice_id = voice_id or 0
+  local note = note or 60
+  local freq = 0
+
+  -- If we got an array, play them all!
+  if type(note) == "table" then
+    for i, n in ipairs(note) do
+      p(n, voice_id + i, sample_id)
+    end
+    return
+  end
+
+  if string.match(note, "^%a") then
+    if not string.find(note, "%d") then
+      note = note .. "3"
+    end
+    note = string.upper(note)
+    freq = MusicUtil.note_name_to_freq(note)
+  else
+    freq = MusicUtil.note_num_to_freq(note)
+  end
+
+  engine.mollyNoteOn(voice_id, freq, 1)
+end
+
+
 ---------------------------------------------------------------------
 -- Load up and mess with some samples for performance ---------------
 ---------------------------------------------------------------------
