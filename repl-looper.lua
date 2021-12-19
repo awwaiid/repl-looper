@@ -408,14 +408,15 @@ end
 -- a:gen("CH") puts the "CH" function on every step
 -- a:gen("CH", "n >= 8") puts the "CH" on the second half of steps
 -- a:gen("CH", 1, 4) puts the "CH" on 1 of ever 4 steps
+-- a:gen("CH", { 1, 3, 4.5 }) puts the "CH" on the given steps (even fractional)
 function Loop:gen(code_string, condition, mod_base)
   if mod_base then
     condition = "(n-1) % " .. mod_base .. " == (" .. (condition - 1) .. ")"
   end
   condition = condition or "true"
-  for n = 1, self.loop_length_qn do
-    local condition_met = eval("local n = dynamic('n'); local m = n - 1; return " .. condition);
-    if condition_met then
+
+  if type(condition) == "table" then
+    for _, n in ipairs(condition) do
       local expanded_code_string =
         string.gsub(
           code_string,
@@ -434,6 +435,30 @@ function Loop:gen(code_string, condition, mod_base)
       })
       self:update_event(event)
       table.insert(self.events, event)
+    end
+  else
+    for n = 1, self.loop_length_qn do
+      local condition_met = eval("local n = dynamic('n'); local m = n - 1; return " .. condition);
+      if condition_met then
+        local expanded_code_string =
+          string.gsub(
+            code_string,
+            "`([^`]+)`",
+            function (snippet)
+              local injected_snippet = "local n = dynamic('n'); local m = n - 1; return " .. snippet
+              -- print("FROM:", snippet, "EVAL:", injected_snippet)
+              return eval(injected_snippet)
+            end
+          )
+        local event = Event.new({
+          pulse = (n - 1) * self.lattice.ppqn,
+          command = Command.new({
+            string = expanded_code_string
+          })
+        })
+        self:update_event(event)
+        table.insert(self.events, event)
+      end
     end
   end
   self:draw_grid_row()
@@ -723,19 +748,17 @@ end
 -- Music utilities -----------------------------------------------
 ------------------------------------------------------------------
 
--- engine.load('PolyPerc')
-
--- function beep(freq)
---   engine.hz(freq or 440)
--- end
-
--- Tiiiimmmmmbbbbeeerrrrr!!!!!
+-- Tiiiimmmmmbbbbeeerrrrr!!!!! PLUS MOLLY THE POLY!!!
 
 TimberMod = include("repl-looper/lib/timbermod_engine")
+MollyThePoly = include("repl-looper/lib/molly_the_poly_engine")
+
 engine.load('TimberMod')
 engine.name = "TimberMod"
-TimberMod.add_params() -- Add the general params
 
+MollyThePoly.add_params()
+params:add_separator()
+TimberMod.add_params() -- Add the general params
 
 MusicUtil = require "musicutil"
 

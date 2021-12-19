@@ -38,6 +38,58 @@ Engine_TimberMod : CroneEngine {
 
 	// var debugBuffer;
 
+
+  ///////// MOLLY THE POLLY SLICE ////////////////////////
+
+	classvar mollyMaxNumVoices = 10;
+	var mollyVoiceGroup;
+	var mollyVoiceList;
+	var mollyLfo;
+	var mollyMixer;
+
+	var mollyLfoBus;
+	var mollyRingModBus;
+	var mollyMixerBus;
+
+	var mollyPitchBendRatio = 1;
+
+	var mollyOscWaveShape = 0;
+	var mollyPwMod = 0;
+	var mollyPwModSource = 0;
+	var mollyFreqModLfo = 0;
+	var mollyFreqModEnv = 0;
+	var mollyLastFreq = 0;
+	var mollyGlide = 0;
+	var mollyMainOscLevel = 1;
+	var mollySubOscLevel = 0;
+	var mollySubOscDetune = 0;
+	var mollyNoiseLevel = 0;
+	var mollyHpFilterCutoff = 10;
+	var mollyLpFilterType = 0;
+	var mollyLpFilterCutoff = 440;
+	var mollyLpFilterResonance = 0.2;
+	var mollyLpFilterCutoffEnvSelect = 0;
+	var mollyLpFilterCutoffModEnv = 0;
+	var mollyLpFilterCutoffModLfo = 0;
+	var mollyLpFilterTracking = 1;
+	var mollyLfoFade = 0;
+	var mollyEnv1Attack = 0.01;
+	var mollyEnv1Decay = 0.3;
+	var mollyEnv1Sustain = 0.5;
+	var mollyEnv1Release = 0.5;
+	var mollyEnv2Attack = 0.01;
+	var mollyEnv2Decay = 0.3;
+	var mollyEnv2Sustain = 0.5;
+	var mollyEnv2Release = 0.5;
+	var mollyAmpMod = 0;
+	var mollyChannelPressure = 0;
+	var mollyTimbre = 0;
+	var mollyRingModFade = 0;
+	var mollyRingModMix = 0;
+	var mollyChorusMix = 0;
+
+  ///////// END MOLLY THE POLLY SLICE ////////////////////////
+
 	*new { arg context, doneCallback;
 		^super.new(context, doneCallback);
 	}
@@ -207,7 +259,7 @@ Engine_TimberMod : CroneEngine {
 				]) * inLoop;
 
 				duckControl = duckControl * EnvGen.ar(Env.new([1, 0, 1], [A2K.kr(duckDuration)], \linear, nil, nil), duckGate);
-        
+
 				// Debug buffer
 				/*BufWr.ar([
 					phase.linlin(firstFrame, lastFrame, 0, 1),
@@ -331,7 +383,7 @@ Engine_TimberMod : CroneEngine {
 				killEnvelope = EnvGen.ar(envelope: Env.asr(0, 1, killDuration), gate: killGate, doneAction: Done.freeSelf);
 				ampEnvelope = EnvGen.ar(envelope: Env.adsr(ampAttack, ampDecay, ampSustain, ampRelease), gate: gate, doneAction: Done.freeSelf);
 				modEnvelope = EnvGen.ar(envelope: Env.adsr(modAttack, modDecay, modSustain, modRelease), gate: gate);
-        
+
 				// Freq modulation
 				freqModRatio = 2.pow((lfo1 * freqModLfo1) + (lfo2 * freqModLfo2) + (modEnvelope * freqModEnv));
 				freq = freq * transposeRatio * detuneRatio;
@@ -398,6 +450,515 @@ Engine_TimberMod : CroneEngine {
 
 
 		this.addCommands;
+
+    ////////////////////////////////////////////////////////
+    ///////// MOLLY THE POLLY SLICE ////////////////////////
+    ////////////////////////////////////////////////////////
+
+		mollyVoiceGroup = Group.new(context.xg);
+		mollyVoiceList = List.new();
+
+		mollyLfoBus = Bus.control(context.server, 1);
+		mollyRingModBus = Bus.audio(context.server, 1);
+		mollyMixerBus = Bus.audio(context.server, 1);
+
+		// Synth voice
+		SynthDef(\mollyVoice, {
+			arg out, mollyLfoIn, mollyRingModIn, freq = 440, mollyPitchBendRatio = 1, gate = 0, killGate = 1, vel = 1, mollyPressure, mollyTimbre,
+			mollyOscWaveShape, mollyPwMod, mollyPwModSource, mollyFreqModLfo, mollyFreqModEnv, mollyLastFreq, mollyGlide, mollyMainOscLevel, mollySubOscLevel, mollySubOscDetune, mollyNoiseLevel,
+			mollyHpFilterCutoff, mollyLpFilterCutoff, mollyLpFilterResonance, mollyLpFilterType, mollyLpFilterCutoffEnvSelect, mollyLpFilterCutoffModEnv, mollyLpFilterCutoffModLfo, mollyLpFilterTracking,
+			mollyLfoFade, mollyEnv1Attack, mollyEnv1Decay, mollyEnv1Sustain, mollyEnv1Release, mollyEnv2Attack, mollyEnv2Decay, mollyEnv2Sustain, mollyEnv2Release,
+			mollyAmpMod, mollyRingModFade, mollyRingModMix;
+			var i_nyquist = SampleRate.ir * 0.5, i_cFreq = 48.midicps, signal, killEnvelope, controlLag = 0.005,
+			mollyLfo, mollyRingMod, oscArray, freqModRatio, mainOscDriftLfo, subOscDriftLfo, filterCutoffRatio, filterCutoffModRatio,
+			envelope1, envelope2;
+
+			// mollyLfo in
+			mollyLfo = Line.kr(start: (mollyLfoFade < 0), end: (mollyLfoFade >= 0), dur: mollyLfoFade.abs, mul: In.kr(mollyLfoIn, 1));
+			mollyRingMod = Line.kr(start: (mollyRingModFade < 0), end: (mollyRingModFade >= 0), dur: mollyRingModFade.abs, mul: In.ar(mollyRingModIn, 1));
+
+			// Lag and map inputs
+
+			freq = XLine.kr(start: mollyLastFreq, end: freq, dur: mollyGlide + 0.001);
+			freq = Lag.kr(freq * mollyPitchBendRatio, 0.005);
+			mollyPressure = Lag.kr(mollyPressure, controlLag);
+
+			mollyPwMod = Lag.kr(mollyPwMod, controlLag);
+			mollyMainOscLevel = Lag.kr(mollyMainOscLevel, controlLag);
+			mollySubOscLevel = Lag.kr(mollySubOscLevel, controlLag);
+			mollySubOscDetune = Lag.kr(mollySubOscDetune, controlLag);
+			mollyNoiseLevel = Lag.kr(mollyNoiseLevel, controlLag);
+
+			mollyHpFilterCutoff = Lag.kr(mollyHpFilterCutoff, controlLag);
+			mollyLpFilterCutoff = Lag.kr(mollyLpFilterCutoff, controlLag);
+			mollyLpFilterResonance = Lag.kr(mollyLpFilterResonance, controlLag);
+			mollyLpFilterType = Lag.kr(mollyLpFilterType, 0.01);
+
+			mollyRingModMix = Lag.kr((mollyRingModMix + mollyTimbre).clip, controlLag);
+
+			// Envelopes
+			killGate = killGate + Impulse.kr(0); // Make sure doneAction fires
+			killEnvelope = EnvGen.kr(envelope: Env.asr( 0, 1, 0.01), gate: killGate, doneAction: Done.freeSelf);
+
+			envelope1 = EnvGen.ar(envelope: Env.adsr( mollyEnv1Attack, mollyEnv1Decay, mollyEnv1Sustain, mollyEnv1Release), gate: gate);
+			envelope2 = EnvGen.ar(envelope: Env.adsr( mollyEnv2Attack, mollyEnv2Decay, mollyEnv2Sustain, mollyEnv2Release), gate: gate, doneAction: Done.freeSelf);
+
+			// Main osc
+
+			// Note: Would be ideal to do this exponentially but its a surprisingly big perf hit
+			freqModRatio = ((mollyLfo * mollyFreqModLfo) + (envelope1 * mollyFreqModEnv));
+			freqModRatio = Select.ar(freqModRatio >= 0, [
+				freqModRatio.linlin(-2, 0, 0.25, 1),
+				freqModRatio.linlin(0, 2, 1, 4)
+			]);
+			freq = (freq * freqModRatio).clip(20, i_nyquist);
+
+			mainOscDriftLfo = LFNoise2.kr(freq: 0.1, mul: 0.001, add: 1);
+
+			mollyPwMod = Select.kr(mollyPwModSource, [mollyLfo.range(0, mollyPwMod), envelope1 * mollyPwMod, mollyPwMod]);
+
+			oscArray = [
+				VarSaw.ar(freq * mainOscDriftLfo),
+				Saw.ar(freq * mainOscDriftLfo),
+				Pulse.ar(freq * mainOscDriftLfo, width: 0.5 + (mollyPwMod * 0.49)),
+			];
+			signal = Select.ar(mollyOscWaveShape, oscArray) * mollyMainOscLevel;
+
+			// Sub osc and noise
+			subOscDriftLfo = LFNoise2.kr(freq: 0.1, mul: 0.0008, add: 1);
+			signal = SelectX.ar(mollySubOscLevel * 0.5, [signal, Pulse.ar(freq * 0.5 * mollySubOscDetune.midiratio * subOscDriftLfo, width: 0.5)]);
+			signal = SelectX.ar(mollyNoiseLevel * 0.5, [signal, WhiteNoise.ar()]);
+			signal = signal + PinkNoise.ar(0.007);
+
+			// HP Filter
+			filterCutoffRatio = Select.kr((freq < i_cFreq), [
+				i_cFreq + (freq - i_cFreq),
+				i_cFreq - (i_cFreq - freq)
+			]);
+			filterCutoffRatio = filterCutoffRatio / i_cFreq;
+			mollyHpFilterCutoff = (mollyHpFilterCutoff * filterCutoffRatio).clip(10, 20000);
+			signal = HPF.ar(in: signal, freq: mollyHpFilterCutoff);
+
+			// LP Filter
+			filterCutoffRatio = Select.kr((freq < i_cFreq), [
+				i_cFreq + ((freq - i_cFreq) * mollyLpFilterTracking),
+				i_cFreq - ((i_cFreq - freq) * mollyLpFilterTracking)
+			]);
+			filterCutoffRatio = filterCutoffRatio / i_cFreq;
+			mollyLpFilterCutoff = mollyLpFilterCutoff * (1 + (mollyPressure * 0.55));
+			mollyLpFilterCutoff = mollyLpFilterCutoff * filterCutoffRatio;
+
+			// Note: Again, would prefer this to be exponential
+			filterCutoffModRatio = ((mollyLfo * mollyLpFilterCutoffModLfo) + ((Select.ar(mollyLpFilterCutoffEnvSelect, [envelope1, envelope2]) * mollyLpFilterCutoffModEnv) * 2));
+			filterCutoffModRatio = Select.ar(filterCutoffModRatio >= 0, [
+				filterCutoffModRatio.linlin(-3, 0, 0.08333333333, 1),
+				filterCutoffModRatio.linlin(0, 3, 1, 12)
+			]);
+			mollyLpFilterCutoff = (mollyLpFilterCutoff * filterCutoffModRatio).clip(20, 20000);
+
+			signal = RLPF.ar(in: signal, freq: mollyLpFilterCutoff, rq: mollyLpFilterResonance.linexp(0, 1, 1, 0.05));
+			signal = SelectX.ar(mollyLpFilterType, [signal, RLPF.ar(in: signal, freq: mollyLpFilterCutoff, rq: mollyLpFilterResonance.linexp(0, 1, 1, 0.32))]);
+
+			// mollyAmp
+			signal = signal * envelope2 * killEnvelope;
+			signal = signal * vel * mollyLfo.range(1 - mollyAmpMod, 1);
+			signal = signal * (1 + (mollyPressure * 1.15));
+
+
+			// Ring mod
+			signal = SelectX.ar(mollyRingModMix * 0.5, [signal, signal * mollyRingMod]);
+
+			Out.ar(out, signal);
+		}).add;
+
+		// mollyLfo
+		mollyLfo = SynthDef(\mollyLfo, {
+			arg mollyLfoOut, mollyRingModOut, mollyLfoFreq = 5, mollyLfoWaveShape = 0, mollyRingModFreq = 50;
+			var mollyLfo, mollyLfoOscArray, mollyRingMod, controlLag = 0.005;
+
+			// Lag inputs
+			mollyLfoFreq = Lag.kr(mollyLfoFreq, controlLag);
+			mollyRingModFreq = Lag.kr(mollyRingModFreq, controlLag);
+
+			mollyLfoOscArray = [
+				SinOsc.kr(mollyLfoFreq),
+				LFTri.kr(mollyLfoFreq),
+				LFSaw.kr(mollyLfoFreq),
+				LFPulse.kr(mollyLfoFreq, mul: 2, add: -1),
+				LFNoise0.kr(mollyLfoFreq)
+			];
+
+			mollyLfo = Select.kr(mollyLfoWaveShape, mollyLfoOscArray);
+			mollyLfo = Lag.kr(mollyLfo, 0.005);
+
+			Out.kr(mollyLfoOut, mollyLfo);
+
+			mollyRingMod = SinOsc.ar(mollyRingModFreq);
+			Out.ar(mollyRingModOut, mollyRingMod);
+
+		}).play(target:context.xg, args: [\mollyLfoOut, mollyLfoBus, \mollyRingModOut, mollyRingModBus], addAction: \addToHead);
+
+
+		// mollyMixer and chorus
+		mollyMixer = SynthDef(\mollyMixer, {
+			arg in, out, mollyAmp = 0.5, mollyChorusMix = 0;
+			var signal, chorus, chorusPreProcess, chorusLfo, chorusPreDelay = 0.01, chorusDepth = 0.0053, chorusDelay, controlLag = 0.005;
+
+			// Lag inputs
+			mollyAmp = Lag.kr(mollyAmp, controlLag);
+			mollyChorusMix = Lag.kr(mollyChorusMix, controlLag);
+
+			signal = In.ar(in, 1) * 0.4 * mollyAmp;
+
+			// Bass boost
+			signal = BLowShelf.ar(signal, freq: 400, rs: 1, db: 2, mul: 1, add: 0);
+
+			// Compression etc
+			signal = LPF.ar(in: signal, freq: 14000);
+			signal = CompanderD.ar(in: signal, thresh: 0.4, slopeBelow: 1, slopeAbove: 0.25, clAmpTime: 0.002, relaxTime: 0.01);
+			signal = tanh(signal).softclip;
+
+			// Chorus
+
+			chorusPreProcess = signal + (signal * WhiteNoise.ar(0.004));
+
+			chorusLfo = LFPar.kr(mollyChorusMix.linlin(0.7, 1, 0.5, 0.75));
+			chorusDelay = chorusPreDelay + mollyChorusMix.linlin(0.5, 1, chorusDepth, chorusDepth * 0.75);
+
+			chorus = Array.with(
+				DelayC.ar(in: chorusPreProcess, maxdelaytime: chorusPreDelay + chorusDepth, delaytime: chorusLfo.range(chorusPreDelay, chorusDelay)),
+				DelayC.ar(in: chorusPreProcess, maxdelaytime: chorusPreDelay + chorusDepth, delaytime: chorusLfo.range(chorusDelay, chorusPreDelay))
+			);
+			chorus = LPF.ar(chorus, 14000);
+
+			Out.ar(bus: out, channelsArray: SelectX.ar(mollyChorusMix * 0.5, [signal.dup, chorus]));
+
+		}).play(target:context.xg, args: [\in, mollyMixerBus, \out, context.out_b], addAction: \addToTail);
+
+
+		// Commands
+
+		// mollyNoteOn(id, freq, vel)
+		this.addCommand(\mollyNoteOn, "iff", { arg msg;
+
+			var id = msg[1], freq = msg[2], vel = msg[3];
+			var voiceToRemove, newVoice;
+
+			// Remove voice if ID matches or there are too many
+			voiceToRemove = mollyVoiceList.detect{arg item; item.id == id};
+			if(voiceToRemove.isNil && (mollyVoiceList.size >= mollyMaxNumVoices), {
+				voiceToRemove = mollyVoiceList.detect{arg v; v.gate == 0};
+				if(voiceToRemove.isNil, {
+					voiceToRemove = mollyVoiceList.last;
+				});
+			});
+			if(voiceToRemove.notNil, {
+				voiceToRemove.theSynth.set(\gate, 0);
+				voiceToRemove.theSynth.set(\killGate, 0);
+				mollyVoiceList.remove(voiceToRemove);
+			});
+
+			if(mollyLastFreq == 0, {
+				mollyLastFreq = freq;
+			});
+
+			// Add new voice
+			context.server.makeBundle(nil, {
+				newVoice = (id: id, theSynth: Synth.new(defName: \mollyVoice, args: [
+					\out, mollyMixerBus,
+					\mollyLfoIn, mollyLfoBus,
+					\mollyRingModIn, mollyRingModBus,
+					\freq, freq,
+					\mollyPitchBendRatio, mollyPitchBendRatio,
+					\gate, 1,
+					\vel, vel.linlin(0, 1, 0.3, 1),
+					\mollyPressure, mollyChannelPressure,
+					\mollyTimbre, mollyTimbre,
+					\mollyOscWaveShape, mollyOscWaveShape,
+					\mollyPwMod, mollyPwMod,
+					\mollyPwModSource, mollyPwModSource,
+					\mollyFreqModLfo, mollyFreqModLfo,
+					\mollyFreqModEnv, mollyFreqModEnv,
+					\mollyLastFreq, mollyLastFreq,
+					\mollyGlide, mollyGlide,
+					\mollyMainOscLevel, mollyMainOscLevel,
+					\mollySubOscLevel, mollySubOscLevel,
+					\mollySubOscDetune, mollySubOscDetune,
+					\mollyNoiseLevel, mollyNoiseLevel,
+					\mollyHpFilterCutoff, mollyHpFilterCutoff,
+					\mollyLpFilterType, mollyLpFilterType,
+					\mollyLpFilterCutoff, mollyLpFilterCutoff,
+					\mollyLpFilterResonance, mollyLpFilterResonance,
+					\mollyLpFilterCutoffEnvSelect, mollyLpFilterCutoffEnvSelect,
+					\mollyLpFilterCutoffModEnv, mollyLpFilterCutoffModEnv,
+					\mollyLpFilterCutoffModLfo, mollyLpFilterCutoffModLfo,
+					\mollyLpFilterTracking, mollyLpFilterTracking,
+					\mollyLfoFade, mollyLfoFade,
+					\mollyEnv1Attack, mollyEnv1Attack,
+					\mollyEnv1Decay, mollyEnv1Decay,
+					\mollyEnv1Sustain, mollyEnv1Sustain,
+					\mollyEnv1Release, mollyEnv1Release,
+					\mollyEnv2Attack, mollyEnv2Attack,
+					\mollyEnv2Decay, mollyEnv2Decay,
+					\mollyEnv2Sustain, mollyEnv2Sustain,
+					\mollyEnv2Release, mollyEnv2Release,
+					\mollyAmpMod, mollyAmpMod,
+					\mollyRingModFade, mollyRingModFade,
+					\mollyRingModMix, mollyRingModMix
+				], target: mollyVoiceGroup).onFree({ mollyVoiceList.remove(newVoice); }), gate: 1);
+
+				mollyVoiceList.addFirst(newVoice);
+				mollyLastFreq = freq;
+			});
+		});
+
+		// mollyNoteOff(id)
+		this.addCommand(\mollyNoteOff, "i", { arg msg;
+			var voice = mollyVoiceList.detect{arg v; v.id == msg[1]};
+			if(voice.notNil, {
+				voice.theSynth.set(\gate, 0);
+				voice.gate = 0;
+			});
+		});
+
+		// mollyNoteOffAll()
+		this.addCommand(\mollyNoteOffAll, "", { arg msg;
+			mollyVoiceGroup.set(\gate, 0);
+			mollyVoiceList.do({ arg v; v.gate = 0; });
+		});
+
+		// mollyNoteKill(id)
+		this.addCommand(\mollyNoteKill, "i", { arg msg;
+			var voice = mollyVoiceList.detect{arg v; v.id == msg[1]};
+			if(voice.notNil, {
+				voice.theSynth.set(\gate, 0);
+				voice.theSynth.set(\killGate, 0);
+				mollyVoiceList.remove(voice);
+			});
+		});
+
+		// mollyNoteKillAll()
+		this.addCommand(\mollyNoteKillAll, "", { arg msg;
+			mollyVoiceGroup.set(\gate, 0);
+			mollyVoiceGroup.set(\killGate, 0);
+			mollyVoiceList.clear;
+		});
+
+		// mollyPitchBend(id, ratio)
+		this.addCommand(\mollyPitchBend, "if", { arg msg;
+			var voice = mollyVoiceList.detect{arg v; v.id == msg[1]};
+			if(voice.notNil, {
+				voice.theSynth.set(\mollyPitchBendRatio, msg[2]);
+			});
+		});
+
+		// mollyPitchBendAll(ratio)
+		this.addCommand(\mollyPitchBendAll, "f", { arg msg;
+			mollyPitchBendRatio = msg[1];
+			mollyVoiceGroup.set(\mollyPitchBendRatio, mollyPitchBendRatio);
+		});
+
+		// mollyPressure(id, mollyPressure)
+		this.addCommand(\mollyPressure, "if", { arg msg;
+			var voice = mollyVoiceList.detect{arg v; v.id == msg[1]};
+			if(voice.notNil, {
+				voice.theSynth.set(\mollyPressure, msg[2]);
+			});
+		});
+
+		// mollyPressureAll(mollyPressure)
+		this.addCommand(\mollyPressureAll, "f", { arg msg;
+			mollyChannelPressure = msg[1];
+			mollyVoiceGroup.set(\mollyPressure, mollyChannelPressure);
+		});
+
+		// mollyTimbre(id, mollyTimbre)
+		this.addCommand(\mollyTimbre, "if", { arg msg;
+			var voice = mollyVoiceList.detect{arg v; v.id == msg[1]};
+			if(voice.notNil, {
+				voice.theSynth.set(\mollyTimbre, msg[2]);
+			});
+		});
+
+		// mollyTimbreAll(mollyTimbre)
+		this.addCommand(\mollyTimbreAll, "f", { arg msg;
+			mollyTimbre = msg[1];
+			mollyVoiceGroup.set(\mollyTimbre, mollyTimbre);
+		});
+
+		this.addCommand(\mollyOscWaveShape, "i", { arg msg;
+			mollyOscWaveShape = msg[1];
+			mollyVoiceGroup.set(\mollyOscWaveShape, mollyOscWaveShape);
+		});
+
+		this.addCommand(\mollyPwMod, "f", { arg msg;
+			mollyPwMod = msg[1];
+			mollyVoiceGroup.set(\mollyPwMod, mollyPwMod);
+		});
+
+		this.addCommand(\mollyPwModSource, "i", { arg msg;
+			mollyPwModSource = msg[1];
+			mollyVoiceGroup.set(\mollyPwModSource, mollyPwModSource);
+		});
+
+		this.addCommand(\mollyFreqModLfo, "f", { arg msg;
+			mollyFreqModLfo = msg[1];
+			mollyVoiceGroup.set(\mollyFreqModLfo, mollyFreqModLfo);
+		});
+
+		this.addCommand(\mollyFreqModEnv, "f", { arg msg;
+			mollyFreqModEnv = msg[1];
+			mollyVoiceGroup.set(\mollyFreqModEnv, mollyFreqModEnv);
+		});
+
+		this.addCommand(\mollyGlide, "f", { arg msg;
+			mollyGlide = msg[1];
+			mollyVoiceGroup.set(\mollyGlide, mollyGlide);
+		});
+
+		this.addCommand(\mollyMainOscLevel, "f", { arg msg;
+			mollyMainOscLevel = msg[1];
+			mollyVoiceGroup.set(\mollyMainOscLevel, mollyMainOscLevel);
+		});
+
+		this.addCommand(\mollySubOscLevel, "f", { arg msg;
+			mollySubOscLevel = msg[1];
+			mollyVoiceGroup.set(\mollySubOscLevel, mollySubOscLevel);
+		});
+
+		this.addCommand(\mollySubOscDetune, "f", { arg msg;
+			mollySubOscDetune = msg[1];
+			mollyVoiceGroup.set(\mollySubOscDetune, mollySubOscDetune);
+		});
+
+		this.addCommand(\mollyNoiseLevel, "f", { arg msg;
+			mollyNoiseLevel = msg[1];
+			mollyVoiceGroup.set(\mollyNoiseLevel, mollyNoiseLevel);
+		});
+
+		this.addCommand(\mollyHpFilterCutoff, "f", { arg msg;
+			mollyHpFilterCutoff = msg[1];
+			mollyVoiceGroup.set(\mollyHpFilterCutoff, mollyHpFilterCutoff);
+		});
+
+		this.addCommand(\mollyLpFilterType, "i", { arg msg;
+			mollyLpFilterType = msg[1];
+			mollyVoiceGroup.set(\mollyLpFilterType, mollyLpFilterType);
+		});
+
+		this.addCommand(\mollyLpFilterCutoff, "f", { arg msg;
+			mollyLpFilterCutoff = msg[1];
+			mollyVoiceGroup.set(\mollyLpFilterCutoff, mollyLpFilterCutoff);
+		});
+
+		this.addCommand(\mollyLpFilterResonance, "f", { arg msg;
+			mollyLpFilterResonance = msg[1];
+			mollyVoiceGroup.set(\mollyLpFilterResonance, mollyLpFilterResonance);
+		});
+
+		this.addCommand(\mollyLpFilterCutoffEnvSelect, "i", { arg msg;
+			mollyLpFilterCutoffEnvSelect = msg[1];
+			mollyVoiceGroup.set(\mollyLpFilterCutoffEnvSelect, mollyLpFilterCutoffEnvSelect);
+		});
+
+		this.addCommand(\mollyLpFilterCutoffModEnv, "f", { arg msg;
+			mollyLpFilterCutoffModEnv = msg[1];
+			mollyVoiceGroup.set(\mollyLpFilterCutoffModEnv, mollyLpFilterCutoffModEnv);
+		});
+
+		this.addCommand(\mollyLpFilterCutoffModLfo, "f", { arg msg;
+			mollyLpFilterCutoffModLfo = msg[1];
+			mollyVoiceGroup.set(\mollyLpFilterCutoffModLfo, mollyLpFilterCutoffModLfo);
+		});
+
+		this.addCommand(\mollyLpFilterTracking, "f", { arg msg;
+			mollyLpFilterTracking = msg[1];
+			mollyVoiceGroup.set(\mollyLpFilterTracking, mollyLpFilterTracking);
+		});
+
+		this.addCommand(\mollyLfoFade, "f", { arg msg;
+			mollyLfoFade = msg[1];
+			mollyVoiceGroup.set(\mollyLfoFade, mollyLfoFade);
+		});
+
+		this.addCommand(\mollyEnv1Attack, "f", { arg msg;
+			mollyEnv1Attack = msg[1];
+			mollyVoiceGroup.set(\mollyEnv1Attack, mollyEnv1Attack);
+		});
+
+		this.addCommand(\mollyEnv1Decay, "f", { arg msg;
+			mollyEnv1Decay = msg[1];
+			mollyVoiceGroup.set(\mollyEnv1Decay, mollyEnv1Decay);
+		});
+
+		this.addCommand(\mollyEnv1Sustain, "f", { arg msg;
+			mollyEnv1Sustain = msg[1];
+			mollyVoiceGroup.set(\mollyEnv1Sustain, mollyEnv1Sustain);
+		});
+
+		this.addCommand(\mollyEnv1Release, "f", { arg msg;
+			mollyEnv1Release = msg[1];
+			mollyVoiceGroup.set(\mollyEnv1Release, mollyEnv1Release);
+		});
+
+		this.addCommand(\mollyEnv2Attack, "f", { arg msg;
+			mollyEnv2Attack = msg[1];
+			mollyVoiceGroup.set(\mollyEnv2Attack, mollyEnv2Attack);
+		});
+
+		this.addCommand(\mollyEnv2Decay, "f", { arg msg;
+			mollyEnv2Decay = msg[1];
+			mollyVoiceGroup.set(\mollyEnv2Decay, mollyEnv2Decay);
+		});
+
+		this.addCommand(\mollyEnv2Sustain, "f", { arg msg;
+			mollyEnv2Sustain = msg[1];
+			mollyVoiceGroup.set(\mollyEnv2Sustain, mollyEnv2Sustain);
+		});
+
+		this.addCommand(\mollyEnv2Release, "f", { arg msg;
+			mollyEnv2Release = msg[1];
+			mollyVoiceGroup.set(\mollyEnv2Release, mollyEnv2Release);
+		});
+
+		this.addCommand(\mollyAmpMod, "f", { arg msg;
+			mollyAmpMod = msg[1];
+			mollyVoiceGroup.set(\mollyAmpMod, mollyAmpMod);
+		});
+
+		this.addCommand(\mollyRingModFade, "f", { arg msg;
+			mollyRingModFade = msg[1];
+			mollyVoiceGroup.set(\mollyRingModFade, mollyRingModFade);
+		});
+
+		this.addCommand(\mollyRingModMix, "f", { arg msg;
+			mollyRingModMix = msg[1];
+			mollyVoiceGroup.set(\mollyRingModMix, mollyRingModMix);
+		});
+
+		this.addCommand(\mollyAmp, "f", { arg msg;
+			mollyMixer.set(\mollyAmp, msg[1]);
+		});
+
+		this.addCommand(\mollyChorusMix, "f", { arg msg;
+			mollyMixer.set(\mollyChorusMix, msg[1]);
+		});
+
+		this.addCommand(\mollyLfoFreq, "f", { arg msg;
+			mollyLfo.set(\mollyLfoFreq, msg[1]);
+		});
+
+		this.addCommand(\mollyLfoWaveShape, "i", { arg msg;
+			mollyLfo.set(\mollyLfoWaveShape, msg[1]);
+		});
+
+		this.addCommand(\mollyRingModFreq, "f", { arg msg;
+			mollyLfo.set(\mollyRingModFreq, msg[1]);
+		});
+
+    ///////// END MOLLY THE POLLY SLICE ////////////////////////
+
+
 	}
 
 
@@ -1423,5 +1984,14 @@ Engine_TimberMod : CroneEngine {
 		voiceGroup.free;
 		lfos.free;
 		mixer.free;
+
+    ///////// MOLLY THE POLLY SLICE ////////////////////////
+/*
+		mollyVoiceGroup.free;
+		mollyLfo.free;
+		mollyMixer.free;
+*/
+    ///////// END MOLLY THE POLLY SLICE ////////////////////////
+
 	}
 }
