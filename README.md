@@ -113,6 +113,12 @@ On the norns side we need to run the lua server-side. During dev I do it this wa
   * Been thinking about merging MollyThePolly engine into this one as a big super-engine so that I can do more than weird things to the piano sample. I started doing research on how to do thus but I'm not sure if I'll go for it or not
   * Added clone and merge for loops. Even weirder I added `split` for loops. This does text edit distance to group all of the event-commands into two groups and then moves one group onto another row. That way if you find that you had put too much stuff onto one loop you can automatically break it into to separate loops. I think there is going to be some timing issues, since each loop has it's own clock ... though that could be fixed through a reset() and start() on both at the same time or something like that
   * Another visual thing is the UI lua-pretty-printer now tries to put more on a single line, making looking at loop contents much nicer
+* 2021-12-24
+  * I updated the techniques.lua file and organized it a bit, might record a corresponding video tutorial
+  * It's not committed due to size, but I pulled down more Library of Congress samples to play with and have been practicing slicing and re-sequencing these samples
+  * Just under a week to go before my flashcrash.net performance! I'm in AZ visiting family, dragged what is hopefully all of the essential parts of my streaming setup here and need to find a spot to practice and perform. I did one practice stream to twitch, but need to do a few more
+  * I got Molly The Polly embedded! I think this'll be a good way to get some drone or bassline in there, need to practice it more. Mostly I've been randomizing the praameters until it sounds nice, but I then need to probaby sequence some of the parameters
+  * In general one of the biggest thing I am working on is the dynamics -- parts coming in and out, fading, etc
 
 # Ideas
 
