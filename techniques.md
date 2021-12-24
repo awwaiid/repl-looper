@@ -51,3 +51,14 @@ g:gen("audio.level_dac(`(16-n)/512`)")
 s4 = Sample.new("/home/we/dust/code/repl-looper/audio/excerpts/The-Call-of-the-Polar-Star_fma-115766_001_00-00-01.ogg")
 s4:playMode(2)
 a:gen("s4:startFrame(`29000 * (n-1) * 16`); s4:loopStartFrame(`29000 * (n-1) * 16`); s4:endFrame(`29000 * n * 16`); s4:loopEndFrame(`29000 * n * 16`); s4:play()")
+
+a:gen("s4:startFrame(`29090 * m`); s4:loopStartFrame(`29090 * m`); s4:endFrame(`29090 * n`); s4:loopEndFrame(`29090 * n`); s4:play()")
+
+----
+
+
+files = util.scandir('/home/we/dust/code/repl-looper/audio/musicbox')
+random_file = files[math.random(#files)]
+
+s4 = Sample.new("/home/we/dust/code/repl-looper/audio/" .. random_file)
+
