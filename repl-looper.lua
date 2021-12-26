@@ -933,7 +933,7 @@ function Sample:ampModLfo1(n) self.params.ampModLfo1 = n; engine.ampModLfo1(self
 function Sample:ampModLfo2(n) self.params.ampModLfo2 = n; engine.ampModLfo2(self.id, n) end
 
 function Sample:noteOn(freq, vol, voice)
-  freq = freq or 200
+  freq = freq or 261.625
   vol = vol or 1
   voice = voice or self.id -- TODO: voice management
   engine.noteOn(voice, freq, vol, self.id)
