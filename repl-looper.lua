@@ -144,9 +144,14 @@ function Loop.new(init)
   return self
 end
 
+function Loop:get_current_step(t)
+  t = t or self.lattice.transport
+  return (math.floor(t / self.lattice.ppqn) % self.loop_length_qn) + 1
+end
+
 function Loop:send_status(t)
   t = t or 0
-  self.current_step = (math.floor(t / self.lattice.ppqn) % self.loop_length_qn) + 1
+  self.current_step = self:get_current_step(t)
   self:draw_grid_row()
 
   messageFromServer {
@@ -218,6 +223,14 @@ function Loop:update_lattice()
   for _, event in ipairs(self.events) do
     self:update_event(event)
   end
+end
+
+function Loop:setStep(step)
+  step = step or 1
+  step = step - 1
+  step = step % self.loop_length_qn
+  self.lattice.transport = step * self.lattice.ppqn
+  self:update_lattice()
 end
 
 function Loop:remove_event(event_to_remove)
@@ -369,6 +382,20 @@ function Loop:rec()
   self.lattice:start()
 end
 
+-- Record to one step and then go to the next
+-- This is good for thoughtful recording and macro recording
+function Loop:stepRec()
+  self.mode = "start_recording_step"
+end
+
+function Loop:nextStep()
+  self:setStep(self:get_current_step() + 1)
+end
+
+function Loop:prevStep()
+  self:setStep(self:get_current_step() - 1)
+end
+
 function Loop:add_event_command(cmd)
   local event = Event.new({
     pulse = self.lattice.transport,
@@ -462,6 +489,31 @@ function Loop:gen(code_string, condition, mod_base)
     end
   end
   self:draw_grid_row()
+end
+
+
+function Loop:slice(sample_name, step_offset, width)
+  step_offset = step_offset or 1
+  width = width or 29090
+
+  local sample = eval(sample_name)
+  local frame_offset = (step_offset - 1) * width
+  local slice_start = width .. "* m + " .. frame_offset
+  local slice_end = width .. "* n + " .. frame_offset
+
+  -- If this is less than a whole loop, cut the loop length
+  local step_count = math.floor((sample:info().num_frames - frame_offset) / width)
+  if step_count < 16 then
+    self:set_length(step_count)
+  end
+
+  self:gen(
+       sample_name .. ":startFrame(`" .. slice_start .. "`);"
+    .. sample_name .. ":loopStartFrame(`" .. slice_start .. "`);"
+    .. sample_name .. ":loopEndFrame(`" .. slice_end .. "`);"
+    .. sample_name .. ":endFrame(`" .. slice_end .. "`);"
+    .. sample_name .. ":play()"
+  )
 end
 
 function Loop:clear()
@@ -704,15 +756,22 @@ function live_event(command, from_playing_loop)
         loop.mode = "stopped_recording"
       end
 
-      if loop.mode == "recording" then
+      if loop.mode == "recording" or loop.mode == "recording_step" then
         if not from_playing_loop or loop.record_feedback then
           loop:add_event_command(command)
+          if loop.mode == "recording_step" then
+            loop:nextStep()
+          end
         end
       end
 
       -- Don't record the "rec" command
       if loop.mode == "start_recording" then
         loop.mode = "recording"
+      end
+
+      if loop.mode == "start_recording_step" then
+        loop.mode = "recording_step"
       end
     end
 
@@ -817,7 +876,6 @@ function Sample.new(filename, play_mode)
   self.id = Sample.next_id
   Sample.next_id = Sample.next_id + 1
 
-
   if filename then
     self:load_sample(filename)
   end
@@ -895,6 +953,14 @@ end
 
 function Sample:info()
   return TimberMod.samples_meta[self.id]
+end
+
+function Sample:position()
+  return self:info().positions[self.id]
+end
+
+function Sample:framePosition()
+  return self:position() * 48000
 end
 
 function Sample:reverse()
