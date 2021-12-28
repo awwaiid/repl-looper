@@ -119,6 +119,9 @@ On the norns side we need to run the lua server-side. During dev I do it this wa
   * Just under a week to go before my flashcrash.net performance! I'm in AZ visiting family, dragged what is hopefully all of the essential parts of my streaming setup here and need to find a spot to practice and perform. I did one practice stream to twitch, but need to do a few more
   * I got Molly The Polly embedded! I think this'll be a good way to get some drone or bassline in there, need to practice it more. Mostly I've been randomizing the praameters until it sounds nice, but I then need to probaby sequence some of the parameters
   * In general one of the biggest thing I am working on is the dynamics -- parts coming in and out, fading, etc
+* 2021-12-27 <img src="docs/20211227-demo-running.gif" align="right" width="50%" border=1 />
+  * Getting ready for flashcrash.net!
+  * I found some good samples from [Library of Congress Citizen DJ Project](https://citizen-dj.labs.loc.gov/), along with some slicing shortcuts
 
 # Ideas
 
