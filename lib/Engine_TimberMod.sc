@@ -90,6 +90,10 @@ Engine_TimberMod : CroneEngine {
 
   ///////// END MOLLY THE POLY SLICE ////////////////////////
 
+  var synSample;
+  var bufSample;
+  var mainBus;
+
 	*new { arg context, doneCallback;
 		^super.new(context, doneCallback);
 	}
@@ -227,7 +231,7 @@ Engine_TimberMod : CroneEngine {
 					phase > lastFrame
 				]));
 
-				SendReply.kr(trig: Impulse.kr(15), cmdName: '/replyPlayPosition', values: [sampleId, voiceId, (phase / numFrames).clip]);
+				// SendReply.kr(trig: Impulse.kr(15), cmdName: '/replyPlayPosition', values: [sampleId, voiceId, (phase / numFrames).clip]);
 
 				signal = BufRd.ar(numChannels: i + 1, bufnum: bufnum, phase: phase, interpolation: 4);
 
@@ -289,7 +293,7 @@ Engine_TimberMod : CroneEngine {
 				progress = Sweep.ar(1, SampleRate.ir * rate) + i_lockedStartFrame;
 				progress = Select.ar(loopEnabled, [progress.clip(0, endFrame), progress.wrap(0, numFrames)]);
 
-				SendReply.kr(trig: Impulse.kr(15), cmdName: '/replyPlayPosition', values: [sampleId, voiceId, progress / numFrames]);
+				// SendReply.kr(trig: Impulse.kr(15), cmdName: '/replyPlayPosition', values: [sampleId, voiceId, progress / numFrames]);
 
 				// Ducking
 				// Note: There will be some inaccuracies with the length of the duck for really long samples but tested fine at 1hr
@@ -957,6 +961,133 @@ Engine_TimberMod : CroneEngine {
 		});
 
     ///////// END MOLLY THE POLY SLICE ////////////////////////
+
+
+    //////// SAMPLER THING //////
+		bufSample=Dictionary.new(8);
+		synSample=Dictionary.new(8);
+
+    mainBus=Bus.audio(context.server,2);
+
+		SynthDef("defSampler", {
+			arg out=0, amp=0,bufnum=0, rate=1, start=0, end=1, reset=0, t_trig=0,
+			loops=1, pan=0, ampLag=6;
+			var snd,snd2,pos,pos2,frames,duration,env,finalsnd;
+			var startA,endA,startB,endB,resetA,resetB,crossfade,aOrB;
+
+			// latch to change trigger between the two
+			amp=Lag.kr(amp,ampLag);
+			aOrB=ToggleFF.kr(t_trig);
+			startA=Latch.kr(start,aOrB);
+			endA=Latch.kr(end,aOrB);
+			resetA=Latch.kr(reset,aOrB);
+			startB=Latch.kr(start,1-aOrB);
+			endB=Latch.kr(end,1-aOrB);
+			resetB=Latch.kr(reset,1-aOrB);
+			crossfade=Lag.ar(K2A.ar(aOrB),0.05);
+
+
+			rate = rate*BufRateScale.kr(bufnum);
+			frames = BufFrames.kr(bufnum);
+			duration = frames*(end-start)/rate.abs/context.server.sampleRate*loops;
+
+			// envelope to clamp looping
+			env=EnvGen.ar(
+				Env.new(
+					levels: [0,1,1,0],
+					times: [0,duration-0.05,0.05],
+				),
+				gate:t_trig,
+			);
+
+			pos=Phasor.ar(
+				trig:aOrB,
+				rate:rate,
+				start:(((rate>0)*startA)+((rate<0)*endA))*frames,
+				end:(((rate>0)*endA)+((rate<0)*startA))*frames,
+				resetPos:(((rate>0)*resetA)+((rate<0)*endA))*frames,
+			);
+			snd=BufRd.ar(
+				numChannels:2,
+				bufnum:bufnum,
+				phase:pos,
+				interpolation:4,
+			);
+
+			// add a second reader
+			pos2=Phasor.ar(
+				trig:(1-aOrB),
+				rate:rate,
+				start:(((rate>0)*startB)+((rate<0)*endB))*frames,
+				end:(((rate>0)*endB)+((rate<0)*startB))*frames,
+				resetPos:(((rate>0)*resetB)+((rate<0)*endB))*frames,
+			);
+			snd2=BufRd.ar(
+				numChannels:2,
+				bufnum:bufnum,
+				phase:pos2,
+				interpolation:4,
+			);
+
+			finalsnd=(crossfade*snd)+((1-crossfade)*snd2) * env;
+			Out.ar(out,Balance2.ar(finalsnd[0],finalsnd[1],-1*pan,amp))
+		}).add;
+
+
+		this.addCommand("wav","is", { arg msg;
+			if (bufSample.at(msg[1])==nil,{
+			},{
+				bufSample.at(msg[1]).free;
+			});
+			Buffer.read(context.server,msg[2],action:{
+				arg bufnum;
+				("loaded "++msg[2]++" into slot "++msg[1]).postln;
+				bufSample.put(msg[1],bufnum);
+				if (synSample.at(msg[1])==nil,{
+					synSample.put(msg[1],Synth("defSampler",[
+						\out,mainBus.index,
+						\bufnum,bufnum,
+						\t_trig,1,\reset,0,\start,0,\end,1,\rate,1,\loops,1000
+					],target:context.server));
+				},{
+					synSample.at(msg[1]).set(\bufnum,bufnum);
+				});
+			});                       
+		});
+
+		this.addCommand("samplerAmp","iff", { arg msg;
+			synSample.at(msg[1]).set(\ampLag,msg[3],\amp,msg[2])
+		});        
+
+		this.addCommand("samplerAmpLag","if", { arg msg;
+			synSample.at(msg[1]).set(\ampLag,msg[2])
+		});
+
+		this.addCommand("samplerRelease","i", { arg msg;
+			synSample.at(msg[1]).free;
+			synSample.removeAt(msg[1]);
+			bufSample.at(msg[1]).free;
+			bufSample.removeAt(msg[1]);
+		});
+
+		this.addCommand("samplerPan","if", { arg msg;
+			synSample.at(msg[1]).set(\pan,msg[2])
+		});
+
+		this.addCommand("samplerRate","if", { arg msg;
+			synSample.at(msg[1]).set(\rate,msg[2])
+		});
+
+		this.addCommand("samplerPos","iff", {arg msg;
+			synSample.at(msg[1]).set(\t_trig,1,\reset,msg[2],\start,0,\end,1,\rate,msg[3]);
+		});
+
+		this.addCommand("samplerLoop","iff", {arg msg;
+			synSample.at(msg[1]).set(\t_trig,1,\start,msg[2],\reset,msg[2],\end,msg[3]);
+		});
+
+    //////// END SAMPLER THING //////
+
 
 
 	}
@@ -1992,6 +2123,10 @@ Engine_TimberMod : CroneEngine {
 		mollyMixer.free;
 
     ///////// END MOLLY THE POLY SLICE ////////////////////////
+  
+    // Sampler thing
+    synSample.keysValuesDo({ arg key, value; value.free; });
+		bufSample.keysValuesDo({ arg key, value; value.free; });
 
 	}
 }
