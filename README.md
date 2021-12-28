@@ -154,3 +154,5 @@ On the norns side we need to run the lua server-side. During dev I do it this wa
 * Everyone on [lines (llllllll.co)](https://llllllll.co) for being awesome
 * [Hoelzro for lua-repl](https://github.com/hoelzro/lua-repl) from which I've adopted bits
 * [Ensequence for js2lua (MIT, embedded)](https://github.com/Ensequence/js2lua)
+* [markwheeler](https://github.com/markwheeler) for [Timber](https://github.com/markwheeler/timber) and [Molly The Poly](https://github.com/markwheeler/molly_the_poly) which I've embedded
+* [Library of Congress Citizen DJ Project](https://citizen-dj.labs.loc.gov/), both inspirational and a source of samples I've been playing with
