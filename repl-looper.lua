@@ -13,12 +13,8 @@ if not string.find(package.cpath, "/home/we/dust/code/repl-looper/lib/", 1, true
 end
 
 json = require("cjson")
--- json = require("lib/dkjson")
 lattice = require("lattice")
-
--- Global Grid
-grid_device = grid.connect()
-
+MusicUtil = require "musicutil"
 
 ---------------------------------------------------------------------
 -- Loop-related objects ---------------------------------------------
@@ -185,7 +181,7 @@ function Loop:loop_length_pulse()
   return self.loop_length_qn * self.lattice.ppqn
 end
 
-function Loop:set_length(qn)
+function Loop:setLength(qn)
   self.loop_length_qn = qn
   self:update_lattice()
 end
@@ -231,6 +227,7 @@ function Loop:setStep(step)
   step = step % self.loop_length_qn
   self.lattice.transport = step * self.lattice.ppqn
   self:update_lattice()
+  self:draw_grid_row()
 end
 
 function Loop:remove_event(event_to_remove)
@@ -492,28 +489,31 @@ function Loop:gen(code_string, condition, mod_base)
 end
 
 
-function Loop:slice(sample_name, step_offset, width)
+function Loop:slice(sample_name, step_offset, step_count, width)
   step_offset = step_offset or 1
-  width = width or 29090
+  width = width or (48000 / (self:qn_per_ms() * 1000)) -- 29090
 
   local sample = eval(sample_name)
   local frame_offset = (step_offset - 1) * width
   local slice_start = width .. "* m + " .. frame_offset
-  local slice_end = width .. "* n + " .. frame_offset
+  local slice_end = width .. "* n + " .. (frame_offset + 10)
 
   -- If this is less than a whole loop, cut the loop length
-  local step_count = math.floor((sample:info().num_frames - frame_offset) / width)
+  step_count = step_count or math.floor((sample:info().num_frames - frame_offset) / width)
   if step_count < 16 then
-    self:set_length(step_count)
+    self:setLength(step_count)
   end
 
-  self:gen(
-       sample_name .. ":startFrame(`" .. slice_start .. "`);"
-    .. sample_name .. ":loopStartFrame(`" .. slice_start .. "`);"
-    .. sample_name .. ":loopEndFrame(`" .. slice_end .. "`);"
-    .. sample_name .. ":endFrame(`" .. slice_end .. "`);"
-    .. sample_name .. ":play()"
-  )
+  -- self:gen(sample_name.. ":loopFrames(`" .. slice_start .. "`, `" .. slice_end .. "`)")
+  self:gen(sample_name.. ":play(`" .. slice_start .. "`, `" .. slice_end .. "`)")
+
+  -- self:gen(
+  --      sample_name .. ":startFrame(`" .. slice_start .. "`);"
+  --   .. sample_name .. ":loopStartFrame(`" .. slice_start .. "`);"
+  --   .. sample_name .. ":loopEndFrame(`" .. slice_end .. "`);"
+  --   .. sample_name .. ":endFrame(`" .. slice_end .. "`);"
+  --   .. sample_name .. ":play()"
+  -- )
 end
 
 function Loop:clear()
@@ -619,7 +619,7 @@ end
 grid_mode = "one-shot"
 local grid_data = {}
 
-grid_device.key = function(col, row, state)
+function handle_grid_key(col, row, state)
   if state == 0 then
     return
   end
@@ -812,14 +812,8 @@ end
 TimberMod = include("repl-looper/lib/timbermod_engine")
 MollyThePoly = include("repl-looper/lib/molly_the_poly_engine")
 
-engine.load('TimberMod')
+-- engine.load('TimberMod')
 engine.name = "TimberMod"
-
-MollyThePoly.add_params()
-params:add_separator()
-TimberMod.add_params() -- Add the general params
-
-MusicUtil = require "musicutil"
 
 -- Reverse note name -> num lookup
 note_name_num = {}
@@ -863,18 +857,22 @@ function p(note, voice_id, sample_id)
   engine.noteOn(voice_id, freq, 1, sample_id)
 end
 
-Sample = {}
-Sample.__index = Sample
-Sample.next_id = 0
+---------------------------------------------------------------------
+-- Timber! ----------------------------------------------------------
+---------------------------------------------------------------------
 
-function Sample.new(filename, play_mode)
+Timber = {}
+Timber.__index = Timber
+Timber.next_id = 0
+
+function Timber.new(filename, play_mode)
   local self = {
     params = {}
   }
-  setmetatable(self, Sample)
+  setmetatable(self, Timber)
 
-  self.id = Sample.next_id
-  Sample.next_id = Sample.next_id + 1
+  self.id = Timber.next_id
+  Timber.next_id = Timber.next_id + 1
 
   if filename then
     self:load_sample(filename)
@@ -890,90 +888,90 @@ function Sample.new(filename, play_mode)
 end
 
 -- Control a sample from Timber
-function Sample:pitchBend(n) self.params.pitchBend = n; engine.pitchBendSample(self.id, n) end
-function Sample:pressure(n) self.params.pressure = n; engine.pressureSample(self.id, n) end
-function Sample:transpose(n) self.params.transpose = n; engine.transpose(self.id, n) end
-function Sample:detuneCents(n) self.params.detuneCents = n; engine.detuneCents(self.id, n) end
-function Sample:startFrame(n) self.params.startFrame = n; engine.startFrame(self.id, n) end
-function Sample:endFrame(n) self.params.endFrame = n; engine.endFrame(self.id, n) end
-function Sample:playMode(n) self.params.playMode = n; engine.playMode(self.id, n) end
-function Sample:loopStartFrame(n) self.params.loopStartFrame = n; engine.loopStartFrame(self.id, n) end
-function Sample:loopEndFrame(n) self.params.loopEndFrame = n; engine.loopEndFrame(self.id, n) end
-function Sample:lfo1Fade(n) self.params.lfo1Fade = n; engine.lfo1Fade(self.id, n) end
-function Sample:lfo2Fade(n) self.params.lfo2Fade = n; engine.lfo2Fade(self.id, n) end
-function Sample:freqModLfo1(n) self.params.freqModLfo1 = n; engine.freqModLfo1(self.id, n) end
-function Sample:freqModLfo2(n) self.params.freqModLfo2 = n; engine.freqModLfo2(self.id, n) end
-function Sample:freqModEnv(n) self.params.freqModEnv = n; engine.freqModEnv(self.id, n) end
-function Sample:freqMultiplier(n) self.params.freqMultiplier = n; engine.freqMultiplier(self.id, n) end
-function Sample:ampAttack(n) self.params.ampAttack = n; engine.ampAttack(self.id, n) end
-function Sample:ampDecay(n) self.params.ampDecay = n; engine.ampDecay(self.id, n) end
-function Sample:ampSustain(n) self.params.ampSustain = n; engine.ampSustain(self.id, n) end
-function Sample:ampRelease(n) self.params.ampRelease = n; engine.ampRelease(self.id, n) end
-function Sample:modAttack(n) self.params.modAttack = n; engine.modAttack(self.id, n) end
-function Sample:modDecay(n) self.params.modDecay = n; engine.modDecay(self.id, n) end
-function Sample:modSustain(n) self.params.modSustain = n; engine.modSustain(self.id, n) end
-function Sample:modRelease(n) self.params.modRelease = n; engine.modRelease(self.id, n) end
-function Sample:downSampleTo(n) self.params.downSampleTo = n; engine.downSampleTo(self.id, n) end
-function Sample:bitDepth(n) self.params.bitDepth = n; engine.bitDepth(self.id, n) end
-function Sample:filterFreq(n) self.params.filterFreq = n; engine.filterFreq(self.id, n) end
-function Sample:filterReso(n) self.params.filterReso = n; engine.filterReso(self.id, n) end
-function Sample:filterType(n) self.params.filterType = n; engine.filterType(self.id, n) end
-function Sample:filterTracking(n) self.params.filterTracking = n; engine.filterTracking(self.id, n) end
-function Sample:filterFreqModLfo1(n) self.params.filterFreqModLfo1 = n; engine.filterFreqModLfo1(self.id, n) end
-function Sample:filterFreqModLfo2(n) self.params.filterFreqModLfo2 = n; engine.filterFreqModLfo2(self.id, n) end
-function Sample:filterFreqModEnv(n) self.params.filterFreqModEnv = n; engine.filterFreqModEnv(self.id, n) end
-function Sample:filterFreqModVel(n) self.params.filterFreqModVel = n; engine.filterFreqModVel(self.id, n) end
-function Sample:filterFreqModPressure(n) self.params.filterFreqModPressure = n; engine.filterFreqModPressure(self.id, n) end
-function Sample:pan(n) self.params.pan = n; engine.pan(self.id, n) end
-function Sample:panModLfo1(n) self.params.panModLfo1 = n; engine.panModLfo1(self.id, n) end
-function Sample:panModLfo2(n) self.params.panModLfo2 = n; engine.panModLfo2(self.id, n) end
-function Sample:panModEnv(n) self.params.panModEnv = n; engine.panModEnv(self.id, n) end
-function Sample:amp(n) self.params.amp = n; engine.amp(self.id, n) end
-function Sample:ampModLfo1(n) self.params.ampModLfo1 = n; engine.ampModLfo1(self.id, n) end
-function Sample:ampModLfo2(n) self.params.ampModLfo2 = n; engine.ampModLfo2(self.id, n) end
+function Timber:pitchBend(n) self.params.pitchBend = n; engine.pitchBendSample(self.id, n) end
+function Timber:pressure(n) self.params.pressure = n; engine.pressureSample(self.id, n) end
+function Timber:transpose(n) self.params.transpose = n; engine.transpose(self.id, n) end
+function Timber:detuneCents(n) self.params.detuneCents = n; engine.detuneCents(self.id, n) end
+function Timber:startFrame(n) self.params.startFrame = n; engine.startFrame(self.id, n) end
+function Timber:endFrame(n) self.params.endFrame = n; engine.endFrame(self.id, n) end
+function Timber:playMode(n) self.params.playMode = n; engine.playMode(self.id, n) end
+function Timber:loopStartFrame(n) self.params.loopStartFrame = n; engine.loopStartFrame(self.id, n) end
+function Timber:loopEndFrame(n) self.params.loopEndFrame = n; engine.loopEndFrame(self.id, n) end
+function Timber:lfo1Fade(n) self.params.lfo1Fade = n; engine.lfo1Fade(self.id, n) end
+function Timber:lfo2Fade(n) self.params.lfo2Fade = n; engine.lfo2Fade(self.id, n) end
+function Timber:freqModLfo1(n) self.params.freqModLfo1 = n; engine.freqModLfo1(self.id, n) end
+function Timber:freqModLfo2(n) self.params.freqModLfo2 = n; engine.freqModLfo2(self.id, n) end
+function Timber:freqModEnv(n) self.params.freqModEnv = n; engine.freqModEnv(self.id, n) end
+function Timber:freqMultiplier(n) self.params.freqMultiplier = n; engine.freqMultiplier(self.id, n) end
+function Timber:ampAttack(n) self.params.ampAttack = n; engine.ampAttack(self.id, n) end
+function Timber:ampDecay(n) self.params.ampDecay = n; engine.ampDecay(self.id, n) end
+function Timber:ampSustain(n) self.params.ampSustain = n; engine.ampSustain(self.id, n) end
+function Timber:ampRelease(n) self.params.ampRelease = n; engine.ampRelease(self.id, n) end
+function Timber:modAttack(n) self.params.modAttack = n; engine.modAttack(self.id, n) end
+function Timber:modDecay(n) self.params.modDecay = n; engine.modDecay(self.id, n) end
+function Timber:modSustain(n) self.params.modSustain = n; engine.modSustain(self.id, n) end
+function Timber:modRelease(n) self.params.modRelease = n; engine.modRelease(self.id, n) end
+function Timber:downSampleTo(n) self.params.downSampleTo = n; engine.downSampleTo(self.id, n) end
+function Timber:bitDepth(n) self.params.bitDepth = n; engine.bitDepth(self.id, n) end
+function Timber:filterFreq(n) self.params.filterFreq = n; engine.filterFreq(self.id, n) end
+function Timber:filterReso(n) self.params.filterReso = n; engine.filterReso(self.id, n) end
+function Timber:filterType(n) self.params.filterType = n; engine.filterType(self.id, n) end
+function Timber:filterTracking(n) self.params.filterTracking = n; engine.filterTracking(self.id, n) end
+function Timber:filterFreqModLfo1(n) self.params.filterFreqModLfo1 = n; engine.filterFreqModLfo1(self.id, n) end
+function Timber:filterFreqModLfo2(n) self.params.filterFreqModLfo2 = n; engine.filterFreqModLfo2(self.id, n) end
+function Timber:filterFreqModEnv(n) self.params.filterFreqModEnv = n; engine.filterFreqModEnv(self.id, n) end
+function Timber:filterFreqModVel(n) self.params.filterFreqModVel = n; engine.filterFreqModVel(self.id, n) end
+function Timber:filterFreqModPressure(n) self.params.filterFreqModPressure = n; engine.filterFreqModPressure(self.id, n) end
+function Timber:pan(n) self.params.pan = n; engine.pan(self.id, n) end
+function Timber:panModLfo1(n) self.params.panModLfo1 = n; engine.panModLfo1(self.id, n) end
+function Timber:panModLfo2(n) self.params.panModLfo2 = n; engine.panModLfo2(self.id, n) end
+function Timber:panModEnv(n) self.params.panModEnv = n; engine.panModEnv(self.id, n) end
+function Timber:amp(n) self.params.amp = n; engine.amp(self.id, n) end
+function Timber:ampModLfo1(n) self.params.ampModLfo1 = n; engine.ampModLfo1(self.id, n) end
+function Timber:ampModLfo2(n) self.params.ampModLfo2 = n; engine.ampModLfo2(self.id, n) end
 
-function Sample:noteOn(freq, vol, voice)
+function Timber:noteOn(freq, vol, voice)
   freq = freq or 261.625
   vol = vol or 1
   voice = voice or self.id -- TODO: voice management
   engine.noteOn(voice, freq, vol, self.id)
 end
 
-function Sample:play() self:noteOn() end
-function Sample:stop() self:noteOff() end
+function Timber:play() self:noteOn() end
+function Timber:stop() self:noteOff() end
 
-function Sample:noteOff() engine.noteOff(self.id) end
-function Sample:noteKill() engine.noteKill(self.id) end
+function Timber:noteOff() engine.noteOff(self.id) end
+function Timber:noteKill() engine.noteKill(self.id) end
 
-function Sample:load_sample(filename)
+function Timber:load_sample(filename)
   TimberMod.add_sample_params(self.id)
   TimberMod.load_sample(self.id, filename)
   self.sample_filename = filename
 end
 
-function Sample:info()
+function Timber:info()
   return TimberMod.samples_meta[self.id]
 end
 
-function Sample:position()
+function Timber:position()
   return self:info().positions[self.id]
 end
 
-function Sample:framePosition()
+function Timber:framePosition()
   return self:position() * 48000
 end
 
-function Sample:reverse()
+function Timber:reverse()
   self:startFrame(self:info().num_frames - 1)
   self:endFrame(0)
 end
 
-function Sample:forward()
+function Timber:forward()
   self:startFrame(0)
   self:endFrame(self:info().num_frames - 1)
 end
 
-function Sample:note(note)
+function Timber:note(note)
   local voice_id = self.id
   local sample_id = self.id
   local note = note or 60
@@ -1001,6 +999,9 @@ function Sample:note(note)
   engine.noteOn(voice_id, freq, 1, sample_id)
 end
 
+---------------------------------------------------------------------
+-- Molly The Poly wrapper! ------------------------------------------
+---------------------------------------------------------------------
 
 Molly = {}
 Molly.__index = Molly
@@ -1116,57 +1117,135 @@ end
 function Molly:play() self:note() end
 function Molly:stop() self:noteOff() end
 
--- One global molly to start with
-molly = Molly.new()
 
 ---------------------------------------------------------------------
--- Load up and mess with some samples for performance ---------------
+-- Sample player based on GoldenEye ---------------------------------
 ---------------------------------------------------------------------
 
-piano = Sample.new("/home/we/dust/code/timber/audio/piano-c.wav")
+Sample = {}
+Sample.__index = Sample
+Sample.next_id = 0
 
-s808 = {}
+function Sample.new(filename, play_mode)
+  local self = {
+    params = {},
+    filename = filename,
+    loops = 100000,
+    ampLevel = 1,
+    ampLag = 0,
+    playRate = 1,
+    loop = 1
+  }
+  setmetatable(self, Sample)
 
-s808.BD = Sample.new("/home/we/dust/audio/common/808/808-BD.wav", "one-shot")
-s808.CH = Sample.new("/home/we/dust/audio/common/808/808-CH.wav", "one-shot")
-s808.CY = Sample.new("/home/we/dust/audio/common/808/808-CY.wav", "one-shot")
-s808.LC = Sample.new("/home/we/dust/audio/common/808/808-LC.wav", "one-shot")
-s808.MC = Sample.new("/home/we/dust/audio/common/808/808-MC.wav", "one-shot")
-s808.RS = Sample.new("/home/we/dust/audio/common/808/808-RS.wav", "one-shot")
-s808.BS = Sample.new("/home/we/dust/audio/common/808/808-BS.wav", "one-shot")
-s808.CL = Sample.new("/home/we/dust/audio/common/808/808-CL.wav", "one-shot")
-s808.HC = Sample.new("/home/we/dust/audio/common/808/808-HC.wav", "one-shot")
-s808.LT = Sample.new("/home/we/dust/audio/common/808/808-LT.wav", "one-shot")
-s808.MT = Sample.new("/home/we/dust/audio/common/808/808-MT.wav", "one-shot")
-s808.SD = Sample.new("/home/we/dust/audio/common/808/808-SD.wav", "one-shot")
-s808.CB = Sample.new("/home/we/dust/audio/common/808/808-CB.wav", "one-shot")
-s808.CP = Sample.new("/home/we/dust/audio/common/808/808-CP.wav", "one-shot")
-s808.HT = Sample.new("/home/we/dust/audio/common/808/808-HT.wav", "one-shot")
-s808.MA = Sample.new("/home/we/dust/audio/common/808/808-MA.wav", "one-shot")
-s808.OH = Sample.new("/home/we/dust/audio/common/808/808-OH.wav", "one-shot")
+  self.id = Sample.next_id
+  Sample.next_id = Sample.next_id + 1
 
--- Handy shortcuts
-function BD() s808.BD:noteOn() end
-function BD() s808.BD:noteOn() end
-function CH() s808.CH:noteOn() end
-function CY() s808.CY:noteOn() end
-function LC() s808.LC:noteOn() end
-function MC() s808.MC:noteOn() end
-function RS() s808.RS:noteOn() end
-function BS() s808.BS:noteOn() end
-function CL() s808.CL:noteOn() end
-function HC() s808.HC:noteOn() end
-function LT() s808.LT:noteOn() end
-function MT() s808.MT:noteOn() end
-function SD() s808.SD:noteOn() end
-function CB() s808.CB:noteOn() end
-function CP() s808.CP:noteOn() end
-function HT() s808.HT:noteOn() end
-function MA() s808.MA:noteOn() end
-function OH() s808.OH:noteOn() end
+  if play_mode then
+    if play_mode == "one-shot" then
+      self.loops = 1
+    end
+  end
 
--- s4 = Sample.new("/home/we/dust/code/repl-looper/audio/excerpts/The-Call-of-the-Polar-Star_fma-115766_001_00-00-01.ogg")
-s3 = Sample.new("/home/we/dust/code/repl-looper/audio/one_shots/The-Call-of-the-Polar-Star_fma-115766_001_00-00-01.ogg")
+  -- Load it once to get the number of frames
+  -- Runs as a 0-amp so doesn't make sound
+  engine.goldeneyePlay(
+    self.id,
+    self.filename,
+    0, -- amp
+    0, -- ampLag
+    0, --sampleStart (0..1)
+    1, -- sampleEnd (0..1)
+    0, -- loop?
+    1, -- rate (0..1)
+    1 -- t_trig
+  )
+
+  return self
+end
+
+function Sample:play(startFrame, endFrame)
+  startFrame = startFrame or 0
+  endFrame = endFrame or self:info().num_frames
+
+  startAt = self:frame_to_fraction(startFrame)
+  endAt = self:frame_to_fraction(endFrame)
+
+  engine.goldeneyePlay(
+    self.id,
+    self.filename,
+    self.ampLevel, -- amp
+    self.ampLag, -- ampLag
+    startAt, --sampleStart (0..1)
+    endAt, -- sampleEnd (0..1)
+    self.loops, -- loop?
+    self.playRate, -- rate (0..1)
+    1 -- t_trig
+  )
+end
+
+function Sample:amp(ampLevel, ampLag)
+  self.ampLevel = ampLevel or self.ampLevel
+  self.ampLag = ampLag or self.ampLag
+  engine.goldeneyeAmp(self.id, self.ampLevel, self.ampLag)
+end
+
+function Sample:pan(pan)
+  engine.samplerPan(self.id, pan)
+end
+
+function Sample:rate(playRate)
+  self.playRate = playRate or self.playRate
+  engine.goldeneyeRate(self.id, self.playRate)
+end
+
+function Sample:pos(pos, rate)
+  rate = rate or 1
+  engine.samplerPos(self.id, pos, rate)
+end
+
+function Sample:loop(startAt, endAt, times)
+  startAt = startAt or 0
+  endAt = endAt or 1
+  times = times or self.loops
+  engine.samplerLoop(self.id, startAt, endAt, times)
+end
+
+function Sample:loopFrames(startAt, endAt, times)
+  startAt = self:frame_to_fraction(startAt)
+  endAt = self:frame_to_fraction(endAt)
+  times = times or 100000
+  engine.samplerLoop(self.id, startAt, endAt, times)
+end
+
+-- function Sample:play()
+--   self:pos(0)
+--   self:amp(1, 0)
+-- end
+
+function Sample:stop()
+  engine.goldeneyeAmp(self.id, 0, self.ampLag)
+end
+
+function Sample:info()
+  return TimberMod.goldeneye_meta[self.id]
+end
+
+function Sample:frame_to_fraction(frame)
+  return frame / self:info().num_frames
+end
+
+function Sample:startFrame(frame)
+  engine.samplerStart(self.id, self:frame_to_fraction(frame) )
+end
+
+function Sample:endFrame(frame)
+  engine.samplerEnd(self.id, self:frame_to_fraction(frame) )
+end
+
+---------------------------------------------------------------------
+-- Helper functions -------------------------------------------------
+---------------------------------------------------------------------
 
 function tabkeys(tab)
   local keyset={}
@@ -1183,22 +1262,67 @@ function ls(o)
   return tabkeys(getmetatable(o))
 end
 
--- this.addCommand(\generateWaveform, "i", {
--- this.addCommand(\noteOffAll, "", {
--- this.addCommand(\noteKillAll, "", {
--- this.addCommand(\pitchBendVoice, "if", {
--- this.addCommand(\pitchBendAll, "f", {
--- this.addCommand(\pressureVoice, "if", {
--- this.addCommand(\pressureAll, "f", {
 
--- this.addCommand(\lfo1Freq, "f", { arg msg;
--- this.addCommand(\lfo1WaveShape, "i", { arg msg;
--- this.addCommand(\lfo2Freq, "f", { arg msg;
--- this.addCommand(\lfo2WaveShape, "i", { arg msg;
+---------------------------------------------------------------------
+-- Load up and mess with some samples for performance ---------------
+---------------------------------------------------------------------
 
--- this.addCommand(\loadSample, "is", {
--- this.addCommand(\clearSamples, "ii", {
--- this.addCommand(\moveSample, "ii", {
--- this.addCommand(\copySample, "iii", {
--- this.addCommand(\copyParams, "iii", {
+function init()
+
+  -- Global Grid
+  grid_device = grid.connect()
+  grid_device.key = handle_grid_key
+
+  -- Set up params
+  MollyThePoly.add_params()
+  params:add_separator()
+  TimberMod.add_params()
+
+  -- One global molly to start with
+  molly = Molly.new()
+
+  -- A lovely piano via timber
+  piano = Timber.new("/home/we/dust/code/timber/audio/piano-c.wav")
+
+  -- Kick out the jams
+  s808 = {}
+  s808.BD = Sample.new("/home/we/dust/audio/common/808/808-BD.wav", "one-shot")
+  s808.CH = Sample.new("/home/we/dust/audio/common/808/808-CH.wav", "one-shot")
+  s808.CY = Sample.new("/home/we/dust/audio/common/808/808-CY.wav", "one-shot")
+  s808.LC = Sample.new("/home/we/dust/audio/common/808/808-LC.wav", "one-shot")
+  s808.MC = Sample.new("/home/we/dust/audio/common/808/808-MC.wav", "one-shot")
+  s808.RS = Sample.new("/home/we/dust/audio/common/808/808-RS.wav", "one-shot")
+  s808.BS = Sample.new("/home/we/dust/audio/common/808/808-BS.wav", "one-shot")
+  s808.CL = Sample.new("/home/we/dust/audio/common/808/808-CL.wav", "one-shot")
+  s808.HC = Sample.new("/home/we/dust/audio/common/808/808-HC.wav", "one-shot")
+  s808.LT = Sample.new("/home/we/dust/audio/common/808/808-LT.wav", "one-shot")
+  s808.MT = Sample.new("/home/we/dust/audio/common/808/808-MT.wav", "one-shot")
+  s808.SD = Sample.new("/home/we/dust/audio/common/808/808-SD.wav", "one-shot")
+  s808.CB = Sample.new("/home/we/dust/audio/common/808/808-CB.wav", "one-shot")
+  s808.CP = Sample.new("/home/we/dust/audio/common/808/808-CP.wav", "one-shot")
+  s808.HT = Sample.new("/home/we/dust/audio/common/808/808-HT.wav", "one-shot")
+  s808.MA = Sample.new("/home/we/dust/audio/common/808/808-MA.wav", "one-shot")
+  s808.OH = Sample.new("/home/we/dust/audio/common/808/808-OH.wav", "one-shot")
+end
+
+-- Handy shortcuts
+function BD() s808.BD:play() end
+function BD() s808.BD:play() end
+function CH() s808.CH:play() end
+function CY() s808.CY:play() end
+function LC() s808.LC:play() end
+function MC() s808.MC:play() end
+function RS() s808.RS:play() end
+function BS() s808.BS:play() end
+function CL() s808.CL:play() end
+function HC() s808.HC:play() end
+function LT() s808.LT:play() end
+function MT() s808.MT:play() end
+function SD() s808.SD:play() end
+function CB() s808.CB:play() end
+function CP() s808.CP:play() end
+function HT() s808.HT:play() end
+function MA() s808.MA:play() end
+function OH() s808.OH:play() end
+
 

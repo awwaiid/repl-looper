@@ -94,6 +94,11 @@ Engine_TimberMod : CroneEngine {
   var bufSample;
   var mainBus;
 
+	// <Goldeneye>
+	var bufGoldeneye;
+	var synGoldeneye;
+	// </Goldeneye>
+
 	*new { arg context, doneCallback;
 		^super.new(context, doneCallback);
 	}
@@ -966,9 +971,9 @@ Engine_TimberMod : CroneEngine {
     //////// SAMPLER THING //////
 		bufSample=Dictionary.new(8);
 		synSample=Dictionary.new(8);
-
-    mainBus=Bus.audio(context.server,2);
-
+    //
+    // mainBus=Bus.audio(context.server,2);
+    //
 		SynthDef("defSampler", {
 			arg out=0, amp=0,bufnum=0, rate=1, start=0, end=1, reset=0, t_trig=0,
 			loops=1, pan=0, ampLag=6;
@@ -1034,30 +1039,33 @@ Engine_TimberMod : CroneEngine {
 		}).add;
 
 
-		this.addCommand("wav","is", { arg msg;
+		this.addCommand("samplerLoad","is", { arg msg;
 			if (bufSample.at(msg[1])==nil,{
 			},{
 				bufSample.at(msg[1]).free;
 			});
 			Buffer.read(context.server,msg[2],action:{
 				arg bufnum;
-				("loaded "++msg[2]++" into slot "++msg[1]).postln;
+				("loaded "++msg[2]++" into slot "++msg[1]++" frames: "++bufnum.numFrames).postln;
 				bufSample.put(msg[1],bufnum);
+
+		    scriptAddress.sendBundle(0, ['/engineSamplerLoad', msg[1], bufnum.numFrames]);
+
 				if (synSample.at(msg[1])==nil,{
 					synSample.put(msg[1],Synth("defSampler",[
-						\out,mainBus.index,
+						\out,0,
 						\bufnum,bufnum,
-						\t_trig,1,\reset,0,\start,0,\end,1,\rate,1,\loops,1000
+						\t_trig,1,\reset,0,\start,0,\end,1,\rate,1
 					],target:context.server));
 				},{
 					synSample.at(msg[1]).set(\bufnum,bufnum);
 				});
-			});                       
+			});
 		});
 
 		this.addCommand("samplerAmp","iff", { arg msg;
 			synSample.at(msg[1]).set(\ampLag,msg[3],\amp,msg[2])
-		});        
+		});
 
 		this.addCommand("samplerAmpLag","if", { arg msg;
 			synSample.at(msg[1]).set(\ampLag,msg[2])
@@ -1082,12 +1090,201 @@ Engine_TimberMod : CroneEngine {
 			synSample.at(msg[1]).set(\t_trig,1,\reset,msg[2],\start,0,\end,1,\rate,msg[3]);
 		});
 
-		this.addCommand("samplerLoop","iff", {arg msg;
-			synSample.at(msg[1]).set(\t_trig,1,\start,msg[2],\reset,msg[2],\end,msg[3]);
+		this.addCommand("samplerLoop","ifff", {arg msg;
+			synSample.at(msg[1]).set(\t_trig,1,\start,msg[2],\reset,msg[2],\end,msg[3],\loops,msg[4]);
+		});
+
+		this.addCommand("samplerStop","i", {arg msg;
+			synSample.at(msg[1]).set(\t_trig,1,\start,0,\reset,0,\end,0);
+		});
+
+		this.addCommand("samplerStart","if", {arg msg;
+			synSample.at(msg[1]).set(\t_trig,1,\start, msg[1]);
+		});
+
+		this.addCommand("samplerEnd","if", {arg msg;
+			synSample.at(msg[1]).set(\t_trig,1,\end, msg[1]);
+		});
+
+		this.addCommand("samplerStop","if", {arg msg;
+			synSample.at(msg[1]).set(\t_trig,0);
 		});
 
     //////// END SAMPLER THING //////
+    //
+	// <Goldeneye>
+		bufGoldeneye=Dictionary.new(128);
+		synGoldeneye=Dictionary.new(128);
 
+		context.server.sync;
+
+		SynthDef("playerGoldeneyeStereo",{
+				arg bufnum, amp=0, ampLag=0, t_trig=0,
+				sampleStart=0,sampleEnd=1,loop=0,
+				rate=1;
+
+				var snd;
+				var frames = BufFrames.kr(bufnum);
+        var duration;
+        var slice;
+
+				// lag the amp for doing fade out
+				amp = Lag.kr(amp,ampLag);
+				// use envelope for doing fade in
+				amp = amp * EnvGen.ar(Env([0,1],[ampLag]));
+
+				// playbuf
+				snd = PlayBuf.ar(
+					numChannels:2,
+					bufnum:bufnum,
+					rate:BufRateScale.kr(bufnum)*rate,
+					startPos: ((sampleEnd*(rate<0))*(frames-10))+(sampleStart*frames*(rate>0)),
+					trigger:t_trig,
+					loop:loop,
+					doneAction:2,
+				);
+
+				// multiple by amp and attenuate
+				snd = snd * amp; //  / 20 ;
+
+        duration = frames*(sampleEnd-sampleStart)/rate.abs/context.server.sampleRate;
+
+        // envelope to set duration
+        slice = snd * EnvGen.ar(
+          Env.new(
+            levels: [0,1,1,0],
+            times: [0,duration,0],
+					  // times: [0.05,duration-0.1,0.05],
+          ),
+          gate: t_trig,
+        );
+
+				// if looping, free up synth if no output
+				DetectSilence.ar(slice, doneAction: 2);
+
+				Out.ar(0, slice)
+		}).add;
+
+		SynthDef("playerGoldeneyeMono",{
+				arg bufnum, amp=0, ampLag=0, t_trig=0,
+				sampleStart=0,sampleEnd=1,loop=0,
+				rate=1;
+
+				var snd;
+				var frames = BufFrames.kr(bufnum);
+        var duration;
+        var slice;
+
+				// lag the amp for doing fade in/out
+				amp = Lag.kr(amp,ampLag);
+				// use envelope for doing fade in
+				amp = amp * EnvGen.ar(Env([0,1],[ampLag]));
+
+				// playbuf
+				snd = PlayBuf.ar(
+					numChannels:1,
+					bufnum:bufnum,
+					rate:BufRateScale.kr(bufnum)*rate,
+					startPos: ((sampleEnd*(rate<0))*(frames-10))+(sampleStart*frames*(rate>0)),
+					trigger:t_trig,
+					loop:loop,
+					doneAction: 2,
+				);
+
+				snd = Pan2.ar(snd,0);
+
+				// multiple by amp and attenuate
+				snd = snd * amp; //  / 20;
+
+        duration = frames*(sampleEnd-sampleStart)/rate.abs/context.server.sampleRate;
+
+        // envelope to set duration
+        slice = snd * EnvGen.ar(
+          Env.new(
+            levels: [0,1,1,0],
+            times: [0,duration,0],
+					  // times: [0,duration-0.05,0.05],
+					  // times: [0.05,duration-0.1,0.05],
+          ),
+          gate: t_trig,
+        );
+
+				// if looping, free up synth if no output
+				DetectSilence.ar(slice, doneAction: 2);
+
+				Out.ar(0, slice)
+		}).add;
+
+
+		this.addCommand("goldeneyePlay","fsfffffff", { arg msg;
+      var voice=msg[1];
+			var filename=msg[2];
+			var synName="playerGoldeneyeMono";
+			if (bufGoldeneye.at(voice)==nil,{
+				// load buffer
+				Buffer.read(context.server,filename,action:{
+					arg bufnum;
+					if (bufnum.numChannels>1,{
+						synName="playerGoldeneyeStereo";
+					});
+					bufGoldeneye.put(voice,bufnum);
+		      scriptAddress.sendBundle(0, ['/engineGoldeneyeLoad', voice, bufnum.numFrames]);
+					synGoldeneye.put(voice,Synth(synName,[
+						\bufnum,bufnum,
+						\amp,msg[3],
+						\ampLag,msg[4],
+						\sampleStart,msg[5],
+						\sampleEnd,msg[6],
+						\loop,msg[7],
+						\rate,msg[8],
+						\t_trig,msg[9],
+					],target:context.server).onFree({
+						// ("freed "++voice).postln;
+					}));
+					NodeWatcher.register(synGoldeneye.at(voice));
+				});
+			},{
+				// buffer already loaded, just play it
+				if (bufGoldeneye.at(voice).numChannels>1,{
+					synName="playerGoldeneyeStereo";
+				});
+				if (synGoldeneye.at(voice).isRunning==true,{
+					synGoldeneye.at(voice).set(
+						\bufnum,bufGoldeneye.at(voice),
+						\amp,msg[3],
+						\ampLag,msg[4],
+						\sampleStart,msg[5],
+						\sampleEnd,msg[6],
+						\loop,msg[7],
+						\rate,msg[8],
+						\t_trig,msg[9],
+					);
+				},{
+					synGoldeneye.put(voice,Synth(synName,[
+						\bufnum,bufGoldeneye.at(voice),
+						\amp,msg[3],
+						\ampLag,msg[4],
+						\sampleStart,msg[5],
+						\sampleEnd,msg[6],
+						\loop,msg[7],
+						\rate,msg[8],
+						\t_trig,msg[9],
+					],target:context.server).onFree({
+						// ("freed "++voice).postln;
+					}));
+					NodeWatcher.register(synGoldeneye.at(voice));
+				});
+			});
+		});
+
+		this.addCommand("goldeneyeAmp","iff", { arg msg;
+			synGoldeneye.at(msg[1]).set(\ampLag,msg[3],\amp,msg[2])
+		});
+
+		this.addCommand("goldeneyeRate","iff", { arg msg;
+			synGoldeneye.at(msg[1]).set(\rate,msg[2])
+		});
+		// </Goldeneye>
 
 
 	}
@@ -2091,6 +2288,9 @@ Engine_TimberMod : CroneEngine {
 			this.setArgOnSample(msg[1], \ampModLfo2, msg[2]);
 		});
 
+
+
+
 	}
 
 	free {
@@ -2123,10 +2323,16 @@ Engine_TimberMod : CroneEngine {
 		mollyMixer.free;
 
     ///////// END MOLLY THE POLY SLICE ////////////////////////
-  
+
     // Sampler thing
     synSample.keysValuesDo({ arg key, value; value.free; });
 		bufSample.keysValuesDo({ arg key, value; value.free; });
+    // END Sampler thing
+
+    	// <Goldeneye>
+		synGoldeneye.keysValuesDo({ arg key, value; value.free; });
+		bufGoldeneye.keysValuesDo({ arg key, value; value.free; });
+		// </Goldeneye>
 
 	}
 }

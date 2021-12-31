@@ -37,6 +37,8 @@ TimberMod.shift_mode = false
 TimberMod.file_select_active = false
 
 local samples_meta = {}
+local sampler_meta = {}
+local goldeneye_meta = {}
 local specs = {}
 local options = {}
 
@@ -46,6 +48,8 @@ local MAX_FRAMES = 2000000000
 TimberMod.specs = specs
 TimberMod.options = options
 TimberMod.samples_meta = samples_meta
+TimberMod.sampler_meta = sampler_meta
+TimberMod.goldeneye_meta = goldeneye_meta
 TimberMod.num_sample_params = 0
 
 local param_ids = {
@@ -122,6 +126,8 @@ end
 -- These are index zero to align with SC and MIDI note numbers
 for i = 0, 255 do
   samples_meta[i] = default_sample()
+  sampler_meta[i] = {}
+  goldeneye_meta[i] = {}
 end
 
 local waveform_last_edited
@@ -269,6 +275,14 @@ local function set_marker(id, param_prefix)
 
   waveform_last_edited = {id = id, param = param_prefix .. id}
   TimberMod.views_changed_callback(id)
+end
+
+local function goldeneye_loaded(id, num_frames)
+  goldeneye_meta[id].num_frames = num_frames
+end
+
+local function sampler_loaded(id, num_frames)
+  sampler_meta[id].num_frames = num_frames
 end
 
 local function sample_loaded(id, streaming, num_frames, num_channels, sample_rate)
@@ -622,6 +636,11 @@ function TimberMod.osc_event(path, args, from)
   elseif path == "/engineVoiceFreed" then
     voice_freed(args[1], args[2])
 
+  elseif path == "/engineSamplerLoad" then
+    sampler_loaded(args[1], args[2])
+
+  elseif path == "/engineGoldeneyeLoad" then
+    goldeneye_loaded(args[1], args[2])
   end
 end
 

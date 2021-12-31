@@ -39,6 +39,8 @@
           rows=5
           @keydown.enter.exact.prevent="gotInput"
           @keydown.arrow-up.exact.prevent="historyUp"
+          @keydown.ctrl.113.exact.prevent="historyUp"
+          @keydown.ctrl.107.exact.prevent="historyUp"
           @keydown.arrow-down.exact.prevent="historyDown"
           @keydown.tab.prevent="requestCompletions"
           v-model="currentInput" />
@@ -136,9 +138,21 @@ function longestPrefix(words){
   return words[0].substr(0, i);
 }
 
+let prev_data = "";
 norns.onmessage = async (event) => {
   console.log("got message", event);
-  const data = event.data;
+  let data = event.data;
+
+  // HACK! Cuts off at 4095 for long messages
+  // Probably this is specific to ... something. Norns. Chrome. Dunno.
+  // More proper would be to build this into the inline protocol with end-tags
+  if(data.length == 4095) {
+    prev_data += data;
+    return;
+  } else {
+    data = prev_data + data;
+    prev_data = ""
+  }
 
   let m = data.match(/SERVER MESSAGE: (.*)/);
   if (m) {
