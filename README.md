@@ -122,6 +122,10 @@ On the norns side we need to run the lua server-side. During dev I do it this wa
 * 2021-12-27 <img src="docs/20211227-demo-running.gif" align="right" width="50%" border=1 />
   * Getting ready for flashcrash.net!
   * I found some good samples from [Library of Congress Citizen DJ Project](https://citizen-dj.labs.loc.gov/), along with some slicing shortcuts
+* 2022-01-01
+  * Had fun at FlashCrash!
+  * I think some of my practice runs were a bit better _musically_ speaking :)
+  * What's next? I signed up for next month :)
 
 # Ideas
 
