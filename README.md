@@ -26,6 +26,8 @@ On the norns side we need to run the lua server-side. During dev I do it this wa
 ./util/watch-sync.sh
 ```
 
+Once you have the script running on norns and the local UI up in a browser, read through [Techniques](techniques.md) to get some ideas!
+
 # Journal
 * 2021-09-19 <img src="docs/20210919-screenshot.png" align="right" width="50%" border=1 />
   * Sketched out basic idea last night
