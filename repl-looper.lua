@@ -27,30 +27,6 @@ eval = helper.eval
 -- Loop-related objects ---------------------------------------------
 ---------------------------------------------------------------------
 
--- local Command = {}
--- Command.__index = Command
--- Command.last_id = 0
---
--- function Command.new(init)
---   local self = init or {
---     string = ""
---   }
---   setmetatable(self, Command)
---
---   Command.last_id = Command.last_id + 1
---   self.id = Command.last_id
---
---   return self
--- end
---
--- -- Not sure, but what we COULD do here is cache the result of the `load` in
--- -- `self.fn` or something instead of re-parsing it each time
--- function Command:eval(from_playing_loop)
---   return live_event(self.string, from_playing_loop)
--- end
-
----------------------------------------
-
 local Event = {}
 Event.__index = Event
 Event.last_id = 0
@@ -68,10 +44,6 @@ function Event.new(init)
   self.id = Event.last_id
 
   return self
-end
-
-function Event:to_string()
-  return "Step " .. self.step .. " (" .. self.pattern.phase .. ") -- " .. self.command
 end
 
 function Event:lua()
@@ -129,7 +101,6 @@ function Loop.new(init)
   -- for loops 1..8 make global var 'a' .. 'h'
   if self.id < 9 then
     self.loop_letter = string.char(string.byte("a") + self.id - 1)
-    -- print("Setting loop shortcut " .. loop_letter)
     _G[self.loop_letter] = self
   end
 
@@ -201,7 +172,6 @@ function Loop:update_event(event)
   end
 
   local action = function(t)
-    -- print("@" .. t .. " (next @" .. (event.pulse_offset + t) .. ") command: " .. event.command.string)
     self.recent_command = event.command
     event:eval(not self.send_feedback) -- `true` to indicate we are a playback event
   end
@@ -266,15 +236,6 @@ function Loop:draw_grid_row()
   grid_device:refresh()
 end
 
-function Loop:to_string()
-  local output = ""
-  output = output .. "ID:" .. self.id .. "Step:" .. self.current_step .. "/" .. self.loop_length_qn .. "@" .. self.lattice.transport .. "\n"
-  for _, event in ipairs(self.events) do
-    output = output .. "  " .. event:to_string() .. "\n"
-  end
-  return output
-end
-
 function Loop:lua()
   local output = {}
   output.current_step = self.current_step
@@ -285,10 +246,6 @@ function Loop:lua()
     table.insert(output.events, event:lua())
   end
   return output
-end
-
-function Loop:print()
-  print(self:to_string())
 end
 
 function Loop:to_grid_row()
@@ -456,7 +413,6 @@ function Loop:gen(code_string, condition, mod_base)
           "`([^`]+)`",
           function (snippet)
             local injected_snippet = "local n = dynamic('n'); local m = n - 1; return " .. snippet
-            -- print("FROM:", snippet, "EVAL:", injected_snippet)
             return eval(injected_snippet)
           end
         )
@@ -480,7 +436,6 @@ function Loop:gen(code_string, condition, mod_base)
             "`([^`]+)`",
             function (snippet)
               local injected_snippet = "local n = dynamic('n'); local m = n - 1; return " .. snippet
-              -- print("FROM:", snippet, "EVAL:", injected_snippet)
               return eval(injected_snippet)
             end
           )
@@ -713,8 +668,6 @@ end
 last = nil -- the output from the last command
 
 function live_event(command, from_playing_loop)
-  -- print("Got live_event: " .. command)
-
   local live_event_result, live_event_errors = eval(command)
 
   if live_event_errors then
