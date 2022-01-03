@@ -1,11 +1,5 @@
 <template>
-  <div class="flex flex-col h-full bg-black text-white">
-    <div class="flex items-center">
-      <img class="m-4" alt="REPL-LOOPER logo" src="./assets/logo-dark.png" width="50" />
-      <h1 class="text-3xl m-2">REPL-LOOPER</h1>
-    </div>
     <REPL />
-  </div>
 </template>
 
 <script>

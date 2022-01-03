@@ -1,49 +1,56 @@
 <template>
-  <div class="flex flex-col h-full min-h-0 border-2 border-gray-800 m-2 p-2">
 
-    <div class="flex flex-col m-0 p-0">
-      <div class="flex flex-row" v-for="(loop, loop_id) in playbackStepCount">
-        <div class="text-xs"><pre><code>{{ playbackLoopLetter[loop_id] }}</code></pre></div>
-        <div v-for="step in playbackStepCount[loop_id]">
-          <div v-if="playbackStep[loop_id] === step" style="width: 1rem; height: 1rem; border: 1px solid #888" :class="playbackMode[loop_id] == 'recording' ? 'bg-red-700' : 'bg-white'">
+  <div class="flex flex-col h-full bg-black text-white">
+    <div class="flex items-center">
+      <img class="m-4" alt="REPL-LOOPER logo" src="../assets/logo-dark.png" width="50" />
+      <h1 class="text-3xl m-2">REPL-LOOPER</h1>
+      <div class="flex flex-col m-2 p-0">
+        <div class="flex flex-row" v-for="(loop, loop_id) in playbackStepCount">
+          <div class="text-xs"><pre><code>{{ playbackLoopLetter[loop_id] }}</code></pre></div>
+          <div v-for="step in playbackStepCount[loop_id]">
+            <div v-if="playbackStep[loop_id] === step" style="width: 1rem; height: 1rem; border: 1px solid #888" :class="playbackMode[loop_id] == 'recording' ? 'bg-red-700' : 'bg-white'">
+            </div>
+            <div v-else style="width: 1rem; height: 1rem; border: 1px solid #888">
+            </div>
           </div>
-          <div v-else style="width: 1rem; height: 1rem; border: 1px solid #888">
-          </div>
+          <div class="text-xs"><pre><code>{{ playbackCommand[loop_id] }}</code></pre></div>
         </div>
-        <div class="text-xs"><pre><code>{{ playbackCommand[loop_id] }}</code></pre></div>
       </div>
     </div>
 
-    <div class="grid grid-cols-3 min-h-0">
+    <div class="flex flex-col h-full min-h-0 border-2 border-gray-800 m-2 p-2">
 
-      <div class="special-scrollbar col-span-2 overflow-y-scroll overflow-x-hidden" id="messages">
-        <div v-for="line, lineNum in history" class="line">
-          <pre :class="{ historySelected: offset == lineNum, historyNotSelected: offset !== lineNum }">{{ line.trimEnd() }}</pre>
+      <div class="grid grid-cols-3 min-h-0">
+
+        <div class="special-scrollbar col-span-2 overflow-y-scroll overflow-x-hidden" id="messages">
+          <div v-for="line, lineNum in history" class="line">
+            <pre :class="{ historySelected: offset == lineNum, historyNotSelected: offset !== lineNum }">{{ line.trimEnd() }}</pre>
+          </div>
         </div>
+
+        <div class="flex-1 overflow-y-scroll overflow-x-hidden text-red-400 text-xs" id="server-messages">
+          <div v-for="line, lineNum in serverHistory" class="line">
+            <pre>{{ line.trimEnd() }}</pre>
+          </div>
+        </div>
+
       </div>
 
-      <div class="flex-1 overflow-y-scroll overflow-x-hidden text-red-400 text-xs" id="server-messages">
-        <div v-for="line, lineNum in serverHistory" class="line">
-          <pre>{{ line.trimEnd() }}</pre>
+      <div class="w-full flex-none flex items-center">
+        <div class="flex-grow w-full border-2 border-gray-800">
+          <textarea
+            id="command-input"
+            class="w-full bg-black text-white outline-none"
+            type=text
+            rows=5
+            @keydown.enter.exact.prevent="gotInput"
+            @keydown.arrow-up.exact.prevent="historyUp"
+            @keydown.ctrl.113.exact.prevent="historyUp"
+            @keydown.ctrl.107.exact.prevent="historyUp"
+            @keydown.arrow-down.exact.prevent="historyDown"
+            @keydown.tab.prevent="requestCompletions"
+            v-model="currentInput" />
         </div>
-      </div>
-
-    </div>
-
-    <div class="w-full flex-none flex items-center">
-      <div class="flex-grow w-full border-2 border-gray-800">
-        <textarea
-          id="command-input"
-          class="w-full bg-black text-white outline-none"
-          type=text
-          rows=5
-          @keydown.enter.exact.prevent="gotInput"
-          @keydown.arrow-up.exact.prevent="historyUp"
-          @keydown.ctrl.113.exact.prevent="historyUp"
-          @keydown.ctrl.107.exact.prevent="historyUp"
-          @keydown.arrow-down.exact.prevent="historyDown"
-          @keydown.tab.prevent="requestCompletions"
-          v-model="currentInput" />
       </div>
     </div>
   </div>
