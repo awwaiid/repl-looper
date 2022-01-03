@@ -136,6 +136,11 @@ b:slice("s1", 1, 8)
 c:slice("s2", 1, 8)
 d:slice("s3", 1, 8)
 
+
+-- More Molly
+molly2 = Molly.new()
+molly3 = Molly.new()
+
 ---
 
 vocal_songs = {

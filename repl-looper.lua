@@ -14,33 +14,40 @@ end
 
 json = require("cjson")
 lattice = require("lattice")
-MusicUtil = require "musicutil"
+
+MusicUtil = include("repl-looper/lib/musicutil_extended")
+
+-- Local helpers
+local helper = include("repl-looper/lib/helper")
+ls = helper.ls
+leven = helper.leven
+eval = helper.eval
 
 ---------------------------------------------------------------------
 -- Loop-related objects ---------------------------------------------
 ---------------------------------------------------------------------
 
-local Command = {}
-Command.__index = Command
-Command.last_id = 0
-
-function Command.new(init)
-  local self = init or {
-    string = ""
-  }
-  setmetatable(self, Command)
-
-  Command.last_id = Command.last_id + 1
-  self.id = Command.last_id
-
-  return self
-end
-
--- Not sure, but what we COULD do here is cache the result of the `load` in
--- `self.fn` or something instead of re-parsing it each time
-function Command:eval(from_playing_loop)
-  return live_event(self.string, from_playing_loop)
-end
+-- local Command = {}
+-- Command.__index = Command
+-- Command.last_id = 0
+--
+-- function Command.new(init)
+--   local self = init or {
+--     string = ""
+--   }
+--   setmetatable(self, Command)
+--
+--   Command.last_id = Command.last_id + 1
+--   self.id = Command.last_id
+--
+--   return self
+-- end
+--
+-- -- Not sure, but what we COULD do here is cache the result of the `load` in
+-- -- `self.fn` or something instead of re-parsing it each time
+-- function Command:eval(from_playing_loop)
+--   return live_event(self.string, from_playing_loop)
+-- end
 
 ---------------------------------------
 
@@ -50,7 +57,7 @@ Event.last_id = 0
 
 function Event.new(init)
   local self = init or {
-    command = Command.new(),
+    command = "",
     relative_time = 0,
     pulse_offset = 0,
     step = 0
@@ -64,7 +71,7 @@ function Event.new(init)
 end
 
 function Event:to_string()
-  return "Step " .. self.step .. " (" .. self.pattern.phase .. ") -- " .. self.command.string
+  return "Step " .. self.step .. " (" .. self.pattern.phase .. ") -- " .. self.command
 end
 
 function Event:lua()
@@ -73,12 +80,12 @@ function Event:lua()
     pulse_offset = self.pulse_offset, -- loop relative time
     phase = self.pattern.phase, -- current countdown in pulses
     step = self.step,
-    command = self.command.string
+    command = self.command
   }
 end
 
 function Event:eval(from_playing_loop)
-  return self.command:eval(from_playing_loop)
+  return live_event(self.command, from_playing_loop)
 end
 
 function Event:destroy()
@@ -88,9 +95,7 @@ end
 function Event:clone()
   return Event.new({
     pulse = self.pulse,
-    command = Command.new({
-      string = self.command.string
-    })
+    command = self.command
   })
 end
 
@@ -197,7 +202,7 @@ function Loop:update_event(event)
 
   local action = function(t)
     -- print("@" .. t .. " (next @" .. (event.pulse_offset + t) .. ") command: " .. event.command.string)
-    self.recent_command = event.command.string
+    self.recent_command = event.command
     event:eval(not self.send_feedback) -- `true` to indicate we are a playback event
   end
 
@@ -316,7 +321,7 @@ function Loop:play_events_at_step(step)
   for _, event in ipairs(self.events) do
     local event_step = math.floor(event.step)
     if event_step == step then
-      event.command:eval()
+      event:eval()
     end
   end
 end
@@ -362,6 +367,7 @@ function Loop:toggle_commands_at_step(step, commands)
 end
 
 function Loop:play()
+  self.mode = "play"
   self.lattice:start()
 end
 
@@ -372,6 +378,10 @@ function Loop:stop()
   else
     self.lattice:stop()
   end
+end
+
+function Loop:nextStop()
+  self.mode = "stop_next"
 end
 
 function Loop:rec()
@@ -396,9 +406,7 @@ end
 function Loop:add_event_command(cmd)
   local event = Event.new({
     pulse = self.lattice.transport,
-    command = Command.new({
-      string = cmd
-    })
+    command = cmd
   })
   self:update_event(event)
   table.insert(self.events, event)
@@ -430,6 +438,7 @@ function Loop:clone(other_loop)
 end
 
 -- a:gen("CH") puts the "CH" function on every step
+-- a:gen("CH", 1/2) puts the "CH" on every half step
 -- a:gen("CH", "n >= 8") puts the "CH" on the second half of steps
 -- a:gen("CH", 1, 4) puts the "CH" on 1 of ever 4 steps
 -- a:gen("CH", { 1, 3, 4.5 }) puts the "CH" on the given steps (even fractional)
@@ -453,13 +462,14 @@ function Loop:gen(code_string, condition, mod_base)
         )
       local event = Event.new({
         pulse = (n - 1) * self.lattice.ppqn,
-        command = Command.new({
-          string = expanded_code_string
-        })
+        command = expanded_code_string
       })
       self:update_event(event)
       table.insert(self.events, event)
     end
+  elseif type(condition) == "number" and not mod_base then
+    -- calculate how many that is
+    -- fill it up
   else
     for n = 1, self.loop_length_qn do
       local condition_met = eval("local n = dynamic('n'); local m = n - 1; return " .. condition);
@@ -476,9 +486,7 @@ function Loop:gen(code_string, condition, mod_base)
           )
         local event = Event.new({
           pulse = (n - 1) * self.lattice.ppqn,
-          command = Command.new({
-            string = expanded_code_string
-          })
+          command = expanded_code_string
         })
         self:update_event(event)
         table.insert(self.events, event)
@@ -532,25 +540,6 @@ function Loop:merge(other_loop)
   self:draw_grid_row()
 end
 
--- Helper string distance function
-function leven(s,t)
-  if s == '' then return t:len() end
-  if t == '' then return s:len() end
-
-  local s1 = s:sub(2, -1)
-  local t1 = t:sub(2, -1)
-
-  if s:sub(0, 1) == t:sub(0, 1) then
-    return leven(s1, t1)
-  end
-
-  return 1 + math.min(
-    leven(s1, t1),
-    leven(s,  t1),
-    leven(s1, t )
-  )
-end
-
 function Loop:split(other_loop)
   if #self.events < 2 then
     return
@@ -561,30 +550,38 @@ function Loop:split(other_loop)
     table.insert(events, event:clone())
   end
 
-  local base_command = events[1].command.string
+  -- Do we need to stop? Eh
+  self:stop()
+  other_loop:stop()
+
+  self:clear()
+  other_loop:clear()
+
+  other_loop.loop_length_qn = self.loop_length_qn
+  other_loop.lattice.transport = self.lattice.transport
+  other_loop.current_stop = self.current_step
+
+  local base_command = events[1].command
   local distances = {}
   local total_dist = 0
   for _, event in ipairs(events) do
-    local dist = leven(base_command, event.command.string)
+    local dist = leven(base_command, event.command)
     total_dist = total_dist + dist
 
     -- for debugging and to minimize sort calcs
-    distances[event.command.string] = dist
+    distances[event.command] = dist
   end
 
   table.sort(events, function(a, b)
-    local a_dist = distances[a.command.string]
-    local b_dist = distances[b.command.string]
+    local a_dist = distances[a.command]
+    local b_dist = distances[b.command]
     return a_dist < b_dist
   end)
 
   local mean_dist = total_dist / #events
 
-  self:clear()
-  other_loop:clear()
-
   for _, event in ipairs(events) do
-    local event_dist = leven(base_command, event.command.string)
+    local event_dist = distances[event.command]
     if event_dist <= mean_dist then
       self:add_event(event)
     else
@@ -712,25 +709,6 @@ function dynamic(name)
   end
 end
 
--- TODO: Consider memoizing
-function eval(code_string)
-  -- This little trick tries to eval first in expression context with a
-  -- `return`, and if that doesn't parse (shouldn't even get executed) then try
-  -- again in regular command context. Got this method from
-  -- https://github.com/hoelzro/lua-repl/blob/master/repl/plugins/autoreturn.lua
-  --
-  -- Either way we get a function back that we then invoke
-  local eval_command, eval_errors = load("return " .. code_string, "EVAL")
-  if not eval_command then
-    eval_command, eval_errors = load(code_string, "EVAL")
-  end
-
-  if eval_errors then
-    return nil, eval_errors
-  end
-
-  return eval_command()
-end
 
 last = nil -- the output from the last command
 
@@ -796,13 +774,6 @@ function completions(command)
   })
 end
 
--- Script utilities
-
--- function hard_reset()
---   norns.script.reload()
--- end
-
-
 ------------------------------------------------------------------
 -- Music utilities -----------------------------------------------
 ------------------------------------------------------------------
@@ -815,16 +786,9 @@ MollyThePoly = include("repl-looper/lib/molly_the_poly_engine")
 -- engine.load('TimberMod')
 engine.name = "TimberMod"
 
--- Reverse note name -> num lookup
-note_name_num = {}
-for num=1,127 do
-  local name = MusicUtil.note_num_to_name(num, true)
-  note_name_num[name] = num
-end
-
--- Add these into MusicUtil because why not
-MusicUtil.note_name_to_num = function(name) return note_name_num[name] end
-MusicUtil.note_name_to_freq = function(name) return MusicUtil.note_num_to_freq(MusicUtil.note_name_to_num(name)) end
+Timber = include("repl-looper/lib/timber")
+Molly = include("repl-looper/lib/molly")
+Sample = include("repl-looper/lib/sample")
 
 -- Play a note or a chord
 -- The note can be either a midi number OR a note-string like "C3"
@@ -857,410 +821,6 @@ function p(note, voice_id, sample_id)
   engine.noteOn(voice_id, freq, 1, sample_id)
 end
 
----------------------------------------------------------------------
--- Timber! ----------------------------------------------------------
----------------------------------------------------------------------
-
-Timber = {}
-Timber.__index = Timber
-Timber.next_id = 0
-
-function Timber.new(filename, play_mode)
-  local self = {
-    params = {}
-  }
-  setmetatable(self, Timber)
-
-  self.id = Timber.next_id
-  Timber.next_id = Timber.next_id + 1
-
-  if filename then
-    self:load_sample(filename)
-  end
-
-  if play_mode then
-    if play_mode == "one-shot" then
-      self:playMode(2)
-    end
-  end
-
-  return self
-end
-
--- Control a sample from Timber
-function Timber:pitchBend(n) self.params.pitchBend = n; engine.pitchBendSample(self.id, n) end
-function Timber:pressure(n) self.params.pressure = n; engine.pressureSample(self.id, n) end
-function Timber:transpose(n) self.params.transpose = n; engine.transpose(self.id, n) end
-function Timber:detuneCents(n) self.params.detuneCents = n; engine.detuneCents(self.id, n) end
-function Timber:startFrame(n) self.params.startFrame = n; engine.startFrame(self.id, n) end
-function Timber:endFrame(n) self.params.endFrame = n; engine.endFrame(self.id, n) end
-function Timber:playMode(n) self.params.playMode = n; engine.playMode(self.id, n) end
-function Timber:loopStartFrame(n) self.params.loopStartFrame = n; engine.loopStartFrame(self.id, n) end
-function Timber:loopEndFrame(n) self.params.loopEndFrame = n; engine.loopEndFrame(self.id, n) end
-function Timber:lfo1Fade(n) self.params.lfo1Fade = n; engine.lfo1Fade(self.id, n) end
-function Timber:lfo2Fade(n) self.params.lfo2Fade = n; engine.lfo2Fade(self.id, n) end
-function Timber:freqModLfo1(n) self.params.freqModLfo1 = n; engine.freqModLfo1(self.id, n) end
-function Timber:freqModLfo2(n) self.params.freqModLfo2 = n; engine.freqModLfo2(self.id, n) end
-function Timber:freqModEnv(n) self.params.freqModEnv = n; engine.freqModEnv(self.id, n) end
-function Timber:freqMultiplier(n) self.params.freqMultiplier = n; engine.freqMultiplier(self.id, n) end
-function Timber:ampAttack(n) self.params.ampAttack = n; engine.ampAttack(self.id, n) end
-function Timber:ampDecay(n) self.params.ampDecay = n; engine.ampDecay(self.id, n) end
-function Timber:ampSustain(n) self.params.ampSustain = n; engine.ampSustain(self.id, n) end
-function Timber:ampRelease(n) self.params.ampRelease = n; engine.ampRelease(self.id, n) end
-function Timber:modAttack(n) self.params.modAttack = n; engine.modAttack(self.id, n) end
-function Timber:modDecay(n) self.params.modDecay = n; engine.modDecay(self.id, n) end
-function Timber:modSustain(n) self.params.modSustain = n; engine.modSustain(self.id, n) end
-function Timber:modRelease(n) self.params.modRelease = n; engine.modRelease(self.id, n) end
-function Timber:downSampleTo(n) self.params.downSampleTo = n; engine.downSampleTo(self.id, n) end
-function Timber:bitDepth(n) self.params.bitDepth = n; engine.bitDepth(self.id, n) end
-function Timber:filterFreq(n) self.params.filterFreq = n; engine.filterFreq(self.id, n) end
-function Timber:filterReso(n) self.params.filterReso = n; engine.filterReso(self.id, n) end
-function Timber:filterType(n) self.params.filterType = n; engine.filterType(self.id, n) end
-function Timber:filterTracking(n) self.params.filterTracking = n; engine.filterTracking(self.id, n) end
-function Timber:filterFreqModLfo1(n) self.params.filterFreqModLfo1 = n; engine.filterFreqModLfo1(self.id, n) end
-function Timber:filterFreqModLfo2(n) self.params.filterFreqModLfo2 = n; engine.filterFreqModLfo2(self.id, n) end
-function Timber:filterFreqModEnv(n) self.params.filterFreqModEnv = n; engine.filterFreqModEnv(self.id, n) end
-function Timber:filterFreqModVel(n) self.params.filterFreqModVel = n; engine.filterFreqModVel(self.id, n) end
-function Timber:filterFreqModPressure(n) self.params.filterFreqModPressure = n; engine.filterFreqModPressure(self.id, n) end
-function Timber:pan(n) self.params.pan = n; engine.pan(self.id, n) end
-function Timber:panModLfo1(n) self.params.panModLfo1 = n; engine.panModLfo1(self.id, n) end
-function Timber:panModLfo2(n) self.params.panModLfo2 = n; engine.panModLfo2(self.id, n) end
-function Timber:panModEnv(n) self.params.panModEnv = n; engine.panModEnv(self.id, n) end
-function Timber:amp(n) self.params.amp = n; engine.amp(self.id, n) end
-function Timber:ampModLfo1(n) self.params.ampModLfo1 = n; engine.ampModLfo1(self.id, n) end
-function Timber:ampModLfo2(n) self.params.ampModLfo2 = n; engine.ampModLfo2(self.id, n) end
-
-function Timber:noteOn(freq, vol, voice)
-  freq = freq or 261.625
-  vol = vol or 1
-  voice = voice or self.id -- TODO: voice management
-  engine.noteOn(voice, freq, vol, self.id)
-end
-
-function Timber:play() self:noteOn() end
-function Timber:stop() self:noteOff() end
-
-function Timber:noteOff() engine.noteOff(self.id) end
-function Timber:noteKill() engine.noteKill(self.id) end
-
-function Timber:load_sample(filename)
-  TimberMod.add_sample_params(self.id)
-  TimberMod.load_sample(self.id, filename)
-  self.sample_filename = filename
-end
-
-function Timber:info()
-  return TimberMod.samples_meta[self.id]
-end
-
-function Timber:position()
-  return self:info().positions[self.id]
-end
-
-function Timber:framePosition()
-  return self:position() * 48000
-end
-
-function Timber:reverse()
-  self:startFrame(self:info().num_frames - 1)
-  self:endFrame(0)
-end
-
-function Timber:forward()
-  self:startFrame(0)
-  self:endFrame(self:info().num_frames - 1)
-end
-
-function Timber:note(note)
-  local voice_id = self.id
-  local sample_id = self.id
-  local note = note or 60
-  local freq = 0
-
-  -- If we got an array, play them all!
-  if type(note) == "table" then
-    for i, n in ipairs(note) do
-      p(n, voice_id + i, sample_id)
-    end
-    return
-  end
-
-  if string.match(note, "^%a") then
-    if not string.find(note, "%d") then
-      note = note .. "3"
-    end
-    note = string.upper(note)
-    freq = MusicUtil.note_name_to_freq(note)
-  else
-    freq = MusicUtil.note_num_to_freq(note)
-  end
-
-  engine.playMode(sample_id, 3) -- one-shot
-  engine.noteOn(voice_id, freq, 1, sample_id)
-end
-
----------------------------------------------------------------------
--- Molly The Poly wrapper! ------------------------------------------
----------------------------------------------------------------------
-
-Molly = {}
-Molly.__index = Molly
-Molly.next_id = 0
-
-function Molly.new(filename, play_mode)
-  local self = {
-    params = {}
-  }
-  setmetatable(self, Molly)
-
-  self.id = Molly.next_id
-  Molly.next_id = Molly.next_id + 1
-
-  return self
-end
-
-local mollyVoiceFunctions = {
-  noteOn = "mollyNoteOn",
-  noteOff = "mollyNoteOff",
-  pitchBend = "mollyPitchBend",
-  noteKill = "mollyNoteKill",
-  pressure = "mollyPressure",
-  timbre = "mollyTimbre"
-}
-
-for funcName, engineFuncName in pairs(mollyVoiceFunctions) do
-  Molly[funcName] = function(self, ...)
-    engine[engineFuncName](self.id, ...)
-  end
-end
-
-local mollyFunctions = {
-  noteOffAll = "mollyNoteOffAll",
-  noteKillAll = "mollyNoteKillAll",
-  pitchBendAll = "mollyPitchBendAll",
-  pressureAll = "mollyPressureAll",
-  timbreAll = "mollyTimbreAll",
-  oscWaveShape = "mollyOscWaveShape",
-  pwMod = "mollyPwMod",
-  pwModSource = "mollyPwModSource",
-  freqModLfo = "mollyFreqModLfo",
-  freqModEnv = "mollyFreqModEnv",
-  glide = "mollyGlide",
-  mainOscLevel = "mollyMainOscLevel",
-  subOscLevel = "mollySubOscLevel",
-  subOscDetune = "mollySubOscDetune",
-  noiseLevel = "mollyNoiseLevel",
-  hpFilterCutoff = "mollyHpFilterCutoff",
-  lpFilterType = "mollyLpFilterType",
-  lpFilterCutoff = "mollyLpFilterCutoff",
-  lpFilterResonance = "mollyLpFilterResonance",
-  lpFilterCutoffEnvSelect = "mollyLpFilterCutoffEnvSelect",
-  lpFilterCutoffModEnv = "mollyLpFilterCutoffModEnv",
-  lpFilterCutoffModLfo = "mollyLpFilterCutoffModLfo",
-  lpFilterTracking = "mollyLpFilterTracking",
-  lfoFade = "mollyLfoFade",
-  env1Attack = "mollyEnv1Attack",
-  env1Decay = "mollyEnv1Decay",
-  env1Sustain = "mollyEnv1Sustain",
-  env1Release = "mollyEnv1Release",
-  env2Attack = "mollyEnv2Attack",
-  env2Decay = "mollyEnv2Decay",
-  env2Sustain = "mollyEnv2Sustain",
-  env2Release = "mollyEnv2Release",
-  ampMod = "mollyAmpMod",
-  ringModFade = "mollyRingModFade",
-  ringModMix = "mollyRingModMix",
-  amp = "mollyAmp",
-  chorusMix = "mollyChorusMix",
-  lfoFreq = "mollyLfoFreq",
-  lfoWaveShape = "mollyLfoWaveShape",
-  ringModFreq = "mollyRingModFreq"
-}
-
-for funcName, engineFuncName in pairs(mollyFunctions) do
-  Molly[funcName] = function(self, ...)
-    engine[engineFuncName](...)
-  end
-end
-
-function Molly:randomize_params(sound_type)
-  sound_type = sound_type or "lead"
-  MollyThePoly.randomize_params(sound_type)
-end
-
-function Molly:note(note)
-  local voice_id = self.id
-  local note = note or 60
-  local freq = 0
-
-  -- If we got an array, play them all!
-  if type(note) == "table" then
-    for i, n in ipairs(note) do
-      p(n, voice_id + i, sample_id)
-    end
-    return
-  end
-
-  if string.match(note, "^%a") then
-    if not string.find(note, "%d") then
-      note = note .. "3"
-    end
-    note = string.upper(note)
-    freq = MusicUtil.note_name_to_freq(note)
-  else
-    freq = MusicUtil.note_num_to_freq(note)
-  end
-
-  engine.mollyNoteOn(voice_id, freq, 1)
-end
-
-function Molly:play() self:note() end
-function Molly:stop() self:noteOff() end
-
-
----------------------------------------------------------------------
--- Sample player based on GoldenEye ---------------------------------
----------------------------------------------------------------------
-
-Sample = {}
-Sample.__index = Sample
-Sample.next_id = 0
-
-function Sample.new(filename, play_mode)
-  local self = {
-    params = {},
-    filename = filename,
-    loops = 100000,
-    ampLevel = 1,
-    ampLag = 0,
-    playRate = 1,
-    loop = 1
-  }
-  setmetatable(self, Sample)
-
-  self.id = Sample.next_id
-  Sample.next_id = Sample.next_id + 1
-
-  if play_mode then
-    if play_mode == "one-shot" then
-      self.loops = 1
-    end
-  end
-
-  -- Load it once to get the number of frames
-  -- Runs as a 0-amp so doesn't make sound
-  engine.goldeneyePlay(
-    self.id,
-    self.filename,
-    0, -- amp
-    0, -- ampLag
-    0, --sampleStart (0..1)
-    1, -- sampleEnd (0..1)
-    0, -- loop?
-    1, -- rate (0..1)
-    1 -- t_trig
-  )
-
-  return self
-end
-
-function Sample:play(startFrame, endFrame)
-  startFrame = startFrame or 0
-  endFrame = endFrame or self:info().num_frames
-
-  startAt = self:frame_to_fraction(startFrame)
-  endAt = self:frame_to_fraction(endFrame)
-
-  engine.goldeneyePlay(
-    self.id,
-    self.filename,
-    self.ampLevel, -- amp
-    self.ampLag, -- ampLag
-    startAt, --sampleStart (0..1)
-    endAt, -- sampleEnd (0..1)
-    self.loops, -- loop?
-    self.playRate, -- rate (0..1)
-    1 -- t_trig
-  )
-end
-
-function Sample:amp(ampLevel, ampLag)
-  self.ampLevel = ampLevel or self.ampLevel
-  self.ampLag = ampLag or self.ampLag
-  engine.goldeneyeAmp(self.id, self.ampLevel, self.ampLag)
-end
-
-function Sample:pan(pan)
-  engine.samplerPan(self.id, pan)
-end
-
-function Sample:rate(playRate)
-  self.playRate = playRate or self.playRate
-  engine.goldeneyeRate(self.id, self.playRate)
-end
-
-function Sample:pos(pos, rate)
-  rate = rate or 1
-  engine.samplerPos(self.id, pos, rate)
-end
-
-function Sample:loop(startAt, endAt, times)
-  startAt = startAt or 0
-  endAt = endAt or 1
-  times = times or self.loops
-  engine.samplerLoop(self.id, startAt, endAt, times)
-end
-
-function Sample:loopFrames(startAt, endAt, times)
-  startAt = self:frame_to_fraction(startAt)
-  endAt = self:frame_to_fraction(endAt)
-  times = times or 100000
-  engine.samplerLoop(self.id, startAt, endAt, times)
-end
-
--- function Sample:play()
---   self:pos(0)
---   self:amp(1, 0)
--- end
-
-function Sample:stop()
-  engine.goldeneyeAmp(self.id, 0, self.ampLag)
-end
-
-function Sample:info()
-  return TimberMod.goldeneye_meta[self.id]
-end
-
-function Sample:frame_to_fraction(frame)
-  return frame / self:info().num_frames
-end
-
-function Sample:startFrame(frame)
-  engine.samplerStart(self.id, self:frame_to_fraction(frame) )
-end
-
-function Sample:endFrame(frame)
-  engine.samplerEnd(self.id, self:frame_to_fraction(frame) )
-end
-
----------------------------------------------------------------------
--- Helper functions -------------------------------------------------
----------------------------------------------------------------------
-
-function tabkeys(tab)
-  local keyset={}
-  local n=0
-
-  for k,v in pairs(tab) do
-    n=n+1
-    keyset[n]=k
-  end
-  return keyset
-end
-
-function ls(o)
-  return tabkeys(getmetatable(o))
-end
 
 
 ---------------------------------------------------------------------
@@ -1280,6 +840,8 @@ function init()
 
   -- One global molly to start with
   molly = Molly.new()
+  molly2 = Molly.new()
+  molly3 = Molly.new()
 
   -- A lovely piano via timber
   piano = Timber.new("/home/we/dust/code/timber/audio/piano-c.wav")
