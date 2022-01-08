@@ -2,14 +2,14 @@
 
 > Anagogically integrated UI for Norns / Matron / Grid
 
-Experimental performance and creative tool, mashing together several things that I like. REPL for interactive code creating. Grid to have a tactile UI (maybe we'll throw in a midi pedal too). Dance between client and host, between recording loops and loops that can modify other loops and themselves.
+<img src="docs/20211227-demo-running.gif" align="right" width="50%" border=1 />Experimental performance and creative tool, mashing together several things that I like. REPL for interactive code creating. Grid to have a tactile UI (maybe we'll throw in a midi pedal too). Dance between client and host, between recording loops and loops that can modify other loops and themselves.
 
 # Installation and Usage
 
 Install by running this on maiden:
 
 ```lua
-  ;install https://github.com/awwaiid/repl-looper
+;install https://github.com/awwaiid/norns-repl-looper
 ```
 
 Then start `repl-looper` on the norns. The norns screen will show some status information. Interaction is primarily done through a web-browser and grid. You can access the web interface at:
@@ -19,45 +19,45 @@ http://norns.local/api/v1/dust/code/repl-looper/ui/dist/repl-looper.html (or htt
 The browser interface is an alternative to maiden's REPL with a few different features and style. The basic idea is the same -- you run Lua commands and see the results. Verify that everything is running with some simple math
 
 ```lua
-  2+2
+ 2+2
 ```
 
 Which should output `4` (give or take). The built-in engine is a mash-up of Timber, Goldeneye, and Molly the Poly. There is a shortcut for a Timber-based piano sample, `p`. There is also an instance of Molly pre-defined. Try these:
 
 ```lua
-  -- Timber piano
-  p'c'
-  p'd'
-  p(68)
+-- Timber piano
+p'c'
+p'd'
+p(68)
 
-  molly:note(60)
-  molly:randomize_params()
-  molly:note(62)
-  molly:stop()
+molly:note(60)
+molly:randomize_params()
+molly:note(62)
+molly:stop()
 ```
 
 Next thing to play with is loops/sequences. There are 8 pre-defined 16-step loops, one for each row, put into variables `a`..`h`. Start by recording into loop `a`:
 
 ```lua
-  a:rec()
-  -- loop 'a' is now playing and recording! You can see the steps
-  -- both on the grid
+a:rec()
+-- loop 'a' is now playing and recording! You can see the steps
+-- both on the grid
 
-  p'c'
-  -- now wait a bit
-  p'd'
-  -- the loop is playing and will wrap back around
+p'c'
+-- now wait a bit
+p'd'
+-- the loop is playing and will wrap back around
 
-  a:stop() -- this stops recording but keeps playing
-  a:stop() -- stop again to also stop playing
+a:stop() -- this stops recording but keeps playing
+a:stop() -- stop again to also stop playing
 
-  -- At this point press some of the grid buttons to trigger all the
-  -- events recorded at that step immediately (ignoring their sub-step timing)
+-- At this point press some of the grid buttons to trigger all the
+-- events recorded at that step immediately (ignoring their sub-step timing)
 
-  a:lua() -- show the loop contents
+a:lua() -- show the loop contents
 
-  a:play() -- start loop again
-  a:clear() -- erase loop contents
+a:play() -- start loop again
+a:clear() -- erase loop contents
 ```
 
 Now that you have the script running on norns and the local UI up in a browser and everything working together, read through [Techniques](techniques.lua) to get some ideas!
