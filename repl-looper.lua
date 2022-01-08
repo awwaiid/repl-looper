@@ -827,7 +827,6 @@ end
 
 -- Handy shortcuts
 function BD() s808.BD:play() end
-function BD() s808.BD:play() end
 function CH() s808.CH:play() end
 function CY() s808.CY:play() end
 function LC() s808.LC:play() end
