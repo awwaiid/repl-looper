@@ -43,6 +43,7 @@
             class="w-full bg-black text-white outline-none"
             type=text
             rows=5
+            autofocus
             @keydown.enter.exact.prevent="gotInput"
             @keydown.arrow-up.exact.prevent="historyUp"
             @keydown.ctrl.113.exact.prevent="historyUp"

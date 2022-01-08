@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build --base /api/v1/dust/code/repl-looper/ui/dist/",
     "serve": "vite preview"
   },
   "dependencies": {
