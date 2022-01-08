@@ -4,9 +4,12 @@
 -- llllllll.co/t/repl-looper
 --
 -- Use in conjunction with laptop running the UI at
--- http://norns.local/api/v1/dust/code/repl-looper/ui/dist/repl-looper.html
+-- http://bit.ly/norns-repl-looper
 --
--- Shortcut: https://bit.ly/norns-repl-looper
+-- (or the long version... one long URL)
+-- http://norns.local/api/v1
+--   /dust/code/repl-looper
+--   /ui/dist/repl-looper.html
 
 -- Add repl-looper lib dir in to load .so files like cjson.so
 if not string.find(package.cpath, "/home/we/dust/code/repl-looper/lib/", 1, true) then
