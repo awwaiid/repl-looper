@@ -5,7 +5,7 @@ DIRECTORY=${1:-/home/we/dust/code/repl-looper}
 FILENAME=${2:-repl-looper.lua}
 
 # Sync the whole project directory
-rsync -avzP . --exclude .git --exclude ui --delete we@norns.local:$DIRECTORY
+rsync -avzP . --exclude .git --exclude ui/node_modules --delete we@norns.local:$DIRECTORY
 
 # Reload "current"
 # echo 'norns.script.reload()' | \
