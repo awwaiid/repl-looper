@@ -9,7 +9,7 @@
 Install by running this on maiden:
 
 ```lua
-;install https://github.com/awwaiid/norns-repl-looper
+;install https://github.com/awwaiid/repl-looper
 ```
 
 Then start `repl-looper` on the norns. The norns screen will show some status information. Interaction is primarily done through a web-browser and grid. You can access the web interface at:

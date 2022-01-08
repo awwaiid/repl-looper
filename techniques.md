@@ -1,3 +1,4 @@
+```lua
 -- Here are some examples of things you can do
 -- This can be used as a cookbook
 -- The idea is to copy/paste each of these one-line things into the REPL
@@ -205,4 +206,4 @@ engine.wav(0, "/home/we/dust/code/repl-looper/audio/musicbox/Wouldnt-Mind-Workin
 engine.samplerLoop(0, 0, 1)
 
 s1 = Sample.new("/home/we/dust/code/repl-looper/audio/musicbox/Wouldnt-Mind-Workin-From-Sun-To-Sun_2011121108_001_00-01-05.ogg")
-
+```
