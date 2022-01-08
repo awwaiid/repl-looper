@@ -2,7 +2,7 @@
 
 > Anagogically integrated UI for Norns / Matron / Grid
 
-<img src="docs/20211227-demo-running.gif" align="right" width="50%" border=1 />Experimental performance and creative tool, mashing together several things that I like. REPL for interactive code creating. Grid to have a tactile UI (maybe we'll throw in a midi pedal too). Dance between client and host, between recording loops and loops that can modify other loops and themselves.
+<img src="docs/20211227-demo-running.gif" align="right" width="25%" border=1 />Experimental performance and creative tool, mashing together several things that I like. REPL for interactive code creating. Grid to have a tactile UI (maybe we'll throw in a midi pedal too). Dance between client and host, between recording loops and loops that can modify other loops and themselves.
 
 # Installation and Usage
 
