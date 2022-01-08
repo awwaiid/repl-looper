@@ -1,12 +1,13 @@
 -- repl-looper v1.0.0
--- Anagogical mash of code, time, sound
+-- Record/play code loops!
 --
 -- llllllll.co/t/repl-looper
 --
--- Use in conjunction with laptop running the UI at
--- http://bit.ly/norns-repl-looper
+-- Use in conjunction with grid
+-- and web-UI in browser, open
+-- bit.ly/norns-repl-looper
 --
--- (or the long version... one long URL)
+-- (or long URL)
 -- http://norns.local/api/v1
 --   /dust/code/repl-looper
 --   /ui/dist/repl-looper.html
@@ -623,7 +624,8 @@ function redraw()
   screen.text("REPL-LOOPER")
 
   screen.move(0,62)
-  screen.text(grid_mode)
+  -- screen.text(grid_mode)
+  screen.text("bit.ly/norns-repl-looper")
 
   screen.move(63,34)
   screen.text_center(recent_command)
