@@ -106,9 +106,9 @@ function Molly:note(note)
       note = note .. "3"
     end
     note = string.upper(note)
-    freq = MusicUtil.note_name_to_freq(note)
+    freq = musicutil.note_name_to_freq(note)
   else
-    freq = MusicUtil.note_num_to_freq(note)
+    freq = musicutil.note_num_to_freq(note)
   end
 
   engine.mollyNoteOn(voice_id, freq, 1)

@@ -20,8 +20,10 @@ end
 
 json = require("cjson")
 lattice = require("lattice")
+sequins = require("sequins")
 
-MusicUtil = include("repl-looper/lib/musicutil_extended")
+-- Locally augmented musicutil
+musicutil = include("repl-looper/lib/musicutil_extended")
 
 -- Local helpers
 local helper = include("repl-looper/lib/helper")
@@ -772,9 +774,9 @@ function p(note, voice_id, sample_id)
       note = note .. "3"
     end
     note = string.upper(note)
-    freq = MusicUtil.note_name_to_freq(note)
+    freq = musicutil.note_name_to_freq(note)
   else
-    freq = MusicUtil.note_num_to_freq(note)
+    freq = musicutil.note_num_to_freq(note)
   end
 
   engine.playMode(sample_id, 3) -- one-shot

@@ -7,7 +7,7 @@
 
 local ControlSpec = require "controlspec"
 local Formatters = require "formatters"
-local MusicUtil = require "musicutil"
+local musicutil = require "musicutil"
 local UI = require "ui"
 local Graph = require "graph"
 local FilterGraph = require "filtergraph"
@@ -1068,7 +1068,7 @@ function ReplLooper.draw_title(sample_id, show_sample_name)
     screen.text(string.format("%03d", sample_id))
     screen.move(23, 9)
   elseif ReplLooper.display == "note" then
-    screen.text(MusicUtil.note_num_to_name(sample_id, true))
+    screen.text(musicutil.note_num_to_name(sample_id, true))
     screen.move(27, 9)
     max_title_width = 96
   end
@@ -1366,7 +1366,7 @@ function ReplLooper.UI.SampleSetup:redraw()
     screen.level(15)
     screen.move(68, 35)
     if ReplLooper.display == "note" then
-       screen.text(MusicUtil.note_num_to_name(self.move_to, true))
+       screen.text(musicutil.note_num_to_name(self.move_to, true))
     else
       screen.text(string.format("%03d", self.move_to))
     end
@@ -1384,7 +1384,7 @@ function ReplLooper.UI.SampleSetup:redraw()
     screen.level(15)
     screen.move(68, 35)
     if ReplLooper.display == "note" then
-       screen.text(MusicUtil.note_num_to_name(self.copy_to_first, true))
+       screen.text(musicutil.note_num_to_name(self.copy_to_first, true))
        screen.move(88, 35)
     else
       screen.text(string.format("%03d", self.copy_to_first))
@@ -1393,7 +1393,7 @@ function ReplLooper.UI.SampleSetup:redraw()
     screen.text("-")
     screen.move(93, 35)
     if ReplLooper.display == "note" then
-       screen.text(MusicUtil.note_num_to_name(self.copy_to_last, true))
+       screen.text(musicutil.note_num_to_name(self.copy_to_last, true))
     else
       screen.text(string.format("%03d", self.copy_to_last))
     end
