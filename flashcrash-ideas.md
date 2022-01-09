@@ -40,6 +40,9 @@ d:slice("s3", 1, 8)
 molly2 = Molly.new()
 molly3 = Molly.new()
 
+notes = sequins(musicutil.generate_scale_of_length(56, "Blues Scale", 16))
+h:gen("p(`notes()`)")
+
 ---
 
 vocal_songs = {
