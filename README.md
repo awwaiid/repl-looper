@@ -19,7 +19,7 @@ http://norns.local/api/v1/dust/code/repl-looper/ui/dist/repl-looper.html (or htt
 The browser interface is an alternative to maiden's REPL with a few different features and style. The basic idea is the same -- you run Lua commands and see the results. Verify that everything is running with some simple math
 
 ```lua
- 2+2
+2+2
 ```
 
 Which should output `4` (give or take). The built-in engine is a mash-up of Timber, Goldeneye, and Molly the Poly. There is a shortcut for a Timber-based piano sample, `p`. There is also an instance of Molly pre-defined. Try these:
@@ -64,7 +64,7 @@ Now that you have the script running on norns and the local UI up in a browser a
 
 # Resources
 
-* [Techniques / Tutorial](techniques.lua) to get some ideas!
+* [Techniques / Tutorial](techniques.md) to get some ideas!
 * [Development Journal / Changelog](journal.md) for a running log of experiments
 
 # Reference
