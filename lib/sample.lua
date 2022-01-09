@@ -108,7 +108,7 @@ function Sample:stop()
 end
 
 function Sample:info()
-  return TimberMod.goldeneye_meta[self.id]
+  return ReplLooper.goldeneye_meta[self.id]
 end
 
 function Sample:frame_to_fraction(frame)

@@ -1,7 +1,7 @@
---- TimberMod Engine lib
+--- ReplLooper Engine lib
 -- Engine params, functions and UI views.
 --
--- @module TimberModEngine
+-- @module ReplLooperEngine
 -- @release v1.0.0 Beta 7
 -- @author Mark Eats
 
@@ -13,28 +13,28 @@ local Graph = require "graph"
 local FilterGraph = require "filtergraph"
 local EnvGraph = require "envgraph"
 
-local TimberMod = {}
+local ReplLooper = {}
 
-TimberMod.FileSelect = require "fileselect"
+ReplLooper.FileSelect = require "fileselect"
 
 local SCREEN_FRAMERATE = 15
 
-TimberMod.sample_changed_callback = function() end
-TimberMod.meta_changed_callback = function() end
-TimberMod.waveform_changed_callback = function() end
-TimberMod.play_positions_changed_callback = function() end
-TimberMod.views_changed_callback = function() end
+ReplLooper.sample_changed_callback = function() end
+ReplLooper.meta_changed_callback = function() end
+ReplLooper.waveform_changed_callback = function() end
+ReplLooper.play_positions_changed_callback = function() end
+ReplLooper.views_changed_callback = function() end
 
-TimberMod.setup_params_dirty = false
-TimberMod.filter_dirty = false
-TimberMod.env_dirty = false
-TimberMod.lfo_functions_dirty = false
-TimberMod.lfo_1_dirty = false
-TimberMod.lfo_2_dirty = false
-TimberMod.bpm = 120
-TimberMod.display = "id" -- Can be "id", "note" or "none"
-TimberMod.shift_mode = false
-TimberMod.file_select_active = false
+ReplLooper.setup_params_dirty = false
+ReplLooper.filter_dirty = false
+ReplLooper.env_dirty = false
+ReplLooper.lfo_functions_dirty = false
+ReplLooper.lfo_1_dirty = false
+ReplLooper.lfo_2_dirty = false
+ReplLooper.bpm = 120
+ReplLooper.display = "id" -- Can be "id", "note" or "none"
+ReplLooper.shift_mode = false
+ReplLooper.file_select_active = false
 
 local samples_meta = {}
 local sampler_meta = {}
@@ -45,12 +45,12 @@ local options = {}
 local STREAMING_BUFFER_SIZE = 65536
 local MAX_FRAMES = 2000000000
 
-TimberMod.specs = specs
-TimberMod.options = options
-TimberMod.samples_meta = samples_meta
-TimberMod.sampler_meta = sampler_meta
-TimberMod.goldeneye_meta = goldeneye_meta
-TimberMod.num_sample_params = 0
+ReplLooper.specs = specs
+ReplLooper.options = options
+ReplLooper.samples_meta = samples_meta
+ReplLooper.sampler_meta = sampler_meta
+ReplLooper.goldeneye_meta = goldeneye_meta
+ReplLooper.num_sample_params = 0
 
 local param_ids = {
   "sample", "quality", "transpose", "detune_cents", "play_mode", "start_frame", "end_frame", "loop_start_frame", "loop_end_frame",
@@ -169,7 +169,7 @@ local function update_freq_multiplier(sample_id)
   elseif scale_by == 2 then
     multiplier = sample_duration / params:get("by_length_" .. sample_id)
   elseif scale_by == 3 then
-    multiplier = sample_duration / (options.BY_BARS_DECIMAL[params:get("by_bars_" .. sample_id)] * (60 / TimberMod.bpm * 4))
+    multiplier = sample_duration / (options.BY_BARS_DECIMAL[params:get("by_bars_" .. sample_id)] * (60 / ReplLooper.bpm * 4))
   end
 
   if multiplier ~= samples_meta[sample_id].freq_multiplier then
@@ -179,7 +179,7 @@ local function update_freq_multiplier(sample_id)
 end
 
 local function update_by_bar_multipliers()
-  for i = 0, TimberMod.num_sample_params - 1 do
+  for i = 0, ReplLooper.num_sample_params - 1 do
     if params:get("scale_by_" .. i) == 3 then
       update_freq_multiplier(i)
     end
@@ -195,7 +195,7 @@ local function set_play_mode(id, play_mode)
   end
 end
 
-function TimberMod.load_sample(id, file)
+function ReplLooper.load_sample(id, file)
   samples_meta[id].manual_load = true
   params:set("sample_" .. id, file)
 end
@@ -274,7 +274,7 @@ local function set_marker(id, param_prefix)
   end
 
   waveform_last_edited = {id = id, param = param_prefix .. id}
-  TimberMod.views_changed_callback(id)
+  ReplLooper.views_changed_callback(id)
 end
 
 local function goldeneye_loaded(id, num_frames)
@@ -369,10 +369,10 @@ local function sample_loaded(id, streaming, num_frames, num_channels, sample_rat
   waveform_last_edited = nil
   lfos_last_edited = nil
   filter_last_edited = nil
-  TimberMod.sample_changed_callback(id)
-  TimberMod.meta_changed_callback(id)
-  TimberMod.waveform_changed_callback(id)
-  TimberMod.play_positions_changed_callback(id)
+  ReplLooper.sample_changed_callback(id)
+  ReplLooper.meta_changed_callback(id)
+  ReplLooper.waveform_changed_callback(id)
+  ReplLooper.play_positions_changed_callback(id)
 
   samples_meta[id].manual_load = false
 end
@@ -385,15 +385,15 @@ local function sample_load_failed(id, error_status)
   waveform_last_edited = nil
   lfos_last_edited = nil
   filter_last_edited = nil
-  TimberMod.sample_changed_callback(id)
-  TimberMod.meta_changed_callback(id)
-  TimberMod.waveform_changed_callback(id)
-  TimberMod.play_positions_changed_callback(id)
+  ReplLooper.sample_changed_callback(id)
+  ReplLooper.meta_changed_callback(id)
+  ReplLooper.waveform_changed_callback(id)
+  ReplLooper.play_positions_changed_callback(id)
 
   samples_meta[id].manual_load = false
 end
 
-function TimberMod.clear_samples(first, last)
+function ReplLooper.clear_samples(first, last)
   first = first or 0
   last = last or first
   if last < first then last = first end
@@ -423,16 +423,16 @@ function TimberMod.clear_samples(first, last)
       param.action = param_action
     end
 
-    TimberMod.meta_changed_callback(i)
-    TimberMod.waveform_changed_callback(i)
-    TimberMod.play_positions_changed_callback(i)
+    ReplLooper.meta_changed_callback(i)
+    ReplLooper.waveform_changed_callback(i)
+    ReplLooper.play_positions_changed_callback(i)
   end
 
-  TimberMod.views_changed_callback(nil)
-  TimberMod.setup_params_dirty = true
+  ReplLooper.views_changed_callback(nil)
+  ReplLooper.setup_params_dirty = true
 end
 
-function TimberMod.request_waveform(sample_id)
+function ReplLooper.request_waveform(sample_id)
   samples_meta[sample_id].waveform_requested = true
   engine.generateWaveform(sample_id)
 end
@@ -495,19 +495,19 @@ local function move_copy_update(from_id, to_id)
     update_freq_multiplier(id)
     samples_meta[id].positions = {}
     samples_meta[id].playing = false
-    TimberMod.meta_changed_callback(id)
-    TimberMod.waveform_changed_callback(id)
-    TimberMod.play_positions_changed_callback(id)
+    ReplLooper.meta_changed_callback(id)
+    ReplLooper.waveform_changed_callback(id)
+    ReplLooper.play_positions_changed_callback(id)
   end
 
-  TimberMod.setup_params_dirty = true
-  TimberMod.filter_dirty = true
-  TimberMod.env_dirty = true
-  TimberMod.lfo_functions_dirty = true
-  TimberMod.views_changed_callback(nil)
+  ReplLooper.setup_params_dirty = true
+  ReplLooper.filter_dirty = true
+  ReplLooper.env_dirty = true
+  ReplLooper.lfo_functions_dirty = true
+  ReplLooper.views_changed_callback(nil)
 end
 
-function TimberMod.move_sample(from_id, to_id)
+function ReplLooper.move_sample(from_id, to_id)
 
   if from_id == to_id then return end
 
@@ -531,7 +531,7 @@ function TimberMod.move_sample(from_id, to_id)
   move_copy_update(from_id, to_id)
 end
 
-function TimberMod.copy_sample(from_id, to_first_id, to_last_id)
+function ReplLooper.copy_sample(from_id, to_first_id, to_last_id)
 
   engine.copySample(from_id, to_first_id, to_last_id)
 
@@ -554,7 +554,7 @@ function TimberMod.copy_sample(from_id, to_first_id, to_last_id)
   end
 end
 
-function TimberMod.copy_params(from_id, to_first_id, to_last_id, param_ids)
+function ReplLooper.copy_params(from_id, to_first_id, to_last_id, param_ids)
 
   engine.copyParams(from_id, to_first_id, to_last_id)
 
@@ -594,17 +594,17 @@ local function store_waveform(id, offset, padding, waveform_blob)
     end
   end
 
-  TimberMod.waveform_changed_callback(id)
+  ReplLooper.waveform_changed_callback(id)
 end
 
 local function play_position(id, voice_id, position)
 
   samples_meta[id].positions[voice_id] = position
-  TimberMod.play_positions_changed_callback(id)
+  ReplLooper.play_positions_changed_callback(id)
 
   if not samples_meta[id].playing then
     samples_meta[id].playing = true
-    TimberMod.meta_changed_callback(id)
+    ReplLooper.meta_changed_callback(id)
   end
 end
 
@@ -615,11 +615,11 @@ local function voice_freed(id, voice_id)
     samples_meta[id].playing = true
     break
   end
-  TimberMod.meta_changed_callback(id)
-  TimberMod.play_positions_changed_callback(id)
+  ReplLooper.meta_changed_callback(id)
+  ReplLooper.play_positions_changed_callback(id)
 end
 
-function TimberMod.osc_event(path, args, from)
+function ReplLooper.osc_event(path, args, from)
 
   if path == "/engineSampleLoaded" then
     sample_loaded(args[1], args[2], args[3], args[4], args[5])
@@ -644,12 +644,12 @@ function TimberMod.osc_event(path, args, from)
   end
 end
 
-osc.event = TimberMod.osc_event
--- NOTE: If you need the OSC callback in your script then TimberMod.osc_event(path, args, from)
+osc.event = ReplLooper.osc_event
+-- NOTE: If you need the OSC callback in your script then ReplLooper.osc_event(path, args, from)
 -- must be called from the end of that function to pass the data down to this lib
 
-function TimberMod.set_bpm(bpm)
-  TimberMod.bpm = bpm
+function ReplLooper.set_bpm(bpm)
+  ReplLooper.bpm = bpm
   update_by_bar_multipliers()
 end
 
@@ -720,7 +720,7 @@ end
 
 local function format_hide_for_stream(sample_id, param_name, formatter)
   return function(param)
-    if TimberMod.samples_meta[sample_id].streaming == 1 then
+    if ReplLooper.samples_meta[sample_id].streaming == 1 then
       return "N/A"
     else
       if formatter then
@@ -734,41 +734,41 @@ end
 
 -- Params
 
-function TimberMod.add_params()
+function ReplLooper.add_params()
 
-  params:add_separator("TimberMod")
+  params:add_separator("ReplLooper")
 
   params:add{type = "trigger", id = "clear_all", name = "Clear All", action = function(value)
-    TimberMod.clear_samples(0, #samples_meta - 1)
+    ReplLooper.clear_samples(0, #samples_meta - 1)
   end}
   params:add{type = "control", id = "lfo_1_freq", name = "LFO1 Freq", controlspec = specs.LFO_1_FREQ, formatter = Formatters.format_freq, action = function(value)
     engine.lfo1Freq(value)
     lfos_last_edited = {id = nil, param = "lfo_1_freq"}
-    TimberMod.views_changed_callback(nil)
-    TimberMod.lfo_1_dirty = true
+    ReplLooper.views_changed_callback(nil)
+    ReplLooper.lfo_1_dirty = true
   end}
   params:add{type = "option", id = "lfo_1_wave_shape", name = "LFO1 Shape", options = options.LFO_WAVE_SHAPE, default = 1, action = function(value)
     engine.lfo1WaveShape(value - 1)
     lfos_last_edited = {id = nil, param = "lfo_1_wave_shape"}
-    TimberMod.views_changed_callback(nil)
-    TimberMod.lfo_1_dirty = true
+    ReplLooper.views_changed_callback(nil)
+    ReplLooper.lfo_1_dirty = true
   end}
   params:add{type = "control", id = "lfo_2_freq", name = "LFO2 Freq", controlspec = specs.LFO_2_FREQ, formatter = Formatters.format_freq, action = function(value)
     engine.lfo2Freq(value)
     lfos_last_edited = {id = nil, param = "lfo_2_freq"}
-    TimberMod.views_changed_callback(nil)
-    TimberMod.lfo_2_dirty = true
+    ReplLooper.views_changed_callback(nil)
+    ReplLooper.lfo_2_dirty = true
   end}
   params:add{type = "option", id = "lfo_2_wave_shape", name = "LFO2 Shape", options = options.LFO_WAVE_SHAPE, default = 4, action = function(value)
     engine.lfo2WaveShape(value - 1)
     lfos_last_edited = {id = nil, param = "lfo_2_wave_shape"}
-    TimberMod.views_changed_callback(nil)
-    TimberMod.lfo_2_dirty = true
+    ReplLooper.views_changed_callback(nil)
+    ReplLooper.lfo_2_dirty = true
   end}
 
 end
 
-function TimberMod.add_sample_params(id, include_beat_params, extra_params)
+function ReplLooper.add_sample_params(id, include_beat_params, extra_params)
 
   if id then
     local num_params = 50
@@ -798,31 +798,31 @@ function TimberMod.add_sample_params(id, include_beat_params, extra_params)
       play_mode_param.count = #options.PLAY_MODE_BUFFER
 
       engine.loadSample(id, value)
-      TimberMod.views_changed_callback(id)
+      ReplLooper.views_changed_callback(id)
     else
       samples_meta[id].manual_load = false
     end
   end}
   params:add{type = "trigger", id = "clear_" .. id, name = "Clear", action = function(value)
-    TimberMod.clear_samples(id)
-    TimberMod.views_changed_callback(id)
+    ReplLooper.clear_samples(id)
+    ReplLooper.views_changed_callback(id)
   end}
 
   params:add{type = "option", id = "quality_" .. id, name = "Quality", options = options.QUALITY, default = #options.QUALITY, action = function(value)
     engine.downSampleTo(id, QUALITY_SAMPLE_RATES[value])
     engine.bitDepth(id, QUALITY_BIT_DEPTHS[value])
-    TimberMod.views_changed_callback(id)
-    TimberMod.setup_params_dirty = true
+    ReplLooper.views_changed_callback(id)
+    ReplLooper.setup_params_dirty = true
   end}
   params:add{type = "number", id = "transpose_" .. id, name = "Transpose", min = -48, max = 48, default = 0, formatter = format_st, action = function(value)
     engine.transpose(id, value)
-    TimberMod.views_changed_callback(id)
-    TimberMod.setup_params_dirty = true
+    ReplLooper.views_changed_callback(id)
+    ReplLooper.setup_params_dirty = true
   end}
   params:add{type = "number", id = "detune_cents_" .. id, name = "Detune", min = -100, max = 100, default = 0, formatter = format_cents, action = function(value)
     engine.detuneCents(id, value)
-    TimberMod.views_changed_callback(id)
-    TimberMod.setup_params_dirty = true
+    ReplLooper.views_changed_callback(id)
+    ReplLooper.setup_params_dirty = true
   end}
 
   local scale_by_options
@@ -831,26 +831,26 @@ function TimberMod.add_sample_params(id, include_beat_params, extra_params)
   params:add{type = "option", id = "scale_by_" .. id, name = "Scale By", options = scale_by_options, default = 1, action = function(value)
     update_by_bars_options(id)
     update_freq_multiplier(id)
-    TimberMod.views_changed_callback(id)
-    TimberMod.setup_params_dirty = true
+    ReplLooper.views_changed_callback(id)
+    ReplLooper.setup_params_dirty = true
   end}
 
   params:add{type = "control", id = "by_percentage_" .. id, name = "Percentage", controlspec = specs.BY_PERCENTAGE, formatter = format_by_percentage(id), action = function(value)
     update_freq_multiplier(id)
-    TimberMod.views_changed_callback(id)
-    TimberMod.setup_params_dirty = true
+    ReplLooper.views_changed_callback(id)
+    ReplLooper.setup_params_dirty = true
   end}
   params:add{type = "control", id = "by_length_" .. id, name = "Length", controlspec = ControlSpec.new(0.1, 10, "lin", 0, 1, "s"), formatter = format_by_length(id), action = function(value)
     update_freq_multiplier(id)
-    TimberMod.views_changed_callback(id)
-    TimberMod.setup_params_dirty = true
+    ReplLooper.views_changed_callback(id)
+    ReplLooper.setup_params_dirty = true
   end}
 
   if include_beat_params then
     params:add{type = "option", id = "by_bars_" .. id, name = "Bars", options = options.BY_BARS_NA, action = function(value)
       update_freq_multiplier(id)
-      TimberMod.views_changed_callback(id)
-      TimberMod.setup_params_dirty = true
+      ReplLooper.views_changed_callback(id)
+      ReplLooper.setup_params_dirty = true
     end}
   end
 
@@ -870,7 +870,7 @@ function TimberMod.add_sample_params(id, include_beat_params, extra_params)
   params:add{type = "option", id = "play_mode_" .. id, name = "Play Mode", options = options.PLAY_MODE_BUFFER, default = options.PLAY_MODE_BUFFER_DEFAULT, action = function(value)
     set_play_mode(id, lookup_play_mode(id))
     waveform_last_edited = {id = id}
-    TimberMod.views_changed_callback(id)
+    ReplLooper.views_changed_callback(id)
   end}
   params:add{type = "control", id = "start_frame_" .. id, name = "Start", controlspec = ControlSpec.new(0, MAX_FRAMES, "lin", 1, 0), formatter = format_frame_number(id), action = function(value)
     set_marker(id, "start_frame_")
@@ -891,138 +891,138 @@ function TimberMod.add_sample_params(id, include_beat_params, extra_params)
 
   params:add{type = "control", id = "freq_mod_lfo_1_" .. id, name = "Freq Mod (LFO1)", controlspec = ControlSpec.UNIPOLAR, action = function(value)
     engine.freqModLfo1(id, value)
-    TimberMod.views_changed_callback(id)
+    ReplLooper.views_changed_callback(id)
   end}
   params:add{type = "control", id = "freq_mod_lfo_2_" .. id, name = "Freq Mod (LFO2)", controlspec = ControlSpec.UNIPOLAR, action = function(value)
     engine.freqModLfo2(id, value)
-    TimberMod.views_changed_callback(id)
+    ReplLooper.views_changed_callback(id)
   end}
   params:add{type = "control", id = "freq_mod_env_" .. id, name = "Freq Mod (Env)", controlspec = ControlSpec.BIPOLAR, action = function(value)
     engine.freqModEnv(id, value)
-    TimberMod.views_changed_callback(id)
+    ReplLooper.views_changed_callback(id)
   end}
 
   params:add_separator("Filter")
 
   params:add{type = "option", id = "filter_type_" .. id, name = "Filter Type", options = options.FILTER_TYPE, default = 1, action = function(value)
     engine.filterType(id, value - 1)
-    TimberMod.filter_dirty = true
-    TimberMod.views_changed_callback(id)
+    ReplLooper.filter_dirty = true
+    ReplLooper.views_changed_callback(id)
   end}
   params:add{type = "control", id = "filter_freq_" .. id, name = "Filter Cutoff", controlspec = specs.FILTER_FREQ, formatter = Formatters.format_freq, action = function(value)
     engine.filterFreq(id, value)
     filter_last_edited = {id = id, param = "filter_freq_" .. id}
-    TimberMod.filter_dirty = true
-    TimberMod.views_changed_callback(id)
+    ReplLooper.filter_dirty = true
+    ReplLooper.views_changed_callback(id)
   end}
   params:add{type = "control", id = "filter_resonance_" .. id, name = "Filter Resonance", controlspec = specs.FILTER_RESONANCE, action = function(value)
     engine.filterReso(id, value)
     filter_last_edited = {id = id, param = "filter_resonance_" .. id}
-    TimberMod.filter_dirty = true
-    TimberMod.views_changed_callback(id)
+    ReplLooper.filter_dirty = true
+    ReplLooper.views_changed_callback(id)
   end}
 
   params:add{type = "control", id = "filter_freq_mod_lfo_1_" .. id, name = "Filter Cutoff Mod (LFO1)", controlspec = ControlSpec.UNIPOLAR, action = function(value)
     engine.filterFreqModLfo1(id, value)
-    TimberMod.views_changed_callback(id)
+    ReplLooper.views_changed_callback(id)
   end}
   params:add{type = "control", id = "filter_freq_mod_lfo_2_" .. id, name = "Filter Cutoff Mod (LFO2)", controlspec = ControlSpec.UNIPOLAR, action = function(value)
     engine.filterFreqModLfo2(id, value)
-    TimberMod.views_changed_callback(id)
+    ReplLooper.views_changed_callback(id)
   end}
   params:add{type = "control", id = "filter_freq_mod_env_" .. id, name = "Filter Cutoff Mod (Env)", controlspec = ControlSpec.BIPOLAR, action = function(value)
     engine.filterFreqModEnv(id, value)
-    TimberMod.views_changed_callback(id)
+    ReplLooper.views_changed_callback(id)
   end}
   params:add{type = "control", id = "filter_freq_mod_vel_" .. id, name = "Filter Cutoff Mod (Vel)", controlspec = ControlSpec.BIPOLAR, action = function(value)
     engine.filterFreqModVel(id, value)
-    TimberMod.views_changed_callback(id)
+    ReplLooper.views_changed_callback(id)
   end}
   params:add{type = "control", id = "filter_freq_mod_pressure_" .. id, name = "Filter Cutoff Mod (Pres)", controlspec = ControlSpec.BIPOLAR, action = function(value)
     engine.filterFreqModPressure(id, value)
-    TimberMod.views_changed_callback(id)
+    ReplLooper.views_changed_callback(id)
   end}
   params:add{type = "control", id = "filter_tracking_" .. id, name = "Filter Tracking", controlspec = specs.FILTER_TRACKING, formatter = format_ratio_to_one, action = function(value)
     engine.filterTracking(id, value)
-    TimberMod.views_changed_callback(id)
+    ReplLooper.views_changed_callback(id)
   end}
 
   params:add_separator("Pan & Amp")
 
   params:add{type = "control", id = "pan_" .. id, name = "Pan", controlspec = ControlSpec.PAN, formatter = Formatters.bipolar_as_pan_widget, action = function(value)
     engine.pan(id, value)
-    TimberMod.views_changed_callback(id)
+    ReplLooper.views_changed_callback(id)
   end}
   params:add{type = "control", id = "pan_mod_lfo_1_" .. id, name = "Pan Mod (LFO1)", controlspec = ControlSpec.UNIPOLAR, action = function(value)
     engine.panModLfo1(id, value)
-    TimberMod.views_changed_callback(id)
+    ReplLooper.views_changed_callback(id)
   end}
   params:add{type = "control", id = "pan_mod_lfo_2_" .. id, name = "Pan Mod (LFO2)", controlspec = ControlSpec.UNIPOLAR, action = function(value)
     engine.panModLfo2(id, value)
-    TimberMod.views_changed_callback(id)
+    ReplLooper.views_changed_callback(id)
   end}
   params:add{type = "control", id = "pan_mod_env_" .. id, name = "Pan Mod (Env)", controlspec = ControlSpec.BIPOLAR, action = function(value)
     engine.panModEnv(id, value)
-    TimberMod.views_changed_callback(id)
+    ReplLooper.views_changed_callback(id)
   end}
 
   params:add{type = "control", id = "amp_" .. id, name = "Amp", controlspec = specs.AMP, action = function(value)
     engine.amp(id, value)
-    TimberMod.views_changed_callback(id)
+    ReplLooper.views_changed_callback(id)
   end}
   params:add{type = "control", id = "amp_mod_lfo_1_" .. id, name = "Amp Mod (LFO1)", controlspec = ControlSpec.UNIPOLAR, action = function(value)
     engine.ampModLfo1(id, value)
-    TimberMod.views_changed_callback(id)
+    ReplLooper.views_changed_callback(id)
   end}
   params:add{type = "control", id = "amp_mod_lfo_2_" .. id, name = "Amp Mod (LFO2)", controlspec = ControlSpec.UNIPOLAR, action = function(value)
     engine.ampModLfo2(id, value)
-    TimberMod.views_changed_callback(id)
+    ReplLooper.views_changed_callback(id)
   end}
 
   params:add_separator("Amp Env")
 
   params:add{type = "control", id = "amp_env_attack_" .. id, name = "Amp Env Attack", controlspec = specs.AMP_ENV_ATTACK, formatter = Formatters.format_secs, action = function(value)
     engine.ampAttack(id, value)
-    TimberMod.views_changed_callback(id)
-    TimberMod.env_dirty = true
+    ReplLooper.views_changed_callback(id)
+    ReplLooper.env_dirty = true
   end}
   params:add{type = "control", id = "amp_env_decay_" .. id, name = "Amp Env Decay", controlspec = specs.AMP_ENV_DECAY, formatter = Formatters.format_secs, action = function(value)
     engine.ampDecay(id, value)
-    TimberMod.views_changed_callback(id)
-    TimberMod.env_dirty = true
+    ReplLooper.views_changed_callback(id)
+    ReplLooper.env_dirty = true
   end}
   params:add{type = "control", id = "amp_env_sustain_" .. id, name = "Amp Env Sustain", controlspec = specs.AMP_ENV_SUSTAIN, action = function(value)
     engine.ampSustain(id, value)
-    TimberMod.views_changed_callback(id)
-    TimberMod.env_dirty = true
+    ReplLooper.views_changed_callback(id)
+    ReplLooper.env_dirty = true
   end}
   params:add{type = "control", id = "amp_env_release_" .. id, name = "Amp Env Release", controlspec = specs.AMP_ENV_RELEASE, formatter = Formatters.format_secs, action = function(value)
     engine.ampRelease(id, value)
-    TimberMod.views_changed_callback(id)
-    TimberMod.env_dirty = true
+    ReplLooper.views_changed_callback(id)
+    ReplLooper.env_dirty = true
   end}
 
   params:add_separator("Mod Env")
 
   params:add{type = "control", id = "mod_env_attack_" .. id, name = "Mod Env Attack", controlspec = specs.MOD_ENV_ATTACK, formatter = Formatters.format_secs, action = function(value)
     engine.modAttack(id, value)
-    TimberMod.views_changed_callback(id)
-    TimberMod.env_dirty = true
+    ReplLooper.views_changed_callback(id)
+    ReplLooper.env_dirty = true
   end}
   params:add{type = "control", id = "mod_env_decay_" .. id, name = "Mod Env Decay", controlspec = specs.MOD_ENV_DECAY, formatter = Formatters.format_secs, action = function(value)
     engine.modDecay(id, value)
-    TimberMod.views_changed_callback(id)
-    TimberMod.env_dirty = true
+    ReplLooper.views_changed_callback(id)
+    ReplLooper.env_dirty = true
   end}
   params:add{type = "control", id = "mod_env_sustain_" .. id, name = "Mod Env Sustain", controlspec = specs.MOD_ENV_SUSTAIN, action = function(value)
     engine.modSustain(id, value)
-    TimberMod.views_changed_callback(id)
-    TimberMod.env_dirty = true
+    ReplLooper.views_changed_callback(id)
+    ReplLooper.env_dirty = true
   end}
   params:add{type = "control", id = "mod_env_release_" .. id, name = "Mod Env Release", controlspec = specs.MOD_ENV_RELEASE, formatter = Formatters.format_secs, action = function(value)
     engine.modRelease(id, value)
-    TimberMod.views_changed_callback(id)
-    TimberMod.env_dirty = true
+    ReplLooper.views_changed_callback(id)
+    ReplLooper.env_dirty = true
   end}
 
   params:add_separator("LFO Fade")
@@ -1031,49 +1031,49 @@ function TimberMod.add_sample_params(id, include_beat_params, extra_params)
     if value < 0 then value = specs.LFO_FADE.minval - 0.00001 + math.abs(value) end
     engine.lfo1Fade(id, value)
     lfos_last_edited = {id = id, param = "lfo_1_fade_" .. id}
-    TimberMod.views_changed_callback(id)
-    TimberMod.lfo_1_dirty = true
+    ReplLooper.views_changed_callback(id)
+    ReplLooper.lfo_1_dirty = true
   end}
   params:add{type = "control", id = "lfo_2_fade_" .. id, name = "LFO2 Fade", controlspec = specs.LFO_FADE, formatter = format_fade, action = function(value)
     if value < 0 then value = specs.LFO_FADE.minval - 0.00001 + math.abs(value) end
     engine.lfo2Fade(id, value)
     lfos_last_edited = {id = id, param = "lfo_2_fade_" .. id}
-    TimberMod.views_changed_callback(id)
-    TimberMod.lfo_2_dirty = true
+    ReplLooper.views_changed_callback(id)
+    ReplLooper.lfo_2_dirty = true
   end}
 
-  TimberMod.num_sample_params = TimberMod.num_sample_params + 1
+  ReplLooper.num_sample_params = ReplLooper.num_sample_params + 1
 end
 
 
 
--- TimberMod UI views
+-- ReplLooper UI views
 
-TimberMod.UI = {}
-TimberMod.UI.__index = TimberMod.UI
+ReplLooper.UI = {}
+ReplLooper.UI.__index = ReplLooper.UI
 
-function TimberMod.draw_title(sample_id, show_sample_name)
+function ReplLooper.draw_title(sample_id, show_sample_name)
   if show_sample_name == nil then show_sample_name = true end
 
   screen.level(15)
 
-  if TimberMod.shift_mode then
+  if ReplLooper.shift_mode then
     screen.rect(0, 4, 1, 5)
     screen.fill()
   end
 
   local max_title_width = 100
   screen.move(4, 9)
-  if TimberMod.display == "id" then
+  if ReplLooper.display == "id" then
     screen.text(string.format("%03d", sample_id))
     screen.move(23, 9)
-  elseif TimberMod.display == "note" then
+  elseif ReplLooper.display == "note" then
     screen.text(MusicUtil.note_num_to_name(sample_id, true))
     screen.move(27, 9)
     max_title_width = 96
   end
 
-  if show_sample_name or TimberMod.shift_mode then
+  if show_sample_name or ReplLooper.shift_mode then
     local title
 
     if samples_meta[sample_id].num_frames <= 0 then
@@ -1093,8 +1093,8 @@ end
 
 -------- Sample Setup --------
 
-TimberMod.UI.SampleSetup = {}
-TimberMod.UI.SampleSetup.__index = TimberMod.UI.SampleSetup
+ReplLooper.UI.SampleSetup = {}
+ReplLooper.UI.SampleSetup.__index = ReplLooper.UI.SampleSetup
 
 local function update_setup_params(self)
   local scale_by = params:get("scale_by_" .. self.sample_id)
@@ -1135,11 +1135,11 @@ local function update_setup_params(self)
     self.params_list.entries[k] = text
   end
 
-  TimberMod.setup_params_dirty = false
-  TimberMod.views_changed_callback(self.sample_id)
+  ReplLooper.setup_params_dirty = false
+  ReplLooper.views_changed_callback(self.sample_id)
 end
 
-function TimberMod.UI.SampleSetup.new(sample_id, index)
+function ReplLooper.UI.SampleSetup.new(sample_id, index)
 
   names_list = UI.ScrollingList.new(4, 30)
   names_list.num_visible = 3
@@ -1162,31 +1162,31 @@ function TimberMod.UI.SampleSetup.new(sample_id, index)
     copy_to_first = 0,
     copy_to_last = 0
   }
-  setmetatable(TimberMod.UI.SampleSetup, {__index = TimberMod.UI})
-  setmetatable(sample_setup, TimberMod.UI.SampleSetup)
+  setmetatable(ReplLooper.UI.SampleSetup, {__index = ReplLooper.UI})
+  setmetatable(sample_setup, ReplLooper.UI.SampleSetup)
 
   update_setup_params(sample_setup)
 
   return sample_setup
 end
 
-function TimberMod.UI.SampleSetup:set_sample_id(id)
+function ReplLooper.UI.SampleSetup:set_sample_id(id)
   self.sample_id = id
-  TimberMod.setup_params_dirty = true
+  ReplLooper.setup_params_dirty = true
   self.move_active = false
   self.copy_active = false
   self.copy_params_active = false
-  TimberMod.views_changed_callback(id)
+  ReplLooper.views_changed_callback(id)
 end
 
-function TimberMod.UI.SampleSetup:set_index(index)
+function ReplLooper.UI.SampleSetup:set_index(index)
   self.index = util.clamp(index, 1, #self.names_list.entries)
   names_list:set_index(self.index)
   params_list:set_index(self.index)
   self.selected_param_name = self.param_names[self.index]
 end
 
-function TimberMod.UI.SampleSetup:set_param_default()
+function ReplLooper.UI.SampleSetup:set_param_default()
   if self.selected_param_name ~= "" then
     local param = params:lookup_param(self.selected_param_name)
     local default
@@ -1199,10 +1199,10 @@ function TimberMod.UI.SampleSetup:set_param_default()
   end
 end
 
-function TimberMod.UI.SampleSetup:set_param_delta(delta)
+function ReplLooper.UI.SampleSetup:set_param_delta(delta)
   if self.selected_param_name ~= "" then
     if string.find(self.selected_param_name, "by_percentage") or string.find(self.selected_param_name, "by_length") then
-      if TimberMod.shift_mode then
+      if ReplLooper.shift_mode then
         delta = delta * 0.01
       else
         delta = delta * 0.1
@@ -1212,19 +1212,19 @@ function TimberMod.UI.SampleSetup:set_param_delta(delta)
   end
 end
 
-function TimberMod.UI.SampleSetup:enc(n, delta)
+function ReplLooper.UI.SampleSetup:enc(n, delta)
 
   if self.move_active then
     if n == 2 or n == 3 then
-      self.move_to = util.clamp(util.round(self.move_to + delta), 0, TimberMod.num_sample_params - 1)
+      self.move_to = util.clamp(util.round(self.move_to + delta), 0, ReplLooper.num_sample_params - 1)
     end
 
   elseif self.copy_active or self.copy_params_active then
     if n == 2 then
-      self.copy_to_first = util.clamp(util.round(self.copy_to_first + delta), 0, TimberMod.num_sample_params - 1)
-      self.copy_to_last = util.clamp(self.copy_to_last, self.copy_to_first, TimberMod.num_sample_params - 1)
+      self.copy_to_first = util.clamp(util.round(self.copy_to_first + delta), 0, ReplLooper.num_sample_params - 1)
+      self.copy_to_last = util.clamp(self.copy_to_last, self.copy_to_first, ReplLooper.num_sample_params - 1)
     elseif n == 3 then
-      self.copy_to_last = util.clamp(util.round(self.copy_to_last + delta), self.copy_to_first, TimberMod.num_sample_params - 1)
+      self.copy_to_last = util.clamp(util.round(self.copy_to_last + delta), self.copy_to_first, ReplLooper.num_sample_params - 1)
     end
 
   else
@@ -1235,10 +1235,10 @@ function TimberMod.UI.SampleSetup:enc(n, delta)
     end
   end
 
-  TimberMod.views_changed_callback(self.sample_id)
+  ReplLooper.views_changed_callback(self.sample_id)
 end
 
-function TimberMod.UI.SampleSetup:key(n, z)
+function ReplLooper.UI.SampleSetup:key(n, z)
   if z == 1 then
 
     if self.move_active then
@@ -1246,13 +1246,13 @@ function TimberMod.UI.SampleSetup:key(n, z)
       if n == 2 then
         self.move_active = false
         self.move_to = 0
-        TimberMod.views_changed_callback(self.sample_id)
+        ReplLooper.views_changed_callback(self.sample_id)
 
       elseif n == 3 then
-        TimberMod.move_sample(self.sample_id, self.move_to)
+        ReplLooper.move_sample(self.sample_id, self.move_to)
         self.move_active = false
         self.move_to = 0
-        TimberMod.views_changed_callback(self.sample_id)
+        ReplLooper.views_changed_callback(self.sample_id)
       end
 
     elseif self.copy_active then
@@ -1261,14 +1261,14 @@ function TimberMod.UI.SampleSetup:key(n, z)
         self.copy_active = false
         self.copy_to_first = 0
         self.copy_to_last = 0
-        TimberMod.views_changed_callback(self.sample_id)
+        ReplLooper.views_changed_callback(self.sample_id)
 
       elseif n == 3 then
-        TimberMod.copy_sample(self.sample_id, self.copy_to_first, self.copy_to_last)
+        ReplLooper.copy_sample(self.sample_id, self.copy_to_first, self.copy_to_last)
         self.copy_active = false
         self.copy_to_first = 0
         self.copy_to_last = 0
-        TimberMod.views_changed_callback(self.sample_id)
+        ReplLooper.views_changed_callback(self.sample_id)
       end
 
     elseif self.copy_params_active then
@@ -1277,14 +1277,14 @@ function TimberMod.UI.SampleSetup:key(n, z)
         self.copy_params_active = false
         self.copy_to_first = 0
         self.copy_to_last = 0
-        TimberMod.views_changed_callback(self.sample_id)
+        ReplLooper.views_changed_callback(self.sample_id)
 
       elseif n == 3 then
-        TimberMod.copy_params(self.sample_id, self.copy_to_first, self.copy_to_last, {})
+        ReplLooper.copy_params(self.sample_id, self.copy_to_first, self.copy_to_last, {})
         self.copy_params_active = false
         self.copy_to_first = 0
         self.copy_to_last = 0
-        TimberMod.views_changed_callback(self.sample_id)
+        ReplLooper.views_changed_callback(self.sample_id)
       end
 
     else
@@ -1292,12 +1292,12 @@ function TimberMod.UI.SampleSetup:key(n, z)
       if n == 3 then
 
         if self.index == 1 then
-          TimberMod.file_select_active = true
-          TimberMod.FileSelect.enter(_path.audio, function(file)
-            TimberMod.file_select_active = false
-            TimberMod.views_changed_callback(self.sample_id)
+          ReplLooper.file_select_active = true
+          ReplLooper.FileSelect.enter(_path.audio, function(file)
+            ReplLooper.file_select_active = false
+            ReplLooper.views_changed_callback(self.sample_id)
             if file ~= "cancel" then
-              TimberMod.load_sample(self.sample_id, file)
+              ReplLooper.load_sample(self.sample_id, file)
             end
           end)
 
@@ -1315,7 +1315,7 @@ function TimberMod.UI.SampleSetup:key(n, z)
 
         else
           self:set_param_default()
-          TimberMod.views_changed_callback(self.sample_id)
+          ReplLooper.views_changed_callback(self.sample_id)
         end
       end
 
@@ -1323,39 +1323,39 @@ function TimberMod.UI.SampleSetup:key(n, z)
   end
 end
 
-function TimberMod.UI.SampleSetup:sample_key(sample_id)
+function ReplLooper.UI.SampleSetup:sample_key(sample_id)
 
   if self.move_active then
-    TimberMod.move_sample(self.sample_id, sample_id)
+    ReplLooper.move_sample(self.sample_id, sample_id)
     self.move_active = false
     self.move_to = 0
-    TimberMod.views_changed_callback(self.sample_id)
+    ReplLooper.views_changed_callback(self.sample_id)
 
   elseif self.copy_active then
-    TimberMod.copy_sample(self.sample_id, sample_id, sample_id)
+    ReplLooper.copy_sample(self.sample_id, sample_id, sample_id)
     self.copy_active = false
     self.copy_to_first = 0
     self.copy_to_last = 0
-    TimberMod.views_changed_callback(self.sample_id)
+    ReplLooper.views_changed_callback(self.sample_id)
 
   elseif self.copy_params_active then
-    TimberMod.copy_params(self.sample_id, sample_id, sample_id)
+    ReplLooper.copy_params(self.sample_id, sample_id, sample_id)
     self.copy_active = false
     self.copy_to_first = 0
     self.copy_to_last = 0
-    TimberMod.views_changed_callback(self.sample_id)
+    ReplLooper.views_changed_callback(self.sample_id)
 
   end
 end
 
-function TimberMod.UI.SampleSetup:redraw()
+function ReplLooper.UI.SampleSetup:redraw()
 
-  if TimberMod.setup_params_dirty then
+  if ReplLooper.setup_params_dirty then
     update_setup_params(self)
     self.selected_param_name = self.param_names[self.index]
   end
 
-  TimberMod.draw_title(self.sample_id)
+  ReplLooper.draw_title(self.sample_id)
   local info = ""
 
   if self.move_active then
@@ -1365,7 +1365,7 @@ function TimberMod.UI.SampleSetup:redraw()
     screen.text("Move")
     screen.level(15)
     screen.move(68, 35)
-    if TimberMod.display == "note" then
+    if ReplLooper.display == "note" then
        screen.text(MusicUtil.note_num_to_name(self.move_to, true))
     else
       screen.text(string.format("%03d", self.move_to))
@@ -1383,7 +1383,7 @@ function TimberMod.UI.SampleSetup:redraw()
     end
     screen.level(15)
     screen.move(68, 35)
-    if TimberMod.display == "note" then
+    if ReplLooper.display == "note" then
        screen.text(MusicUtil.note_num_to_name(self.copy_to_first, true))
        screen.move(88, 35)
     else
@@ -1392,7 +1392,7 @@ function TimberMod.UI.SampleSetup:redraw()
     end
     screen.text("-")
     screen.move(93, 35)
-    if TimberMod.display == "note" then
+    if ReplLooper.display == "note" then
        screen.text(MusicUtil.note_num_to_name(self.copy_to_last, true))
     else
       screen.text(string.format("%03d", self.copy_to_last))
@@ -1433,43 +1433,43 @@ end
 
 -------- Waveform --------
 
-TimberMod.UI.Waveform = {}
-TimberMod.UI.Waveform.__index = TimberMod.UI.Waveform
+ReplLooper.UI.Waveform = {}
+ReplLooper.UI.Waveform.__index = ReplLooper.UI.Waveform
 
-function TimberMod.UI.Waveform.new(sample_id)
+function ReplLooper.UI.Waveform.new(sample_id)
   local waveform = {
     sample_id = sample_id or 1,
     tab_id = 1,
     last_edited_param = nil,
     last_edited_timeout = 0
   }
-  setmetatable(TimberMod.UI.Waveform, {__index = TimberMod.UI})
-  setmetatable(waveform, TimberMod.UI.Waveform)
+  setmetatable(ReplLooper.UI.Waveform, {__index = ReplLooper.UI})
+  setmetatable(waveform, ReplLooper.UI.Waveform)
   return waveform
 end
 
-function TimberMod.UI.Waveform:set_sample_id(id)
+function ReplLooper.UI.Waveform:set_sample_id(id)
   self.sample_id = id
-  TimberMod.views_changed_callback(id)
+  ReplLooper.views_changed_callback(id)
 end
 
-function TimberMod.UI.Waveform:set_tab(id)
+function ReplLooper.UI.Waveform:set_tab(id)
   self.tab_id = util.clamp(id, 1, 2)
 end
 
-function TimberMod.UI.Waveform:enc(n, delta)
+function ReplLooper.UI.Waveform:enc(n, delta)
 
   -- Trim tab
   if self.tab_id == 1 then
     if n == 2 then
-      if TimberMod.shift_mode then
+      if ReplLooper.shift_mode then
         params:set("start_frame_" .. self.sample_id, params:get("start_frame_" .. self.sample_id) + delta)
       else
         params:delta("start_frame_" .. self.sample_id, delta)
       end
     elseif n == 3 then
       if samples_meta[self.sample_id].streaming == 0 or lookup_play_mode(self.sample_id) > 1 then
-        if TimberMod.shift_mode then
+        if ReplLooper.shift_mode then
           params:set("end_frame_" .. self.sample_id, params:get("end_frame_" .. self.sample_id) + delta)
         else
           params:delta("end_frame_" .. self.sample_id, delta)
@@ -1480,13 +1480,13 @@ function TimberMod.UI.Waveform:enc(n, delta)
   -- Loop tab
   else
     if n == 2 then
-      if TimberMod.shift_mode then
+      if ReplLooper.shift_mode then
         params:set("loop_start_frame_" .. self.sample_id, params:get("loop_start_frame_" .. self.sample_id) + delta)
       else
         params:delta("loop_start_frame_" .. self.sample_id, delta)
       end
     elseif n == 3 then
-      if TimberMod.shift_mode then
+      if ReplLooper.shift_mode then
         params:set("loop_end_frame_" .. self.sample_id, params:get("loop_end_frame_" .. self.sample_id) + delta)
       else
         params:delta("loop_end_frame_" .. self.sample_id, delta)
@@ -1494,10 +1494,10 @@ function TimberMod.UI.Waveform:enc(n, delta)
     end
   end
 
-  TimberMod.views_changed_callback(self.sample_id)
+  ReplLooper.views_changed_callback(self.sample_id)
 end
 
-function TimberMod.UI.Waveform:key(n, z)
+function ReplLooper.UI.Waveform:key(n, z)
   if z == 1 then
     if n == 2 then
       self:set_tab(self.tab_id % 2 + 1)
@@ -1505,10 +1505,10 @@ function TimberMod.UI.Waveform:key(n, z)
     elseif n == 3 then
 
       if not samples_meta[self.sample_id].waveform_requested then
-        TimberMod.request_waveform(self.sample_id)
+        ReplLooper.request_waveform(self.sample_id)
 
       else
-        if TimberMod.shift_mode then
+        if ReplLooper.shift_mode then
           local start_frame = params:get("start_frame_" .. self.sample_id)
           local loop_start_frame = params:get("loop_start_frame_" .. self.sample_id)
           local loop_end_frame = params:get("loop_end_frame_" .. self.sample_id)
@@ -1521,15 +1521,15 @@ function TimberMod.UI.Waveform:key(n, z)
         end
       end
     end
-    TimberMod.views_changed_callback(self.sample_id)
+    ReplLooper.views_changed_callback(self.sample_id)
   end
 end
 
-function TimberMod.UI.Waveform:update()
+function ReplLooper.UI.Waveform:update()
 
   if self.tab_id ~= 1 and (lookup_play_mode(self.sample_id) > 1 or samples_meta[self.sample_id].streaming == 1) then
     self:set_tab(1)
-    TimberMod.views_changed_callback(self.sample_id)
+    ReplLooper.views_changed_callback(self.sample_id)
   end
 
   if waveform_last_edited and waveform_last_edited.id == self.sample_id then
@@ -1548,7 +1548,7 @@ function TimberMod.UI.Waveform:update()
   elseif self.last_edited_timeout > -1 then
     self.last_edited_timeout = -1
     self.last_edited_param = nil
-    TimberMod.views_changed_callback(self.sample_id)
+    ReplLooper.views_changed_callback(self.sample_id)
   end
 end
 
@@ -1606,7 +1606,7 @@ local function draw_start_end_markers(id, x, y, w, h, active)
 
 end
 
-function TimberMod.UI.Waveform:redraw()
+function ReplLooper.UI.Waveform:redraw()
   local X = 4
   local Y = 25
   local W = 120
@@ -1618,7 +1618,7 @@ function TimberMod.UI.Waveform:redraw()
   local play_bottom = Y + play_y_margin + PLAY_H
   local y_center = Y + H * 0.5
 
-  TimberMod.draw_title(self.sample_id)
+  ReplLooper.draw_title(self.sample_id)
 
   -- Waveform
   screen.level(2)
@@ -1645,7 +1645,7 @@ function TimberMod.UI.Waveform:redraw()
     if self.last_edited_param then
 
       -- Edited param value
-      if TimberMod.shift_mode then
+      if ReplLooper.shift_mode then
         info = params:get(self.last_edited_param) .. " (" .. params:string(self.last_edited_param) .. ")"
       else
         info = params:string(self.last_edited_param)
@@ -1660,7 +1660,7 @@ function TimberMod.UI.Waveform:redraw()
         info = info .. "/" .. Formatters.format_secs_raw(sample_duration * (1 / samples_meta[self.sample_id].freq_multiplier))
       end
 
-      if TimberMod.shift_mode then
+      if ReplLooper.shift_mode then
         -- Frames
         info = samples_meta[self.sample_id].num_frames .. " (" .. info .. ")"
       else
@@ -1718,8 +1718,8 @@ end
 
 -------- Filter / Amp --------
 
-TimberMod.UI.FilterAmp = {}
-TimberMod.UI.FilterAmp.__index = TimberMod.UI.FilterAmp
+ReplLooper.UI.FilterAmp = {}
+ReplLooper.UI.FilterAmp.__index = ReplLooper.UI.FilterAmp
 
 local function filter_type_num_to_string(type_num)
   local filter_type_string
@@ -1731,7 +1731,7 @@ local function filter_type_num_to_string(type_num)
   return filter_type_string
 end
 
-function TimberMod.UI.FilterAmp.new(sample_id, tab_id)
+function ReplLooper.UI.FilterAmp.new(sample_id, tab_id)
 
   local filter_graph = FilterGraph.new(10, 24000, -60, 32.5, filter_type_num_to_string(params:get("filter_type_" .. sample_id)), 12,
     params:get("filter_freq_" .. sample_id), params:get("filter_resonance_" .. sample_id))
@@ -1752,26 +1752,26 @@ function TimberMod.UI.FilterAmp.new(sample_id, tab_id)
   pan_dial.active = filter_amp.tab_id == 2
   amp_dial.active = filter_amp.tab_id == 2
 
-  setmetatable(TimberMod.UI.FilterAmp, {__index = TimberMod.UI})
-  setmetatable(filter_amp, TimberMod.UI.FilterAmp)
+  setmetatable(ReplLooper.UI.FilterAmp, {__index = ReplLooper.UI})
+  setmetatable(filter_amp, ReplLooper.UI.FilterAmp)
   return filter_amp
 end
 
-function TimberMod.UI.FilterAmp:set_sample_id(id)
+function ReplLooper.UI.FilterAmp:set_sample_id(id)
   self.sample_id = id
-  TimberMod.filter_dirty = true
-  TimberMod.views_changed_callback(id)
+  ReplLooper.filter_dirty = true
+  ReplLooper.views_changed_callback(id)
 end
 
-function TimberMod.UI.FilterAmp:set_tab(id)
+function ReplLooper.UI.FilterAmp:set_tab(id)
   self.tab_id = util.clamp(id, 1, 2)
   self.filter_graph:set_active(self.tab_id == 1)
   self.pan_dial.active = self.tab_id == 2
   self.amp_dial.active = self.tab_id == 2
 end
 
-function TimberMod.UI.FilterAmp:enc(n, delta)
-  if TimberMod.shift_mode then delta = delta * 0.1 end
+function ReplLooper.UI.FilterAmp:enc(n, delta)
+  if ReplLooper.shift_mode then delta = delta * 0.1 end
   if self.tab_id == 1 then
     if n == 2 then
       params:delta("filter_freq_" .. self.sample_id, delta)
@@ -1785,29 +1785,29 @@ function TimberMod.UI.FilterAmp:enc(n, delta)
       params:delta("amp_" .. self.sample_id, delta)
     end
   end
-  TimberMod.views_changed_callback(self.sample_id)
+  ReplLooper.views_changed_callback(self.sample_id)
 end
 
-function TimberMod.UI.FilterAmp:key(n, z)
+function ReplLooper.UI.FilterAmp:key(n, z)
   if z == 1 then
     if n == 2 then
       self:set_tab(self.tab_id % 2 + 1)
     elseif n == 3 then
       if self.tab_id == 1 then
-        params:set("filter_type_" .. self.sample_id, params:get("filter_type_" .. self.sample_id) % #TimberMod.options.FILTER_TYPE + 1)
+        params:set("filter_type_" .. self.sample_id, params:get("filter_type_" .. self.sample_id) % #ReplLooper.options.FILTER_TYPE + 1)
       end
     end
-    TimberMod.views_changed_callback(self.sample_id)
+    ReplLooper.views_changed_callback(self.sample_id)
   end
 end
 
-function TimberMod.UI.FilterAmp:redraw()
+function ReplLooper.UI.FilterAmp:redraw()
 
-  TimberMod.draw_title(self.sample_id)
+  ReplLooper.draw_title(self.sample_id)
 
-  if TimberMod.filter_dirty then
+  if ReplLooper.filter_dirty then
     self.filter_graph:edit(filter_type_num_to_string(params:get("filter_type_" .. self.sample_id)), nil, params:get("filter_freq_" .. self.sample_id), params:get("filter_resonance_" .. self.sample_id))
-    TimberMod.filter_dirty = false
+    ReplLooper.filter_dirty = false
   end
   self.pan_dial:set_value(params:get("pan_" .. self.sample_id) * 100)
   self.amp_dial:set_value(params:get("amp_" .. self.sample_id))
@@ -1840,10 +1840,10 @@ end
 -------- Env --------
 -- Just here as a superclass of AmpEnv and ModEnv
 
-TimberMod.UI.Env = {}
-TimberMod.UI.Env.__index = TimberMod.UI.Env
+ReplLooper.UI.Env = {}
+ReplLooper.UI.Env.__index = ReplLooper.UI.Env
 
-function TimberMod.UI.Env.new(env_name, sample_id, tab_id)
+function ReplLooper.UI.Env.new(env_name, sample_id, tab_id)
   local graph = EnvGraph.new_adsr(0, 20, nil, nil, params:get(env_name .. "_env_attack_" .. sample_id), params:get(env_name .. "_env_decay_" .. sample_id),
     params:get(env_name .. "_env_sustain_" .. sample_id), params:get(env_name .. "_env_release_" .. sample_id), 1, -4)
   graph:set_position_and_size(57, 34, 60, 25)
@@ -1854,37 +1854,37 @@ function TimberMod.UI.Env.new(env_name, sample_id, tab_id)
     tab_id = tab_id or 1,
     graph = graph
   }
-  setmetatable(TimberMod.UI.Env, {__index = TimberMod.UI})
-  setmetatable(env, TimberMod.UI.Env)
+  setmetatable(ReplLooper.UI.Env, {__index = ReplLooper.UI})
+  setmetatable(env, ReplLooper.UI.Env)
   return env
 end
 
-function TimberMod.UI.Env:set_sample_id(id)
+function ReplLooper.UI.Env:set_sample_id(id)
   self.sample_id = id
-  TimberMod.env_dirty = true
-  TimberMod.views_changed_callback(id)
+  ReplLooper.env_dirty = true
+  ReplLooper.views_changed_callback(id)
 end
 
-function TimberMod.UI.Env:set_tab(id)
+function ReplLooper.UI.Env:set_tab(id)
   self.tab_id = util.clamp(id, 1, 2)
 end
 
-function TimberMod.UI.Env:enc(n, delta)
+function ReplLooper.UI.Env:enc(n, delta)
 
 end
 
-function TimberMod.UI.Env:key(n, z)
+function ReplLooper.UI.Env:key(n, z)
   if z == 1 then
     if n == 2 then
       self:set_tab(self.tab_id % 2 + 1)
     end
-    TimberMod.views_changed_callback(self.sample_id)
+    ReplLooper.views_changed_callback(self.sample_id)
   end
 end
 
-function TimberMod.UI.Env:redraw()
+function ReplLooper.UI.Env:redraw()
 
-  TimberMod.draw_title(self.sample_id)
+  ReplLooper.draw_title(self.sample_id)
 
   if self.tab_id == 1 then screen.level(15) else screen.level(3) end
   screen.move(4, 27)
@@ -1903,28 +1903,28 @@ function TimberMod.UI.Env:redraw()
 
   screen.fill()
 
-  if TimberMod.env_dirty then
+  if ReplLooper.env_dirty then
     self.graph:edit_adsr(params:get(self.env_name .. "_env_attack_" .. self.sample_id), params:get(self.env_name .. "_env_decay_" .. self.sample_id),
       params:get(self.env_name .. "_env_sustain_" .. self.sample_id), params:get(self.env_name .. "_env_release_" .. self.sample_id))
-    TimberMod.env_dirty = false
+    ReplLooper.env_dirty = false
   end
   self.graph:redraw()
 end
 
 -------- Amp Env --------
 
-TimberMod.UI.AmpEnv = {}
-TimberMod.UI.AmpEnv.__index = TimberMod.UI.AmpEnv
+ReplLooper.UI.AmpEnv = {}
+ReplLooper.UI.AmpEnv.__index = ReplLooper.UI.AmpEnv
 
-function TimberMod.UI.AmpEnv.new(sample_id, tab_id)
-  local env = TimberMod.UI.Env.new("amp", sample_id, tab_id)
-  setmetatable(TimberMod.UI.AmpEnv, {__index = TimberMod.UI.Env})
-  setmetatable(env, TimberMod.UI.AmpEnv)
+function ReplLooper.UI.AmpEnv.new(sample_id, tab_id)
+  local env = ReplLooper.UI.Env.new("amp", sample_id, tab_id)
+  setmetatable(ReplLooper.UI.AmpEnv, {__index = ReplLooper.UI.Env})
+  setmetatable(env, ReplLooper.UI.AmpEnv)
   return env
 end
 
-function TimberMod.UI.AmpEnv:enc(n, delta)
-  if TimberMod.shift_mode then delta = delta * 0.1 end
+function ReplLooper.UI.AmpEnv:enc(n, delta)
+  if ReplLooper.shift_mode then delta = delta * 0.1 end
   if self.tab_id == 1 then
     if n == 2 then
       params:delta("amp_env_attack_" .. self.sample_id, delta)
@@ -1938,23 +1938,23 @@ function TimberMod.UI.AmpEnv:enc(n, delta)
       params:delta("amp_env_release_" .. self.sample_id, delta)
     end
   end
-  TimberMod.views_changed_callback(self.sample_id)
+  ReplLooper.views_changed_callback(self.sample_id)
 end
 
 -------- Mod Env --------
 
-TimberMod.UI.ModEnv = {}
-TimberMod.UI.ModEnv.__index = TimberMod.UI.ModEnv
+ReplLooper.UI.ModEnv = {}
+ReplLooper.UI.ModEnv.__index = ReplLooper.UI.ModEnv
 
-function TimberMod.UI.ModEnv.new(sample_id, tab_id)
-  local env = TimberMod.UI.Env.new("mod", sample_id, tab_id)
-  setmetatable(TimberMod.UI.ModEnv, {__index = TimberMod.UI.Env})
-  setmetatable(env, TimberMod.UI.ModEnv)
+function ReplLooper.UI.ModEnv.new(sample_id, tab_id)
+  local env = ReplLooper.UI.Env.new("mod", sample_id, tab_id)
+  setmetatable(ReplLooper.UI.ModEnv, {__index = ReplLooper.UI.Env})
+  setmetatable(env, ReplLooper.UI.ModEnv)
   return env
 end
 
-function TimberMod.UI.ModEnv:enc(n, delta)
-  if TimberMod.shift_mode then delta = delta * 0.1 end
+function ReplLooper.UI.ModEnv:enc(n, delta)
+  if ReplLooper.shift_mode then delta = delta * 0.1 end
   if self.tab_id == 1 then
     if n == 2 then
       params:delta("mod_env_attack_" .. self.sample_id, delta)
@@ -1968,14 +1968,14 @@ function TimberMod.UI.ModEnv:enc(n, delta)
       params:delta("mod_env_release_" .. self.sample_id, delta)
     end
   end
-  TimberMod.views_changed_callback(self.sample_id)
+  ReplLooper.views_changed_callback(self.sample_id)
 end
 
 
 -------- LFOs --------
 
-TimberMod.UI.Lfos = {}
-TimberMod.UI.Lfos.__index = TimberMod.UI.Lfos
+ReplLooper.UI.Lfos = {}
+ReplLooper.UI.Lfos.__index = ReplLooper.UI.Lfos
 
 local function generate_lfo_wave(sample_id, lfo_id)
 
@@ -1990,14 +1990,14 @@ local function generate_lfo_wave(sample_id, lfo_id)
     local MIN_Y = 0.15
 
     if fade > 0 then
-      fade_end = util.linlin(0, TimberMod.specs.LFO_FADE.maxval, 0, 1, fade)
+      fade_end = util.linlin(0, ReplLooper.specs.LFO_FADE.maxval, 0, 1, fade)
       y_fade = util.linlin(0, fade_end, MIN_Y, 1, x)
     else
-      fade_end = util.linlin(TimberMod.specs.LFO_FADE.minval, 0, 0, 1, fade)
-      y_fade = util.linlin(0, fade_end, 1, util.linlin(TimberMod.specs.LFO_FADE.minval * 0.2, 0, MIN_Y, 1, fade), x)
+      fade_end = util.linlin(ReplLooper.specs.LFO_FADE.minval, 0, 0, 1, fade)
+      y_fade = util.linlin(0, fade_end, 1, util.linlin(ReplLooper.specs.LFO_FADE.minval * 0.2, 0, MIN_Y, 1, fade), x)
     end
 
-    x = x * util.linlin(TimberMod.specs.LFO_1_FREQ.minval, TimberMod.specs.LFO_1_FREQ.maxval, 0.5, 10, freq)
+    x = x * util.linlin(ReplLooper.specs.LFO_1_FREQ.minval, ReplLooper.specs.LFO_1_FREQ.maxval, 0.5, 10, freq)
     local y
 
     if shape == 1 then -- Sine
@@ -2018,7 +2018,7 @@ local function generate_lfo_wave(sample_id, lfo_id)
   end
 end
 
-function TimberMod.UI.Lfos.new(sample_id, tab_id)
+function ReplLooper.UI.Lfos.new(sample_id, tab_id)
 
   local SUB_SAMPLING = 4
 
@@ -2042,25 +2042,25 @@ function TimberMod.UI.Lfos.new(sample_id, tab_id)
   lfo_1_graph:set_active(lfos.tab_id == 1)
   lfo_2_graph:set_active(lfos.tab_id == 2)
 
-  setmetatable(TimberMod.UI.Lfos, {__index = TimberMod.UI})
-  setmetatable(lfos, TimberMod.UI.Lfos)
+  setmetatable(ReplLooper.UI.Lfos, {__index = ReplLooper.UI})
+  setmetatable(lfos, ReplLooper.UI.Lfos)
   return lfos
 end
 
-function TimberMod.UI.Lfos:set_sample_id(id)
+function ReplLooper.UI.Lfos:set_sample_id(id)
   self.sample_id = id
-  TimberMod.lfo_functions_dirty = true
-  TimberMod.views_changed_callback(id)
+  ReplLooper.lfo_functions_dirty = true
+  ReplLooper.views_changed_callback(id)
 end
 
-function TimberMod.UI.Lfos:set_tab(id)
+function ReplLooper.UI.Lfos:set_tab(id)
   self.tab_id = util.clamp(id, 1, 2)
   self.lfo_1_graph:set_active(self.tab_id == 1)
   self.lfo_2_graph:set_active(self.tab_id == 2)
 end
 
-function TimberMod.UI.Lfos:enc(n, delta)
-  if TimberMod.shift_mode then delta = delta * 0.05 end
+function ReplLooper.UI.Lfos:enc(n, delta)
+  if ReplLooper.shift_mode then delta = delta * 0.05 end
   if self.tab_id == 1 then
     if n == 2 then
       params:delta("lfo_1_freq", delta)
@@ -2074,26 +2074,26 @@ function TimberMod.UI.Lfos:enc(n, delta)
       params:delta("lfo_2_fade_" .. self.sample_id, delta)
     end
   end
-  TimberMod.views_changed_callback(self.sample_id)
+  ReplLooper.views_changed_callback(self.sample_id)
 end
 
-function TimberMod.UI.Lfos:key(n, z)
+function ReplLooper.UI.Lfos:key(n, z)
   if z == 1 then
     if n == 2 then
       self:set_tab(self.tab_id % 2 + 1)
     elseif n == 3 then
       if self.tab_id == 1 then
-        params:set("lfo_1_wave_shape", params:get("lfo_1_wave_shape") % #TimberMod.options.LFO_WAVE_SHAPE + 1)
+        params:set("lfo_1_wave_shape", params:get("lfo_1_wave_shape") % #ReplLooper.options.LFO_WAVE_SHAPE + 1)
       else
-        params:set("lfo_2_wave_shape", params:get("lfo_2_wave_shape") % #TimberMod.options.LFO_WAVE_SHAPE + 1)
+        params:set("lfo_2_wave_shape", params:get("lfo_2_wave_shape") % #ReplLooper.options.LFO_WAVE_SHAPE + 1)
       end
     end
-    TimberMod.views_changed_callback(self.sample_id)
+    ReplLooper.views_changed_callback(self.sample_id)
   end
 end
 
 
-function TimberMod.UI.Lfos:update()
+function ReplLooper.UI.Lfos:update()
 
   if lfos_last_edited and (lfos_last_edited.id == self.sample_id or lfos_last_edited.id == nil) then
     self.last_edited_param = lfos_last_edited.param
@@ -2106,27 +2106,27 @@ function TimberMod.UI.Lfos:update()
   elseif self.last_edited_timeout > -1 then
     self.last_edited_timeout = -1
     self.last_edited_param = nil
-    TimberMod.views_changed_callback(self.sample_id)
+    ReplLooper.views_changed_callback(self.sample_id)
   end
 end
 
-function TimberMod.UI.Lfos:redraw()
+function ReplLooper.UI.Lfos:redraw()
 
-  TimberMod.draw_title(self.sample_id)
+  ReplLooper.draw_title(self.sample_id)
 
-  if TimberMod.lfo_functions_dirty then
+  if ReplLooper.lfo_functions_dirty then
     self.lfo_1_graph:edit_function(1, generate_lfo_wave(self.sample_id, 1))
     self.lfo_2_graph:edit_function(1, generate_lfo_wave(self.sample_id, 2))
-    TimberMod.lfo_functions_dirty = false
+    ReplLooper.lfo_functions_dirty = false
   end
 
-  if TimberMod.lfo_1_dirty then
+  if ReplLooper.lfo_1_dirty then
     self.lfo_1_graph:update_functions()
-    TimberMod.lfo_1_dirty = false
+    ReplLooper.lfo_1_dirty = false
   end
-  if TimberMod.lfo_2_dirty then
+  if ReplLooper.lfo_2_dirty then
     self.lfo_2_graph:update_functions()
-    TimberMod.lfo_2_dirty = false
+    ReplLooper.lfo_2_dirty = false
   end
 
   self.lfo_1_graph:redraw()
@@ -2157,7 +2157,7 @@ local function draw_matrix(cols, rows, data, index, shift_mode)
 
   screen.level(3)
 
-  if not TimberMod.shift_mode then
+  if not ReplLooper.shift_mode then
     for i = 1, #cols do
       if (index - 1) % 3 + 1 == i then screen.level(15) end
       screen.move(grid_left + (i - 1) * col, 9)
@@ -2192,33 +2192,33 @@ end
 
 -------- Mod Matrix --------
 
-TimberMod.UI.ModMatrix = {}
-TimberMod.UI.ModMatrix.__index = TimberMod.UI.ModMatrix
+ReplLooper.UI.ModMatrix = {}
+ReplLooper.UI.ModMatrix.__index = ReplLooper.UI.ModMatrix
 
-function TimberMod.UI.ModMatrix.new(sample_id, index)
+function ReplLooper.UI.ModMatrix.new(sample_id, index)
   local matrix = {
     sample_id = sample_id or 1,
     index = index or 1
   }
-  setmetatable(TimberMod.UI.ModMatrix, {__index = TimberMod.UI})
-  setmetatable(matrix, TimberMod.UI.ModMatrix)
+  setmetatable(ReplLooper.UI.ModMatrix, {__index = ReplLooper.UI})
+  setmetatable(matrix, ReplLooper.UI.ModMatrix)
   return matrix
 end
 
-function TimberMod.UI.ModMatrix:set_sample_id(id)
+function ReplLooper.UI.ModMatrix:set_sample_id(id)
   self.sample_id = id
-  TimberMod.views_changed_callback(id)
+  ReplLooper.views_changed_callback(id)
 end
 
-function TimberMod.UI.ModMatrix:set_index(index)
+function ReplLooper.UI.ModMatrix:set_index(index)
   self.index = util.clamp(index, 1, 11)
 end
 
-function TimberMod.UI.ModMatrix:enc(n, delta)
+function ReplLooper.UI.ModMatrix:enc(n, delta)
   if n == 2 then
     self:set_index(self.index + delta)
   elseif n == 3 then
-    if TimberMod.shift_mode then delta = delta * 0.1 end
+    if ReplLooper.shift_mode then delta = delta * 0.1 end
     if self.index == 1 then
       params:delta("freq_mod_lfo_1_" .. self.sample_id, delta)
     elseif self.index == 2 then
@@ -2243,10 +2243,10 @@ function TimberMod.UI.ModMatrix:enc(n, delta)
       params:delta("amp_mod_lfo_2_" .. self.sample_id, delta)
     end
   end
-  TimberMod.views_changed_callback(self.sample_id)
+  ReplLooper.views_changed_callback(self.sample_id)
 end
 
-function TimberMod.UI.ModMatrix:key(n, z)
+function ReplLooper.UI.ModMatrix:key(n, z)
   if n == 3 and z == 1 then
     if self.index == 1 then
       params:set("freq_mod_lfo_1_" .. self.sample_id, 0)
@@ -2271,13 +2271,13 @@ function TimberMod.UI.ModMatrix:key(n, z)
     elseif self.index == 11 then
       params:set("amp_mod_lfo_2_" .. self.sample_id, 0)
     end
-    TimberMod.views_changed_callback(self.sample_id)
+    ReplLooper.views_changed_callback(self.sample_id)
   end
 end
 
-function TimberMod.UI.ModMatrix:redraw()
+function ReplLooper.UI.ModMatrix:redraw()
 
-  TimberMod.draw_title(self.sample_id, false)
+  ReplLooper.draw_title(self.sample_id, false)
 
   local grid_text = {
     params:get("freq_mod_lfo_1_" .. self.sample_id), params:get("freq_mod_lfo_2_" .. self.sample_id), params:get("freq_mod_env_" .. self.sample_id),
@@ -2294,33 +2294,33 @@ end
 
 -------- Key Matrix --------
 
-TimberMod.UI.KeyMatrix = {}
-TimberMod.UI.KeyMatrix.__index = TimberMod.UI.KeyMatrix
+ReplLooper.UI.KeyMatrix = {}
+ReplLooper.UI.KeyMatrix.__index = ReplLooper.UI.KeyMatrix
 
-function TimberMod.UI.KeyMatrix.new(sample_id, index)
+function ReplLooper.UI.KeyMatrix.new(sample_id, index)
   local matrix = {
     sample_id = sample_id or 1,
     index = index or 1
   }
-  setmetatable(TimberMod.UI.KeyMatrix, {__index = TimberMod.UI})
-  setmetatable(matrix, TimberMod.UI.KeyMatrix)
+  setmetatable(ReplLooper.UI.KeyMatrix, {__index = ReplLooper.UI})
+  setmetatable(matrix, ReplLooper.UI.KeyMatrix)
   return matrix
 end
 
-function TimberMod.UI.KeyMatrix:set_sample_id(id)
+function ReplLooper.UI.KeyMatrix:set_sample_id(id)
   self.sample_id = id
-  TimberMod.views_changed_callback(id)
+  ReplLooper.views_changed_callback(id)
 end
 
-function TimberMod.UI.KeyMatrix:set_index(index)
+function ReplLooper.UI.KeyMatrix:set_index(index)
   self.index = util.clamp(index, 1, 3)
 end
 
-function TimberMod.UI.KeyMatrix:enc(n, delta)
+function ReplLooper.UI.KeyMatrix:enc(n, delta)
   if n == 2 then
     self:set_index(self.index + delta)
   elseif n == 3 then
-    if TimberMod.shift_mode then delta = delta * 0.1 end
+    if ReplLooper.shift_mode then delta = delta * 0.1 end
     if self.index == 1 then
       params:delta("filter_freq_mod_vel_" .. self.sample_id, delta)
     elseif self.index == 2 then
@@ -2329,10 +2329,10 @@ function TimberMod.UI.KeyMatrix:enc(n, delta)
       params:delta("filter_tracking_" .. self.sample_id, delta)
     end
   end
-  TimberMod.views_changed_callback(self.sample_id)
+  ReplLooper.views_changed_callback(self.sample_id)
 end
 
-function TimberMod.UI.KeyMatrix:key(n, z)
+function ReplLooper.UI.KeyMatrix:key(n, z)
   if n == 3 and z == 1 then
     if self.index == 1 then
       params:set("filter_freq_mod_vel_" .. self.sample_id, 0)
@@ -2341,13 +2341,13 @@ function TimberMod.UI.KeyMatrix:key(n, z)
     elseif self.index == 3 then
       params:set("filter_tracking_" .. self.sample_id, 1)
     end
-    TimberMod.views_changed_callback(self.sample_id)
+    ReplLooper.views_changed_callback(self.sample_id)
   end
 end
 
-function TimberMod.UI.KeyMatrix:redraw()
+function ReplLooper.UI.KeyMatrix:redraw()
 
-  TimberMod.draw_title(self.sample_id, false)
+  ReplLooper.draw_title(self.sample_id, false)
 
   local grid_text = {
     params:get("filter_freq_mod_vel_" .. self.sample_id), params:get("filter_freq_mod_pressure_" .. self.sample_id), params:string("filter_tracking_" .. self.sample_id)
@@ -2360,4 +2360,4 @@ function TimberMod.UI.KeyMatrix:redraw()
 end
 
 
-return TimberMod
+return ReplLooper

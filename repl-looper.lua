@@ -740,11 +740,11 @@ end
 
 -- Tiiiimmmmmbbbbeeerrrrr!!!!! PLUS MOLLY THE POLY!!!
 
-TimberMod = include("repl-looper/lib/timbermod_engine")
+ReplLooper = include("repl-looper/lib/repllooper_engine")
 MollyThePoly = include("repl-looper/lib/molly_the_poly_engine")
 
--- engine.load('TimberMod')
-engine.name = "TimberMod"
+-- engine.load('ReplLooper')
+engine.name = "ReplLooper"
 
 Timber = include("repl-looper/lib/timber")
 Molly = include("repl-looper/lib/molly")
@@ -796,7 +796,7 @@ function init()
   -- Set up params
   MollyThePoly.add_params()
   params:add_separator()
-  TimberMod.add_params()
+  ReplLooper.add_params()
 
   -- One global molly to start with
   molly = Molly.new()

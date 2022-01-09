@@ -85,13 +85,13 @@ function Timber:noteOff() engine.noteOff(self.id) end
 function Timber:noteKill() engine.noteKill(self.id) end
 
 function Timber:load_sample(filename)
-  TimberMod.add_sample_params(self.id)
-  TimberMod.load_sample(self.id, filename)
+  ReplLooper.add_sample_params(self.id)
+  ReplLooper.load_sample(self.id, filename)
   self.sample_filename = filename
 end
 
 function Timber:info()
-  return TimberMod.samples_meta[self.id]
+  return ReplLooper.samples_meta[self.id]
 end
 
 function Timber:position()

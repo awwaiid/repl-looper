@@ -2,7 +2,7 @@
 //
 // v1.0.0 Beta 7 Mark Eats
 
-Engine_TimberMod : CroneEngine {
+Engine_ReplLooper : CroneEngine {
 
 	var maxVoices = 7;
 	var maxSamples = 256;
