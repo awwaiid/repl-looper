@@ -64,7 +64,9 @@ function Event:lua()
   }
 end
 
-function Event:eval(from_playing_loop)
+current_context_loop_id = 1
+function Event:eval(context_loop_id, from_playing_loop)
+  current_context_loop_id = context_loop_id
   return live_event(self.command, from_playing_loop)
 end
 
@@ -181,7 +183,7 @@ function Loop:update_event(event)
 
   local action = function(t)
     self.recent_command = event.command
-    event:eval(not self.send_feedback) -- `true` to indicate we are a playback event
+    event:eval(self.id, not self.send_feedback) -- `true` to indicate we are a playback event
   end
 
   event.pattern = event.pattern or self.lattice:new_pattern{}
@@ -286,7 +288,7 @@ function Loop:play_events_at_step(step)
   for _, event in ipairs(self.events) do
     local event_step = math.floor(event.step)
     if event_step == step then
-      event:eval()
+      event:eval(self.id)
     end
   end
 end

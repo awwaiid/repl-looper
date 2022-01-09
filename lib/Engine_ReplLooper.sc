@@ -101,6 +101,9 @@ Engine_ReplLooper : CroneEngine {
   // <Goldeneye>
   var bufGoldeneye;
   var synGoldeneye;
+
+  var trackGoldeneye;
+  var trackBusGoldeneye;
   // </Goldeneye>
 
   *new { arg context, doneCallback;
@@ -1115,15 +1118,18 @@ Engine_ReplLooper : CroneEngine {
     });
 
     //////// END SAMPLER THING //////
-    //
-  // <Goldeneye>
-    bufGoldeneye=Dictionary.new(128);
-    synGoldeneye=Dictionary.new(128);
+
+    // <Goldeneye>
+    bufGoldeneye = Dictionary.new(128);
+    synGoldeneye = Dictionary.new(128);
+
+    trackGoldeneye = Dictionary.new(128);
+    trackBusGoldeneye = Dictionary.new(128);
 
     context.server.sync;
 
     SynthDef("playerGoldeneyeStereo",{
-        arg bufnum, amp=0, ampLag=0, t_trig=0,
+        arg bufnum, out, amp=0, ampLag=0, t_trig=0,
         sampleStart=0,sampleEnd=1,loop=0,
         rate=1;
 
@@ -1166,11 +1172,11 @@ Engine_ReplLooper : CroneEngine {
         // if looping, free up synth if no output
         DetectSilence.ar(slice, doneAction: 2);
 
-        Out.ar(0, slice)
+        Out.ar(out, slice)
     }).add;
 
     SynthDef("playerGoldeneyeMono",{
-        arg bufnum, amp=0, ampLag=0, t_trig=0,
+        arg bufnum, out, amp=0, ampLag=0, t_trig=0,
         sampleStart=0,sampleEnd=1,loop=0,
         rate=1;
 
@@ -1216,14 +1222,62 @@ Engine_ReplLooper : CroneEngine {
         // if looping, free up synth if no output
         DetectSilence.ar(slice, doneAction: 2);
 
-        Out.ar(0, slice)
+        Out.ar(out, slice)
     }).add;
 
+    // Mixer and FX
+    SynthDef(\goldeneyeMixer, {
+      arg in, out, amp = 1;
+      var signal;
 
-    this.addCommand("goldeneyePlay","fsfffffff", { arg msg;
+      signal = In.ar(in, 2);
+
+      // Compression etc
+      signal = CompanderD.ar(in: signal, thresh: 0.7, slopeBelow: 1, slopeAbove: 0.4, clampTime: 0.008, relaxTime: 0.2);
+      signal = tanh(signal).softclip;
+
+      // Final amplification
+      signal = signal * amp;
+
+      Out.ar(out, signal);
+
+    }).add;
+    // play(target:context.xg, args: [\in, mixerBus, \out, context.out_b], addAction: \addToTail);
+
+    this.addCommand("goldeneyeTrackMod","if", { arg msg;
+      var track_id = msg[1];
+      var amp = msg[2];
+
+      if (trackGoldeneye.at(track_id).notNil, {
+        trackGoldeneye.at(track_id).set(
+          \amp, amp
+        );
+      });
+    });
+
+    this.addCommand("goldeneyePlay","fsfffffffi", { arg msg;
       var voice=msg[1];
       var filename=msg[2];
       var synName="playerGoldeneyeMono";
+      var trackBus;
+
+      var track_id = msg[10];
+      if (trackGoldeneye.at(track_id) == nil, {
+        "Creating new track/bus".postln;
+        track_id.postln;
+
+        trackBus = Bus.audio(context.server, 2);
+        trackBusGoldeneye.put(track_id, trackBus);
+
+        trackGoldeneye.put(track_id, Synth(\goldeneyeMixer, [
+          \in, trackBus,
+          \out, 0,
+        ], target: context.server).onFree({
+          ("freed track "++track_id).postln;
+        }));
+      });
+
+
       if (bufGoldeneye.at(voice)==nil,{
         // load buffer
         Buffer.read(context.server,filename,action:{
@@ -1242,6 +1296,7 @@ Engine_ReplLooper : CroneEngine {
             \loop,msg[7],
             \rate,msg[8],
             \t_trig,msg[9],
+            \out,trackBusGoldeneye.at(track_id),
           ],target:context.server).onFree({
             // ("freed "++voice).postln;
           }));
@@ -1262,6 +1317,7 @@ Engine_ReplLooper : CroneEngine {
             \loop,msg[7],
             \rate,msg[8],
             \t_trig,msg[9],
+            \out,trackBusGoldeneye.at(track_id),
           );
         },{
           synGoldeneye.put(voice,Synth(synName,[
@@ -1273,6 +1329,7 @@ Engine_ReplLooper : CroneEngine {
             \loop,msg[7],
             \rate,msg[8],
             \t_trig,msg[9],
+            \out,trackBusGoldeneye.at(track_id),
           ],target:context.server).onFree({
             // ("freed "++voice).postln;
           }));
@@ -2333,9 +2390,12 @@ Engine_ReplLooper : CroneEngine {
     bufSample.keysValuesDo({ arg key, value; value.free; });
     // END Sampler thing
 
-      // <Goldeneye>
+    // <Goldeneye>
     synGoldeneye.keysValuesDo({ arg key, value; value.free; });
     bufGoldeneye.keysValuesDo({ arg key, value; value.free; });
+
+    trackGoldeneye.keysValuesDo({ arg key, value; value.free; });
+    trackBusGoldeneye.keysValuesDo({ arg key, value; value.free; });
     // </Goldeneye>
 
   }

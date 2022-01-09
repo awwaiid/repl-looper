@@ -38,7 +38,8 @@ function Sample.new(filename, play_mode)
     1, -- sampleEnd (0..1)
     0, -- loop?
     1, -- rate (0..1)
-    1 -- t_trig
+    1, -- t_trig
+    0 -- track for pre-loading
   )
 
   return self
@@ -60,7 +61,8 @@ function Sample:play(startFrame, endFrame)
     endAt, -- sampleEnd (0..1)
     self.loops, -- loop?
     self.playRate, -- rate (0..1)
-    1 -- t_trig
+    1, -- t_trig
+    current_context_loop_id -- From global! EVIL!
   )
 end
 
