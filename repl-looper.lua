@@ -96,7 +96,10 @@ function Loop.new(init)
     lattice = lattice:new{},
     record_feedback = false,
     auto_quantize = false,
-    send_feedback = false
+    send_feedback = false,
+    mods = {
+      amp = 1
+    }
   }
 
   setmetatable(self, Loop)
@@ -561,6 +564,20 @@ function Loop:split(other_loop)
     mean_dist = mean_dist,
     distances = distances
   }
+end
+
+-- Loops as tracks
+
+function Loop:updateTrack()
+  engine.goldeneyeTrackMod(
+    self.id,
+    self.mods.amp
+  )
+end
+
+function Loop:amp(amp)
+  self.mods.amp = amp
+  self:updateTrack()
 end
 
 ------------------------------------------------------
