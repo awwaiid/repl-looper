@@ -21,10 +21,10 @@ Engine_ReplLooper : CroneEngine {
   var players;
   var synthNames;
   var lfos;
-  var mixer;
+  // var mixer;
 
   var lfoBus;
-  var mixerBus;
+  // var mixerBus;
 
   var loadQueue;
   var loadingSample = -1;
@@ -102,15 +102,54 @@ Engine_ReplLooper : CroneEngine {
   var bufGoldeneye;
   var synGoldeneye;
 
-  var trackGoldeneye;
-  var trackBusGoldeneye;
   // </Goldeneye>
+
+  var trackMixer;
+  var trackBus;
 
   *new { arg context, doneCallback;
     ^super.new(context, doneCallback);
   }
 
   alloc {
+
+
+
+    /////////////////// TRACKS //////////////////////
+
+    trackMixer = Dictionary.new(8);
+    trackBus = Dictionary.new(8);
+
+    // Mixer and FX
+    SynthDef(\trackMixerSynth, {
+      arg in, out, amp = 1;
+      var signal;
+
+      signal = In.ar(in, 2);
+
+      // Compression etc
+      signal = CompanderD.ar(in: signal, thresh: 0.7, slopeBelow: 1, slopeAbove: 0.4, clampTime: 0.008, relaxTime: 0.2);
+      signal = tanh(signal).softclip;
+
+      // Final amplification
+      signal = signal * amp;
+
+      Out.ar(out, signal);
+
+    }).add;
+
+    this.addCommand("trackMod","if", { arg msg;
+      var track_id = msg[1];
+      var amp = msg[2];
+
+      this.getTrackMixer(track_id).set(
+        \amp, amp
+      );
+    });
+    /////////////////// END TRACKS //////////////////////
+
+
+    ////////////////// TIMBER!!!! ////////////////
 
     // debugBuffer = Buffer.alloc(context.server, context.server.sampleRate * 4, 5);
 
@@ -180,7 +219,7 @@ Engine_ReplLooper : CroneEngine {
     voiceList = List.new();
 
     lfoBus = Bus.control(context.server, 2);
-    mixerBus = Bus.audio(context.server, 2);
+    // mixerBus = Bus.audio(context.server, 2);
     players = Array.newClear(4);
 
     loadQueue = Array.new(maxSamples);
@@ -449,20 +488,20 @@ Engine_ReplLooper : CroneEngine {
 
 
     // Mixer and FX
-    mixer = SynthDef(\mixer, {
-
-      arg in, out;
-      var signal;
-
-      signal = In.ar(in, 2);
-
-      // Compression etc
-      signal = CompanderD.ar(in: signal, thresh: 0.7, slopeBelow: 1, slopeAbove: 0.4, clampTime: 0.008, relaxTime: 0.2);
-      signal = tanh(signal).softclip;
-
-      Out.ar(out, signal);
-
-    }).play(target:context.xg, args: [\in, mixerBus, \out, context.out_b], addAction: \addToTail);
+    // mixer = SynthDef(\mixer, {
+    //
+    //   arg in, out;
+    //   var signal;
+    //
+    //   signal = In.ar(in, 2);
+    //
+    //   // Compression etc
+    //   signal = CompanderD.ar(in: signal, thresh: 0.7, slopeBelow: 1, slopeAbove: 0.4, clampTime: 0.008, relaxTime: 0.2);
+    //   signal = tanh(signal).softclip;
+    //
+    //   Out.ar(out, signal);
+    //
+    // }).play(target:context.xg, args: [\in, mixerBus, \out, context.out_b], addAction: \addToTail);
 
 
     this.addCommands;
@@ -1123,8 +1162,6 @@ Engine_ReplLooper : CroneEngine {
     bufGoldeneye = Dictionary.new(128);
     synGoldeneye = Dictionary.new(128);
 
-    trackGoldeneye = Dictionary.new(128);
-    trackBusGoldeneye = Dictionary.new(128);
 
     context.server.sync;
 
@@ -1225,58 +1262,13 @@ Engine_ReplLooper : CroneEngine {
         Out.ar(out, slice)
     }).add;
 
-    // Mixer and FX
-    SynthDef(\goldeneyeMixer, {
-      arg in, out, amp = 1;
-      var signal;
 
-      signal = In.ar(in, 2);
-
-      // Compression etc
-      signal = CompanderD.ar(in: signal, thresh: 0.7, slopeBelow: 1, slopeAbove: 0.4, clampTime: 0.008, relaxTime: 0.2);
-      signal = tanh(signal).softclip;
-
-      // Final amplification
-      signal = signal * amp;
-
-      Out.ar(out, signal);
-
-    }).add;
-    // play(target:context.xg, args: [\in, mixerBus, \out, context.out_b], addAction: \addToTail);
-
-    this.addCommand("goldeneyeTrackMod","if", { arg msg;
-      var track_id = msg[1];
-      var amp = msg[2];
-
-      if (trackGoldeneye.at(track_id).notNil, {
-        trackGoldeneye.at(track_id).set(
-          \amp, amp
-        );
-      });
-    });
 
     this.addCommand("goldeneyePlay","fsfffffffi", { arg msg;
       var voice=msg[1];
       var filename=msg[2];
       var synName="playerGoldeneyeMono";
-      var trackBus;
-
       var track_id = msg[10];
-      if (trackGoldeneye.at(track_id) == nil, {
-        "Creating new track/bus".postln;
-        track_id.postln;
-
-        trackBus = Bus.audio(context.server, 2);
-        trackBusGoldeneye.put(track_id, trackBus);
-
-        trackGoldeneye.put(track_id, Synth(\goldeneyeMixer, [
-          \in, trackBus,
-          \out, 0,
-        ], target: context.server).onFree({
-          ("freed track "++track_id).postln;
-        }));
-      });
-
 
       if (bufGoldeneye.at(voice)==nil,{
         // load buffer
@@ -1296,7 +1288,7 @@ Engine_ReplLooper : CroneEngine {
             \loop,msg[7],
             \rate,msg[8],
             \t_trig,msg[9],
-            \out,trackBusGoldeneye.at(track_id),
+            \out,this.getTrackBus(track_id),
           ],target:context.server).onFree({
             // ("freed "++voice).postln;
           }));
@@ -1317,7 +1309,7 @@ Engine_ReplLooper : CroneEngine {
             \loop,msg[7],
             \rate,msg[8],
             \t_trig,msg[9],
-            \out,trackBusGoldeneye.at(track_id),
+            \out,this.getTrackBus(track_id),
           );
         },{
           synGoldeneye.put(voice,Synth(synName,[
@@ -1329,7 +1321,7 @@ Engine_ReplLooper : CroneEngine {
             \loop,msg[7],
             \rate,msg[8],
             \t_trig,msg[9],
-            \out,trackBusGoldeneye.at(track_id),
+            \out,this.getTrackBus(track_id),
           ],target:context.server).onFree({
             // ("freed "++voice).postln;
           }));
@@ -1353,6 +1345,32 @@ Engine_ReplLooper : CroneEngine {
 
 
   // Functions
+
+
+  getTrackBus {
+    arg track_id;
+
+    if (trackMixer.at(track_id) == nil, {
+      ("Creating new track bus+mixer " ++ track_id).postln;
+
+      trackBus.put(track_id, Bus.audio(context.server, 2));
+
+      trackMixer.put(track_id, Synth(\trackMixerSynth, [
+        \in, trackBus.at(track_id),
+        \out, 0,
+      ], target: context.server, addAction: \addToTail).onFree({
+        ("freed track "++track_id).postln;
+      }));
+    });
+
+    ^trackBus.at(track_id);
+  }
+
+  getTrackMixer {
+    arg track_id;
+    this.getTrackBus(track_id); // Force it to be created, ignore result
+    ^trackMixer.at(track_id);
+  }
 
   queueLoadSample {
     arg sampleId, filePath;
@@ -1785,7 +1803,7 @@ Engine_ReplLooper : CroneEngine {
   }
 
   assignVoice {
-    arg voiceId, sampleId, freq, pitchBendRatio, vel;
+    arg trackId, voiceId, sampleId, freq, pitchBendRatio, vel;
     var voiceToRemove;
 
     // Remove a voice if ID matches or there are too many
@@ -1802,19 +1820,19 @@ Engine_ReplLooper : CroneEngine {
         voiceToRemove.startRoutine.stop;
         voiceToRemove.startRoutine.free;
         voiceList.remove(voiceToRemove);
-        this.addVoice(voiceId, sampleId, freq, pitchBendAllRatio, vel, false);
+        this.addVoice(voiceId, trackId, sampleId, freq, pitchBendAllRatio, vel, false);
       }, {
         voiceToRemove.theSynth.set(\killGate, 0);
         voiceList.remove(voiceToRemove);
-        this.addVoice(voiceId, sampleId, freq, pitchBendAllRatio, vel, true);
+        this.addVoice(voiceId, trackId, sampleId, freq, pitchBendAllRatio, vel, true);
       });
     }, {
-      this.addVoice(voiceId, sampleId, freq, pitchBendAllRatio, vel, false);
+      this.addVoice(voiceId, trackId, sampleId, freq, pitchBendAllRatio, vel, false);
     });
   }
 
   addVoice {
-    arg voiceId, sampleId, freq, pitchBendRatio, vel, delayStart;
+    arg voiceId, trackId, sampleId, freq, pitchBendRatio, vel, delayStart;
     var defName, sample = samples[sampleId], streamBuffer, delay = 0, cueSecs;
 
     if(delayStart, { delay = killDuration; });
@@ -1826,7 +1844,7 @@ Engine_ReplLooper : CroneEngine {
         }, {
           defName = \stereoBufferVoice;
         });
-        this.addSynth(defName, voiceId, sampleId, sample.buffer, freq, pitchBendRatio, vel, delay);
+        this.addSynth(defName, voiceId, trackId, sampleId, sample.buffer, freq, pitchBendRatio, vel, delay);
 
       }, {
         cueSecs = Date.getDate.rawSeconds;
@@ -1839,7 +1857,7 @@ Engine_ReplLooper : CroneEngine {
             defName = \stereoStreamingVoice;
           });
           delay = (delay - (Date.getDate.rawSeconds - cueSecs)).max(0);
-          this.addSynth(defName, voiceId, sampleId, streamBuffer, freq, pitchBendRatio, vel, delay);
+          this.addSynth(defName, voiceId, trackId, sampleId, streamBuffer, freq, pitchBendRatio, vel, delay);
           0;
         });
       });
@@ -1847,17 +1865,17 @@ Engine_ReplLooper : CroneEngine {
   }
 
   addSynth {
-    arg defName, voiceId, sampleId, buffer, freq, pitchBendRatio, vel, delay;
+    arg defName, voiceId, trackId, sampleId, buffer, freq, pitchBendRatio, vel, delay;
     var newVoice, sample = samples[sampleId];
 
-    newVoice = (id: voiceId, sampleId: sampleId, gate: 1);
+    newVoice = (id: voiceId, trackId: trackId, sampleId: sampleId, gate: 1);
 
     // Delay adding a new synth until after killDuration if need be
     newVoice.startRoutine = Routine {
       delay.wait;
 
       newVoice.theSynth = Synth.new(defName: defName, args: [
-        \out, mixerBus,
+        \out, this.getTrackBus(trackId),
         \bufnum, buffer.bufnum,
 
         \voiceId, voiceId,
@@ -1984,15 +2002,15 @@ Engine_ReplLooper : CroneEngine {
     });
 
     // noteOn(id, freq, vel, sampleId)
-    this.addCommand(\noteOn, "iffi", {
+    this.addCommand(\noteOn, "iiffi", {
       arg msg;
-      var id = msg[1], freq = msg[2], vel = msg[3] ?? 1, sampleId = msg[4] ?? 0,
+      var track_id = msg[1], id = msg[2], freq = msg[3], vel = msg[4] ?? 1, sampleId = msg[5] ?? 0,
       sample = samples[sampleId];
 
       // debugBuffer.zero();
 
       if(sample.notNil, {
-        this.assignVoice(id, sampleId, freq, pitchBendAllRatio, vel);
+        this.assignVoice(track_id, id, sampleId, freq, pitchBendAllRatio, vel);
       });
     });
 
@@ -2375,7 +2393,7 @@ Engine_ReplLooper : CroneEngine {
     players.free;
     voiceGroup.free;
     lfos.free;
-    mixer.free;
+    // mixer.free;
 
     ///////// MOLLY THE POLY SLICE ////////////////////////
 
@@ -2393,10 +2411,9 @@ Engine_ReplLooper : CroneEngine {
     // <Goldeneye>
     synGoldeneye.keysValuesDo({ arg key, value; value.free; });
     bufGoldeneye.keysValuesDo({ arg key, value; value.free; });
-
-    trackGoldeneye.keysValuesDo({ arg key, value; value.free; });
-    trackBusGoldeneye.keysValuesDo({ arg key, value; value.free; });
     // </Goldeneye>
 
+    trackMixer.keysValuesDo({ arg key, value; value.free; });
+    trackBus.keysValuesDo({ arg key, value; value.free; });
   }
 }

@@ -64,10 +64,12 @@ function Event:lua()
   }
 end
 
-current_context_loop_id = 1
+current_context_loop_id = 0
 function Event:eval(context_loop_id, from_playing_loop)
   current_context_loop_id = context_loop_id
-  return live_event(self.command, from_playing_loop)
+  local result = live_event(self.command, from_playing_loop)
+  current_context_loop_id = 0
+  return result
 end
 
 function Event:destroy()
@@ -214,6 +216,7 @@ function Loop:setStep(step)
   step = step - 1
   step = step % self.loop_length_qn
   self.lattice.transport = step * self.lattice.ppqn
+  self.current_step = self:get_current_step()
   self:update_lattice()
   self:draw_grid_row()
 end
@@ -569,7 +572,7 @@ end
 -- Loops as tracks
 
 function Loop:updateTrack()
-  engine.goldeneyeTrackMod(
+  engine.trackMod(
     self.id,
     self.mods.amp
   )
@@ -799,7 +802,7 @@ function p(note, voice_id, sample_id)
   end
 
   engine.playMode(sample_id, 3) -- one-shot
-  engine.noteOn(voice_id, freq, 1, sample_id)
+  engine.noteOn(current_context_loop_id, voice_id, freq, 1, sample_id)
 end
 
 

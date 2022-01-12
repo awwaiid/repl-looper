@@ -75,7 +75,7 @@ function Timber:noteOn(freq, vol, voice)
   freq = freq or 261.625
   vol = vol or 1
   voice = voice or self.id -- TODO: voice management
-  engine.noteOn(voice, freq, vol, self.id)
+  engine.noteOn(current_context_loop_id, voice, freq, vol, self.id)
 end
 
 function Timber:play() self:noteOn() end
@@ -137,7 +137,7 @@ function Timber:note(note)
   end
 
   engine.playMode(sample_id, 3) -- one-shot
-  engine.noteOn(voice_id, freq, 1, sample_id)
+  engine.noteOn(current_context_loop_id, voice_id, freq, 1, sample_id)
 end
 
 return Timber
