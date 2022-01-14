@@ -339,7 +339,10 @@ function Loop:toggle_commands_at_step(step, commands)
   end
 end
 
-function Loop:play()
+function Loop:play(startStep)
+  if startStep then
+    self:setStep(startStep)
+  end
   self.mode = "play"
   self.lattice:start()
 end
@@ -416,10 +419,6 @@ end
 -- a:gen("CH", 1, 4) puts the "CH" on 1 of ever 4 steps
 -- a:gen("CH", { 1, 3, 4.5 }) puts the "CH" on the given steps (even fractional)
 function Loop:gen(code_string, condition, mod_base)
-  if mod_base then
-    condition = "(n-1) % " .. mod_base .. " == (" .. (condition - 1) .. ")"
-  end
-  condition = condition or "true"
 
   if type(condition) == "table" then
     for _, n in ipairs(condition) do
@@ -439,10 +438,33 @@ function Loop:gen(code_string, condition, mod_base)
       self:update_event(event)
       table.insert(self.events, event)
     end
-  elseif type(condition) == "number" and not mod_base then
-    -- calculate how many that is
-    -- fill it up
+  elseif type(condition) == "number" then
+    local offset = mod_base or 0
+    for step = 1, (self.loop_length_qn / condition) do
+      local n = (step - 1) * condition + 1 + offset
+      local expanded_code_string =
+        string.gsub(
+          code_string,
+          "`([^`]+)`",
+          function (snippet)
+            local injected_snippet = "local step = dynamic('step'); local n = dynamic('n'); local m = n - 1; return " .. snippet
+            return eval(injected_snippet)
+          end
+        )
+      local event = Event.new({
+        pulse = (n - 1) * self.lattice.ppqn,
+        command = expanded_code_string
+      })
+      self:update_event(event)
+      table.insert(self.events, event)
+    end
   else
+
+    if mod_base then
+      condition = "(n-1) % " .. mod_base .. " == (" .. (condition - 1) .. ")"
+    end
+    condition = condition or "true"
+
     for n = 1, self.loop_length_qn do
       local condition_met = eval("local n = dynamic('n'); local m = n - 1; return " .. condition);
       if condition_met then

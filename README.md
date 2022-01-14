@@ -4,9 +4,11 @@
 
 <img src="docs/20211227-demo-running.gif" align="right" width="25%" border=1 />Experimental performance and creative tool, mashing together several things that I like. REPL for interactive code creating. Grid to have a tactile UI (maybe we'll throw in a midi pedal too). Dance between client and host, between recording loops and loops that can modify other loops and themselves.
 
+Check out the [dev branch](https://github.com/awwaiid/repl-looper/tree/dev) and [dev branch development journal](https://github.com/awwaiid/repl-looper/tree/dev/journal.md) for ongoing development work. The `main` branch is the current "stable" (haha) version.
+
 # Installation and Usage
 
-Install by running this on maiden:
+Install directly from maiden or by running this in the maiden/matron console:
 
 ```lua
 ;install https://github.com/awwaiid/repl-looper

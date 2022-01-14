@@ -99,3 +99,7 @@
   * Had fun at FlashCrash!
   * I think some of my practice runs were a bit better _musically_ speaking :)
   * What's next? I signed up for next month :)
+* 2022-01-11
+  * Making good progress on controlling dynamics better. I'm teaching all of the sub-engines how to route their output into per-loop tracks with independent volume control. I'll be able to add other things to those as well, like reverb and compression and whatnot. I got Timber and Goldeneye, need to get Molly The Poly as well -- but for those other two you can now do like `c:amp(0.5)` and every event generated on loop-c will pass through a 0.5 amp (half volume)
+  * Worked out how to use musicutil+sequins to pretty easily generate a playable row in a certain key
+  * I likely won't have time before flashcrash, but another idea is bringing in some live microphone recording of vocals or instruments like a normal boring looper BUT of course these could be samples which get sliced and so on easily

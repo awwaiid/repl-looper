@@ -108,4 +108,9 @@ engine.samplerLoop(0, 0, 1)
 
 s1 = Sample.new("/home/we/dust/code/repl-looper/audio/musicbox/Wouldnt-Mind-Workin-From-Sun-To-Sun_2011121108_001_00-01-05.ogg")
 
+clock.internal.set_tempo(80)
+d:gen("clock.internal.set_tempo( util.wrap(clock:get_tempo()+1, 60, 140))")
+
+
+
 ```
