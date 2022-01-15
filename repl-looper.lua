@@ -67,7 +67,9 @@ end
 current_context_loop_id = 0
 function Event:eval(context_loop_id, from_playing_loop)
   current_context_loop_id = context_loop_id
+  print("Set context loop id to", current_context_loop_id)
   local result = live_event(self.command, from_playing_loop)
+  print("Reset context loop id to 0")
   current_context_loop_id = 0
   return result
 end
@@ -787,7 +789,7 @@ end
 -- Tiiiimmmmmbbbbeeerrrrr!!!!! PLUS MOLLY THE POLY!!!
 
 ReplLooper = include("repl-looper/lib/repllooper_engine")
-MollyThePoly = include("repl-looper/lib/molly_the_poly_engine")
+-- MollyThePoly = include("repl-looper/lib/molly_the_poly_engine")
 
 -- engine.load('ReplLooper')
 engine.name = "ReplLooper"
@@ -840,8 +842,8 @@ function init()
   grid_device.key = handle_grid_key
 
   -- Set up params
-  MollyThePoly.add_params()
-  params:add_separator()
+  -- MollyThePoly.add_params()
+  -- params:add_separator()
   ReplLooper.add_params()
 
   -- One global molly to start with

@@ -4,3 +4,4 @@ dist-ssr
 *.local
 .vscode
 audio
+tmp
