@@ -211,7 +211,7 @@ function Molly:note(note, voice_id)
     freq = musicutil.note_num_to_freq(note)
   end
 
-  self:noteOn(freq, 1)
+  self:noteOn(freq, 1, current_context_loop_id)
 end
 
 function Molly:play() self:note() end

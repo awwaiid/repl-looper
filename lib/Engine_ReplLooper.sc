@@ -47,53 +47,53 @@ Engine_ReplLooper : CroneEngine {
 
   classvar mollyMaxNumVoices = 10;
 
-  var trackMollyMixerBus;
-  var trackMollyMixerSynth;
+  var instMollyMixerBus;
+  var instMollyMixerSynth;
 
-  var trackMollyVoiceGroup;
-  var trackMollyVoiceList;
+  var instMollyVoiceGroup;
+  var instMollyVoiceList;
 
-  var trackMollyLfoBus;
-  var trackMollyLfo;
+  var instMollyLfoBus;
+  var instMollyLfo;
 
-  var trackMollyRingModBus;
+  var instMollyRingModBus;
+  var instMollySettings;
 
-  var mollyPitchBendRatio = 1;
-
-  var mollyOscWaveShape = 0;
-  var mollyPwMod = 0;
-  var mollyPwModSource = 0;
-  var mollyFreqModLfo = 0;
-  var mollyFreqModEnv = 0;
-  var mollyLastFreq = 0;
-  var mollyGlide = 0;
-  var mollyMainOscLevel = 1;
-  var mollySubOscLevel = 0;
-  var mollySubOscDetune = 0;
-  var mollyNoiseLevel = 0;
-  var mollyHpFilterCutoff = 10;
-  var mollyLpFilterType = 0;
-  var mollyLpFilterCutoff = 440;
-  var mollyLpFilterResonance = 0.2;
-  var mollyLpFilterCutoffEnvSelect = 0;
-  var mollyLpFilterCutoffModEnv = 0;
-  var mollyLpFilterCutoffModLfo = 0;
-  var mollyLpFilterTracking = 1;
-  var mollyLfoFade = 0;
-  var mollyEnv1Attack = 0.01;
-  var mollyEnv1Decay = 0.3;
-  var mollyEnv1Sustain = 0.5;
-  var mollyEnv1Release = 0.5;
-  var mollyEnv2Attack = 0.01;
-  var mollyEnv2Decay = 0.3;
-  var mollyEnv2Sustain = 0.5;
-  var mollyEnv2Release = 0.5;
-  var mollyAmpMod = 0;
-  var mollyChannelPressure = 0;
-  var mollyTimbre = 0;
-  var mollyRingModFade = 0;
-  var mollyRingModMix = 0;
-  var mollyChorusMix = 0;
+  // var mollyPitchBendRatio = 1;
+  // var mollyOscWaveShape = 0;
+  // var mollyPwMod = 0;
+  // var mollyPwModSource = 0;
+  // var mollyFreqModLfo = 0;
+  // var mollyFreqModEnv = 0;
+  // var mollyLastFreq = 0;
+  // var mollyGlide = 0;
+  // var mollyMainOscLevel = 1;
+  // var mollySubOscLevel = 0;
+  // var mollySubOscDetune = 0;
+  // var mollyNoiseLevel = 0;
+  // var mollyHpFilterCutoff = 10;
+  // var mollyLpFilterType = 0;
+  // var mollyLpFilterCutoff = 440;
+  // var mollyLpFilterResonance = 0.2;
+  // var mollyLpFilterCutoffEnvSelect = 0;
+  // var mollyLpFilterCutoffModEnv = 0;
+  // var mollyLpFilterCutoffModLfo = 0;
+  // var mollyLpFilterTracking = 1;
+  // var mollyLfoFade = 0;
+  // var mollyEnv1Attack = 0.01;
+  // var mollyEnv1Decay = 0.3;
+  // var mollyEnv1Sustain = 0.5;
+  // var mollyEnv1Release = 0.5;
+  // var mollyEnv2Attack = 0.01;
+  // var mollyEnv2Decay = 0.3;
+  // var mollyEnv2Sustain = 0.5;
+  // var mollyEnv2Release = 0.5;
+  // var mollyAmpMod = 0;
+  // var mollyChannelPressure = 0;
+  // var mollyTimbre = 0;
+  // var mollyRingModFade = 0;
+  // var mollyRingModMix = 0;
+  // var mollyChorusMix = 0;
 
   ///////// END MOLLY THE POLY SLICE ////////////////////////
 
@@ -124,13 +124,14 @@ Engine_ReplLooper : CroneEngine {
     trackBus = Dictionary.new(8);
 
     // Molly per-instance things
-    trackMollyVoiceList  = Dictionary.new(8);
-    trackMollyVoiceGroup = Dictionary.new(8);
-    trackMollyMixerBus   = Dictionary.new(8);
-    trackMollyMixerSynth = Dictionary.new(8);
-    trackMollyLfoBus     = Dictionary.new(8);
-    trackMollyLfo        = Dictionary.new(8);
-    trackMollyRingModBus = Dictionary.new(8);
+    instMollyVoiceList  = Dictionary.new(8);
+    instMollyVoiceGroup = Dictionary.new(8);
+    instMollyMixerBus   = Dictionary.new(8);
+    instMollyMixerSynth = Dictionary.new(8);
+    instMollyLfoBus     = Dictionary.new(8);
+    instMollyLfo        = Dictionary.new(8);
+    instMollyRingModBus = Dictionary.new(8);
+    instMollySettings   = Dictionary.new(8);
 
     // Mixer and FX
     SynthDef(\trackMixerSynth, {
@@ -227,7 +228,7 @@ Engine_ReplLooper : CroneEngine {
       ampModLfo2: 0,
     );
 
-    voiceGroup = Group.new(context.xg);
+    voiceGroup = Group.new(context.server);
     voiceList = List.new();
 
     lfoBus = Bus.control(context.server, 2);
@@ -692,7 +693,7 @@ Engine_ReplLooper : CroneEngine {
       );
       chorus = LPF.ar(chorus, 14000);
 
-      Out.ar(bus: out, channelsArray: SelectX.ar(mollyChorusMix * 0.5, [signal.dup, chorus]));
+      Out.ar(out, channelsArray: SelectX.ar(mollyChorusMix * 0.5, [signal.dup, chorus]));
 
     }).add;
 
@@ -700,83 +701,83 @@ Engine_ReplLooper : CroneEngine {
     // Commands
 
     // mollyNoteOn(id, freq, vel)
-    this.addCommand(\mollyNoteOn, "iiff", { arg msg;
+    this.addCommand(\mollyNoteOn, "iiffi", { arg msg;
 
-      var track_id = msg[1], id = msg[2], freq = msg[3], vel = msg[4];
+      var inst_id = msg[1], id = msg[2], freq = msg[3], vel = msg[4], track_id = msg[5];
       var voiceToRemove, newVoice;
 
       // Remove voice if ID matches or there are too many
-      voiceToRemove = this.getTrackMollyVoiceList(track_id).detect{arg item; item.id == id};
-      if(voiceToRemove.isNil && (this.getTrackMollyVoiceList(track_id).size >= mollyMaxNumVoices), {
-        voiceToRemove = this.getTrackMollyVoiceList(track_id).detect{arg v; v.gate == 0};
+      voiceToRemove = this.getInstMollyVoiceList(inst_id).detect{arg item; item.id == id};
+      if(voiceToRemove.isNil && (this.getInstMollyVoiceList(inst_id).size >= mollyMaxNumVoices), {
+        voiceToRemove = this.getInstMollyVoiceList(inst_id).detect{arg v; v.gate == 0};
         if(voiceToRemove.isNil, {
-          voiceToRemove = this.getTrackMollyVoiceList(track_id).last;
+          voiceToRemove = this.getInstMollyVoiceList(inst_id).last;
         });
       });
       if(voiceToRemove.notNil, {
         voiceToRemove.theSynth.set(\gate, 0);
         voiceToRemove.theSynth.set(\killGate, 0);
-        this.getTrackMollyVoiceList(track_id).remove(voiceToRemove);
+        this.getInstMollyVoiceList(inst_id).remove(voiceToRemove);
       });
 
-      if(mollyLastFreq == 0, {
-        mollyLastFreq = freq;
+      if(this.getInstMollySetting(inst_id, \mollyLastFreq) == 0, {
+        this.setInstMollySetting(inst_id, \mollyLastFreq, freq);
       });
 
       // Add new voice
       context.server.makeBundle(nil, {
         newVoice = (id: id, theSynth: Synth.new(defName: \mollyVoice, args: [
-          \out, this.getTrackMollyMixerBus(track_id),
-          \mollyLfoIn, this.getTrackMollyLfoBus(track_id),
-          \mollyRingModIn, this.getTrackMollyRingModBus(track_id),
+          \out, this.getInstMollyMixerBus(inst_id, track_id),
+          \mollyLfoIn, this.getInstMollyLfoBus(inst_id),
+          \mollyRingModIn, this.getInstMollyRingModBus(inst_id),
           \freq, freq,
-          \mollyPitchBendRatio, mollyPitchBendRatio,
+          \mollyPitchBendRatio, this.getInstMollySetting(inst_id, \mollyPitchBendRatio),
           \gate, 1,
           \vel, vel.linlin(0, 1, 0.3, 1),
-          \mollyPressure, mollyChannelPressure,
-          \mollyTimbre, mollyTimbre,
-          \mollyOscWaveShape, mollyOscWaveShape,
-          \mollyPwMod, mollyPwMod,
-          \mollyPwModSource, mollyPwModSource,
-          \mollyFreqModLfo, mollyFreqModLfo,
-          \mollyFreqModEnv, mollyFreqModEnv,
-          \mollyLastFreq, mollyLastFreq,
-          \mollyGlide, mollyGlide,
-          \mollyMainOscLevel, mollyMainOscLevel,
-          \mollySubOscLevel, mollySubOscLevel,
-          \mollySubOscDetune, mollySubOscDetune,
-          \mollyNoiseLevel, mollyNoiseLevel,
-          \mollyHpFilterCutoff, mollyHpFilterCutoff,
-          \mollyLpFilterType, mollyLpFilterType,
-          \mollyLpFilterCutoff, mollyLpFilterCutoff,
-          \mollyLpFilterResonance, mollyLpFilterResonance,
-          \mollyLpFilterCutoffEnvSelect, mollyLpFilterCutoffEnvSelect,
-          \mollyLpFilterCutoffModEnv, mollyLpFilterCutoffModEnv,
-          \mollyLpFilterCutoffModLfo, mollyLpFilterCutoffModLfo,
-          \mollyLpFilterTracking, mollyLpFilterTracking,
-          \mollyLfoFade, mollyLfoFade,
-          \mollyEnv1Attack, mollyEnv1Attack,
-          \mollyEnv1Decay, mollyEnv1Decay,
-          \mollyEnv1Sustain, mollyEnv1Sustain,
-          \mollyEnv1Release, mollyEnv1Release,
-          \mollyEnv2Attack, mollyEnv2Attack,
-          \mollyEnv2Decay, mollyEnv2Decay,
-          \mollyEnv2Sustain, mollyEnv2Sustain,
-          \mollyEnv2Release, mollyEnv2Release,
-          \mollyAmpMod, mollyAmpMod,
-          \mollyRingModFade, mollyRingModFade,
-          \mollyRingModMix, mollyRingModMix
-        ], target: this.getTrackMollyVoiceGroup(track_id)).onFree({ this.getTrackMollyVoiceList(track_id).remove(newVoice); }), gate: 1);
+          \mollyPressure, this.getInstMollySetting(inst_id, \mollyChannelPressure),
+          \mollyTimbre, this.getInstMollySetting(inst_id, \mollyTimbre),
+          \mollyOscWaveShape, this.getInstMollySetting(inst_id, \mollyOscWaveShape),
+          \mollyPwMod, this.getInstMollySetting(inst_id, \mollyPwMod),
+          \mollyPwModSource, this.getInstMollySetting(inst_id, \mollyPwModSource),
+          \mollyFreqModLfo, this.getInstMollySetting(inst_id, \mollyFreqModLfo),
+          \mollyFreqModEnv, this.getInstMollySetting(inst_id, \mollyFreqModEnv),
+          \mollyLastFreq, this.getInstMollySetting(inst_id, \mollyLastFreq),
+          \mollyGlide, this.getInstMollySetting(inst_id, \mollyGlide),
+          \mollyMainOscLevel, this.getInstMollySetting(inst_id, \mollyMainOscLevel),
+          \mollySubOscLevel, this.getInstMollySetting(inst_id, \mollySubOscLevel),
+          \mollySubOscDetune, this.getInstMollySetting(inst_id, \mollySubOscDetune),
+          \mollyNoiseLevel, this.getInstMollySetting(inst_id, \mollyNoiseLevel),
+          \mollyHpFilterCutoff, this.getInstMollySetting(inst_id, \mollyHpFilterCutoff),
+          \mollyLpFilterType, this.getInstMollySetting(inst_id, \mollyLpFilterType),
+          \mollyLpFilterCutoff, this.getInstMollySetting(inst_id, \mollyLpFilterCutoff),
+          \mollyLpFilterResonance, this.getInstMollySetting(inst_id, \mollyLpFilterResonance),
+          \mollyLpFilterCutoffEnvSelect, this.getInstMollySetting(inst_id, \mollyLpFilterCutoffEnvSelect),
+          \mollyLpFilterCutoffModEnv, this.getInstMollySetting(inst_id, \mollyLpFilterCutoffModEnv),
+          \mollyLpFilterCutoffModLfo, this.getInstMollySetting(inst_id, \mollyLpFilterCutoffModLfo),
+          \mollyLpFilterTracking, this.getInstMollySetting(inst_id, \mollyLpFilterTracking),
+          \mollyLfoFade, this.getInstMollySetting(inst_id, \mollyLfoFade),
+          \mollyEnv1Attack, this.getInstMollySetting(inst_id, \mollyEnv1Attack),
+          \mollyEnv1Decay, this.getInstMollySetting(inst_id, \mollyEnv1Decay),
+          \mollyEnv1Sustain, this.getInstMollySetting(inst_id, \mollyEnv1Sustain),
+          \mollyEnv1Release, this.getInstMollySetting(inst_id, \mollyEnv1Release),
+          \mollyEnv2Attack, this.getInstMollySetting(inst_id, \mollyEnv2Attack),
+          \mollyEnv2Decay, this.getInstMollySetting(inst_id, \mollyEnv2Decay),
+          \mollyEnv2Sustain, this.getInstMollySetting(inst_id, \mollyEnv2Sustain),
+          \mollyEnv2Release, this.getInstMollySetting(inst_id, \mollyEnv2Release),
+          \mollyAmpMod, this.getInstMollySetting(inst_id, \mollyAmpMod),
+          \mollyRingModFade, this.getInstMollySetting(inst_id, \mollyRingModFade),
+          \mollyRingModMix,this.getInstMollySetting(inst_id, \mollyRingModMix)
+        ], target: this.getInstMollyVoiceGroup(inst_id)).onFree({ this.getInstMollyVoiceList(inst_id).remove(newVoice); }), gate: 1);
 
-        this.getTrackMollyVoiceList(track_id).addFirst(newVoice);
-        mollyLastFreq = freq;
+        this.getInstMollyVoiceList(inst_id).addFirst(newVoice);
+        this.setInstMollySetting(inst_id, \mollyLastFreq, freq);
       });
     });
 
     // mollyNoteOff(id)
     this.addCommand(\mollyNoteOff, "ii", { arg msg;
-      var track_id = msg[1];
-      var voice = this.getTrackMollyVoiceList(track_id).detect{arg v; v.id == msg[2]};
+      var inst_id = msg[1];
+      var voice = this.getInstMollyVoiceList(inst_id).detect{arg v; v.id == msg[2]};
       if(voice.notNil, {
         voice.theSynth.set(\gate, 0);
         voice.gate = 0;
@@ -785,35 +786,35 @@ Engine_ReplLooper : CroneEngine {
 
     // mollyNoteOffAll()
     this.addCommand(\mollyNoteOffAll, "i", { arg msg;
-      var track_id = msg[1];
-      this.getTrackMollyVoiceGroup(track_id).set(\gate, 0);
-      this.getTrackMollyVoiceList(track_id).do({ arg v; v.gate = 0; });
+      var inst_id = msg[1];
+      this.getInstMollyVoiceGroup(inst_id).set(\gate, 0);
+      this.getInstMollyVoiceList(inst_id).do({ arg v; v.gate = 0; });
     });
 
     // mollyNoteKill(id)
     this.addCommand(\mollyNoteKill, "i", { arg msg;
-      var track_id = msg[1];
+      var inst_id = msg[1];
       var id = msg[2];
-      var voice = this.getTrackMollyVoiceList(track_id).detect{arg v; v.id == id};
+      var voice = this.getInstMollyVoiceList(inst_id).detect{arg v; v.id == id};
       if(voice.notNil, {
         voice.theSynth.set(\gate, 0);
         voice.theSynth.set(\killGate, 0);
-        this.getTrackMollyVoiceList(track_id).remove(voice);
+        this.getInstMollyVoiceList(inst_id).remove(voice);
       });
     });
 
     // mollyNoteKillAll()
     this.addCommand(\mollyNoteKillAll, "i", { arg msg;
-      var track_id = msg[1];
-      this.getTrackMollyVoiceGroup(track_id).set(\gate, 0);
-      this.getTrackMollyVoiceGroup(track_id).set(\killGate, 0);
-      this.getTrackMollyVoiceList(track_id).clear;
+      var inst_id = msg[1];
+      this.getInstMollyVoiceGroup(inst_id).set(\gate, 0);
+      this.getInstMollyVoiceGroup(inst_id).set(\killGate, 0);
+      this.getInstMollyVoiceList(inst_id).clear;
     });
 
     // mollyPitchBend(id, ratio)
     this.addCommand(\mollyPitchBend, "iif", { arg msg;
-      var track_id = msg[1];
-      var voice = this.getTrackMollyVoiceList(track_id).detect{arg v; v.id == msg[2]};
+      var inst_id = msg[1];
+      var voice = this.getInstMollyVoiceList(inst_id).detect{arg v; v.id == msg[2]};
       if(voice.notNil, {
         voice.theSynth.set(\mollyPitchBendRatio, msg[3]);
       });
@@ -821,15 +822,15 @@ Engine_ReplLooper : CroneEngine {
 
     // mollyPitchBendAll(ratio)
     this.addCommand(\mollyPitchBendAll, "if", { arg msg;
-      var track_id = msg[1];
-      mollyPitchBendRatio = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollyPitchBendRatio, mollyPitchBendRatio);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollyPitchBendRatio, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollyPitchBendRatio, this.getInstMollySetting(inst_id, \mollyPitchBendRatio));
     });
 
     // mollyPressure(id, mollyPressure)
     this.addCommand(\mollyPressure, "iif", { arg msg;
-      var track_id = msg[1];
-      var voice = this.getTrackMollyVoiceList(track_id).detect{arg v; v.id == msg[2]};
+      var inst_id = msg[1];
+      var voice = this.getInstMollyVoiceList(inst_id).detect{arg v; v.id == msg[2]};
       if(voice.notNil, {
         voice.theSynth.set(\mollyPressure, msg[3]);
       });
@@ -837,15 +838,15 @@ Engine_ReplLooper : CroneEngine {
 
     // mollyPressureAll(mollyPressure)
     this.addCommand(\mollyPressureAll, "if", { arg msg;
-      var track_id = msg[1];
-      mollyChannelPressure = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollyPressure, mollyChannelPressure);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollyChannelPressure, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollyPressure, this.getInstMollySetting(inst_id, \mollyChannelPressure));
     });
 
     // mollyTimbre(id, mollyTimbre)
     this.addCommand(\mollyTimbre, "iif", { arg msg;
-      var track_id = msg[1];
-      var voice = this.getTrackMollyVoiceList(track_id).detect{arg v; v.id == msg[2]};
+      var inst_id = msg[1];
+      var voice = this.getInstMollyVoiceList(inst_id).detect{arg v; v.id == msg[2]};
       if(voice.notNil, {
         voice.theSynth.set(\mollyTimbre, msg[3]);
       });
@@ -853,213 +854,213 @@ Engine_ReplLooper : CroneEngine {
 
     // mollyTimbreAll(mollyTimbre)
     this.addCommand(\mollyTimbreAll, "if", { arg msg;
-      var track_id = msg[1];
-      mollyTimbre = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollyTimbre, mollyTimbre);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollyTimbre, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollyTimbre, this.getInstMollySetting(inst_id, \mollyTimbre));
     });
 
     this.addCommand(\mollyOscWaveShape, "ii", { arg msg;
-      var track_id = msg[1];
-      mollyOscWaveShape = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollyOscWaveShape, mollyOscWaveShape);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollyOscWaveShape, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollyOscWaveShape, this.getInstMollySetting(inst_id, \mollyOscWaveShape));
     });
 
     this.addCommand(\mollyPwMod, "if", { arg msg;
-      var track_id = msg[1];
-      mollyPwMod = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollyPwMod, mollyPwMod);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollyPwMod, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollyPwMod, this.getInstMollySetting(inst_id, \mollyPwMod));
     });
 
     this.addCommand(\mollyPwModSource, "ii", { arg msg;
-      var track_id = msg[1];
-      mollyPwModSource = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollyPwModSource, mollyPwModSource);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollyPwModSource, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollyPwModSource, this.getInstMollySetting(inst_id, \mollyPwModSource));
     });
 
     this.addCommand(\mollyFreqModLfo, "if", { arg msg;
-      var track_id = msg[1];
-      mollyFreqModLfo = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollyFreqModLfo, mollyFreqModLfo);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollyFreqModLfo, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollyFreqModLfo, this.getInstMollySetting(inst_id, \mollyFreqModLfo));
     });
 
     this.addCommand(\mollyFreqModEnv, "if", { arg msg;
-      var track_id = msg[1];
-      mollyFreqModEnv = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollyFreqModEnv, mollyFreqModEnv);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollyFreqModEnv, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollyFreqModEnv, this.getInstMollySetting(inst_id, \mollyFreqModEnv));
     });
 
     this.addCommand(\mollyGlide, "if", { arg msg;
-      var track_id = msg[1];
-      mollyGlide = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollyGlide, mollyGlide);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollyGlide, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollyGlide, this.getInstMollySetting(inst_id, \mollyGlide));
     });
 
     this.addCommand(\mollyMainOscLevel, "if", { arg msg;
-      var track_id = msg[1];
-      mollyMainOscLevel = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollyMainOscLevel, mollyMainOscLevel);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollyMainOscLevel, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollyMainOscLevel, this.getInstMollySetting(inst_id, \mollyMainOscLevel));
     });
 
     this.addCommand(\mollySubOscLevel, "if", { arg msg;
-      var track_id = msg[1];
-      mollySubOscLevel = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollySubOscLevel, mollySubOscLevel);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollySubOscLevel, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollySubOscLevel, this.getInstMollySetting(inst_id, \mollySubOscLevel));
     });
 
     this.addCommand(\mollySubOscDetune, "if", { arg msg;
-      var track_id = msg[1];
-      mollySubOscDetune = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollySubOscDetune, mollySubOscDetune);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollySubOscDetune, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollySubOscDetune, this.getInstMollySetting(inst_id, \mollySubOscDetune));
     });
 
     this.addCommand(\mollyNoiseLevel, "if", { arg msg;
-      var track_id = msg[1];
-      mollyNoiseLevel = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollyNoiseLevel, mollyNoiseLevel);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollyNoiseLevel, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollyNoiseLevel, this.getInstMollySetting(inst_id, \mollyNoiseLevel));
     });
 
     this.addCommand(\mollyHpFilterCutoff, "if", { arg msg;
-      var track_id = msg[1];
-      mollyHpFilterCutoff = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollyHpFilterCutoff, mollyHpFilterCutoff);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollyHpFilterCutoff, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollyHpFilterCutoff, this.getInstMollySetting(inst_id, \mollyHpFilterCutoff));
     });
 
     this.addCommand(\mollyLpFilterType, "ii", { arg msg;
-      var track_id = msg[1];
-      mollyLpFilterType = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollyLpFilterType, mollyLpFilterType);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollyLpFilterType, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollyLpFilterType, this.getInstMollySetting(inst_id, \mollyLpFilterType));
     });
 
     this.addCommand(\mollyLpFilterCutoff, "if", { arg msg;
-      var track_id = msg[1];
-      mollyLpFilterCutoff = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollyLpFilterCutoff, mollyLpFilterCutoff);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollyLpFilterCutoff, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollyLpFilterCutoff, this.getInstMollySetting(inst_id, \mollyLpFilterCutoff));
     });
 
     this.addCommand(\mollyLpFilterResonance, "if", { arg msg;
-      var track_id = msg[1];
-      mollyLpFilterResonance = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollyLpFilterResonance, mollyLpFilterResonance);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollyLpFilterResonance, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollyLpFilterResonance, this.getInstMollySetting(inst_id, \mollyLpFilterResonance));
     });
 
     this.addCommand(\mollyLpFilterCutoffEnvSelect, "ii", { arg msg;
-      var track_id = msg[1];
-      mollyLpFilterCutoffEnvSelect = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollyLpFilterCutoffEnvSelect, mollyLpFilterCutoffEnvSelect);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollyLpFilterCutoffEnvSelect, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollyLpFilterCutoffEnvSelect, this.getInstMollySetting(inst_id, \mollyLpFilterCutoffEnvSelect));
     });
 
     this.addCommand(\mollyLpFilterCutoffModEnv, "if", { arg msg;
-      var track_id = msg[1];
-      mollyLpFilterCutoffModEnv = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollyLpFilterCutoffModEnv, mollyLpFilterCutoffModEnv);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollyLpFilterCutoffModEnv, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollyLpFilterCutoffModEnv, this.getInstMollySetting(inst_id, \mollyLpFilterCutoffModEnv));
     });
 
     this.addCommand(\mollyLpFilterCutoffModLfo, "if", { arg msg;
-      var track_id = msg[1];
-      mollyLpFilterCutoffModLfo = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollyLpFilterCutoffModLfo, mollyLpFilterCutoffModLfo);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollyLpFilterCutoffModLfo, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollyLpFilterCutoffModLfo, this.getInstMollySetting(inst_id, \mollyLpFilterCutoffModLfo));
     });
 
     this.addCommand(\mollyLpFilterTracking, "if", { arg msg;
-      var track_id = msg[1];
-      mollyLpFilterTracking = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollyLpFilterTracking, mollyLpFilterTracking);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollyLpFilterTracking, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollyLpFilterTracking, this.getInstMollySetting(inst_id, \mollyLpFilterTracking));
     });
 
     this.addCommand(\mollyLfoFade, "if", { arg msg;
-      var track_id = msg[1];
-      mollyLfoFade = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollyLfoFade, mollyLfoFade);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollyLfoFade, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollyLfoFade, this.getInstMollySetting(inst_id, \mollyLfoFade));
     });
 
     this.addCommand(\mollyEnv1Attack, "if", { arg msg;
-      var track_id = msg[1];
-      mollyEnv1Attack = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollyEnv1Attack, mollyEnv1Attack);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollyEnv1Attack, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollyEnv1Attack, this.getInstMollySetting(inst_id, \mollyEnv1Attack));
     });
 
     this.addCommand(\mollyEnv1Decay, "if", { arg msg;
-      var track_id = msg[1];
-      mollyEnv1Decay = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollyEnv1Decay, mollyEnv1Decay);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollyEnv1Decay, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollyEnv1Decay, this.getInstMollySetting(inst_id, \mollyEnv1Decay));
     });
 
     this.addCommand(\mollyEnv1Sustain, "if", { arg msg;
-      var track_id = msg[1];
-      mollyEnv1Sustain = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollyEnv1Sustain, mollyEnv1Sustain);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollyEnv1Sustain, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollyEnv1Sustain, this.getInstMollySetting(inst_id, \mollyEnv1Sustain));
     });
 
     this.addCommand(\mollyEnv1Release, "if", { arg msg;
-      var track_id = msg[1];
-      mollyEnv1Release = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollyEnv1Release, mollyEnv1Release);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollyEnv1Release, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollyEnv1Release, this.getInstMollySetting(inst_id, \mollyEnv1Release));
     });
 
     this.addCommand(\mollyEnv2Attack, "if", { arg msg;
-      var track_id = msg[1];
-      mollyEnv2Attack = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollyEnv2Attack, mollyEnv2Attack);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollyEnv2Attack, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollyEnv2Attack, this.getInstMollySetting(inst_id, \mollyEnv2Attack));
     });
 
     this.addCommand(\mollyEnv2Decay, "if", { arg msg;
-      var track_id = msg[1];
-      mollyEnv2Decay = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollyEnv2Decay, mollyEnv2Decay);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollyEnv2Decay, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollyEnv2Decay, this.getInstMollySetting(inst_id, \mollyEnv2Decay));
     });
 
     this.addCommand(\mollyEnv2Sustain, "if", { arg msg;
-      var track_id = msg[1];
-      mollyEnv2Sustain = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollyEnv2Sustain, mollyEnv2Sustain);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollyEnv2Sustain, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollyEnv2Sustain, this.getInstMollySetting(inst_id, \mollyEnv2Sustain));
     });
 
     this.addCommand(\mollyEnv2Release, "if", { arg msg;
-      var track_id = msg[1];
-      mollyEnv2Release = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollyEnv2Release, mollyEnv2Release);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollyEnv2Release, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollyEnv2Release, this.getInstMollySetting(inst_id, \mollyEnv2Release));
     });
 
     this.addCommand(\mollyAmpMod, "if", { arg msg;
-      var track_id = msg[1];
-      mollyAmpMod = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollyAmpMod, mollyAmpMod);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollyAmpMod, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollyAmpMod, this.getInstMollySetting(inst_id, \mollyAmpMod));
     });
 
     this.addCommand(\mollyRingModFade, "if", { arg msg;
-      var track_id = msg[1];
-      mollyRingModFade = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollyRingModFade, mollyRingModFade);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollyRingModFade, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollyRingModFade, this.getInstMollySetting(inst_id, \mollyRingModFade));
     });
 
     this.addCommand(\mollyRingModMix, "if", { arg msg;
-      var track_id = msg[1];
-      mollyRingModMix = msg[2];
-      this.getTrackMollyVoiceGroup(track_id).set(\mollyRingModMix, mollyRingModMix);
+      var inst_id = msg[1];
+      this.setInstMollySetting(inst_id, \mollyRingModMix, msg[2]);
+      this.getInstMollyVoiceGroup(inst_id).set(\mollyRingModMix, this.getInstMollySetting(inst_id, \mollyRingModMix));
     });
 
     this.addCommand(\mollyAmp, "if", { arg msg;
-      var track_id = msg[1];
-      this.getTrackMollyMixerSynth(track_id).set(\mollyAmp, msg[2]);
+      var inst_id = msg[1];
+      this.getInstMollyMixerSynth(inst_id).set(\mollyAmp, msg[2]);
     });
 
     this.addCommand(\mollyChorusMix, "if", { arg msg;
-      this.getTrackMollyMixerSynth(msg[1]).set(\mollyChorusMix, msg[2]);
+      this.getInstMollyMixerSynth(msg[1]).set(\mollyChorusMix, msg[2]);
     });
 
     this.addCommand(\mollyLfoFreq, "if", { arg msg;
-      var track_id = msg[1];
-      this.getTrackMollyLfo(track_id).set(\mollyLfoFreq, msg[2]);
+      var inst_id = msg[1];
+      this.getInstMollyLfo(inst_id).set(\mollyLfoFreq, msg[2]);
     });
 
     this.addCommand(\mollyLfoWaveShape, "ii", { arg msg;
-      var track_id = msg[1];
-      this.getTrackMollyLfo(track_id).set(\mollyLfoWaveShape, msg[2]);
+      var inst_id = msg[1];
+      this.getInstMollyLfo(inst_id).set(\mollyLfoWaveShape, msg[2]);
     });
 
     this.addCommand(\mollyRingModFreq, "if", { arg msg;
-      var track_id = msg[1];
-      this.getTrackMollyLfo(track_id).set(\mollyRingModFreq, msg[2]);
+      var inst_id = msg[1];
+      this.getInstMollyLfo(inst_id).set(\mollyRingModFreq, msg[2]);
     });
 
     ///////// END MOLLY THE POLY SLICE ////////////////////////
@@ -1409,7 +1410,7 @@ Engine_ReplLooper : CroneEngine {
       trackMixer.put(track_id, Synth(\trackMixerSynth, [
         \in, trackBus.at(track_id),
         \out, 0,
-      ], target: context.server, addAction: \addToTail).onFree({
+      ], target: context.server, addAction: \addAfter).onFree({
         ("freed track "++track_id).postln;
       }));
     });
@@ -1424,82 +1425,145 @@ Engine_ReplLooper : CroneEngine {
   }
 
 
-  getTrackMollyVoiceList {
-    arg track_id = 0;
+  getInstMollyVoiceList {
+    arg inst_id = 0;
 
-    if(trackMollyVoiceList.at(track_id) == nil, {
-      trackMollyVoiceList.put(track_id, List.new());
+    if(instMollyVoiceList.at(inst_id) == nil, {
+      instMollyVoiceList.put(inst_id, List.new());
     });
 
-    ^trackMollyVoiceList.at(track_id);
+    ^instMollyVoiceList.at(inst_id);
   }
 
-  getTrackMollyVoiceGroup {
-    arg track_id = 0;
+  getInstMollyVoiceGroup {
+    arg inst_id = 0;
 
-    if(trackMollyVoiceGroup.at(track_id) == nil, {
-      trackMollyVoiceGroup.put(track_id, Group.new(context.xg));
+    if(instMollyVoiceGroup.at(inst_id) == nil, {
+      instMollyVoiceGroup.put(inst_id, Group.new(context.xg));
     });
 
-    ^trackMollyVoiceGroup.at(track_id);
+    ^instMollyVoiceGroup.at(inst_id);
   }
 
 
-  getTrackMollyMixerBus {
-    arg track_id;
+  getInstMollyMixerBus {
+    arg inst_id, track_id;
 
-    if(trackMollyMixerBus.at(track_id) == nil, {
-      ("Creating new molly track bus+mixer " ++ track_id).postln;
+    if(instMollyMixerBus.at(inst_id) == nil, {
+      ("Creating new molly inst bus+mixer " ++ inst_id ++ " track " ++ track_id).postln;
 
-      trackMollyMixerBus.put(track_id, Bus.audio(context.server, 1));
+      instMollyMixerBus.put(inst_id, Bus.audio(context.server, 1));
+      instMollySettings.put(inst_id, Dictionary.newFrom([
+        \mollyPitchBendRatio, 1,
+        \mollyOscWaveShape, 0,
+        \mollyPwMod, 0,
+        \mollyPwModSource, 0,
+        \mollyFreqModLfo, 0,
+        \mollyFreqModEnv, 0,
+        \mollyLastFreq, 0,
+        \mollyGlide, 0,
+        \mollyMainOscLevel, 1,
+        \mollySubOscLevel, 0,
+        \mollySubOscDetune, 0,
+        \mollyNoiseLevel, 0,
+        \mollyHpFilterCutoff, 10,
+        \mollyLpFilterType, 0,
+        \mollyLpFilterCutoff, 440,
+        \mollyLpFilterResonance, 0.2,
+        \mollyLpFilterCutoffEnvSelect, 0,
+        \mollyLpFilterCutoffModEnv, 0,
+        \mollyLpFilterCutoffModLfo, 0,
+        \mollyLpFilterTracking, 1,
+        \mollyLfoFade, 0,
+        \mollyEnv1Attack, 0.01,
+        \mollyEnv1Decay, 0.3,
+        \mollyEnv1Sustain, 0.5,
+        \mollyEnv1Release, 0.5,
+        \mollyEnv2Attack, 0.01,
+        \mollyEnv2Decay, 0.3,
+        \mollyEnv2Sustain, 0.5,
+        \mollyEnv2Release, 0.5,
+        \mollyAmpMod, 0,
+        \mollyChannelPressure, 0,
+        \mollyTimbre, 0,
+        \mollyRingModFade, 0,
+        \mollyRingModMix, 0,
+        \mollyChorusMix, 0
+      ]));
 
-      trackMollyMixerSynth.put(track_id, Synth(\mollyMixer, [
-        \in, trackMollyMixerBus.at(track_id),
-        \out, 0,
+      instMollyMixerSynth.put(inst_id, Synth(\mollyMixer, [
+        \in, instMollyMixerBus.at(inst_id),
+        \out, this.getTrackBus(track_id),
       ], target: context.server, addAction: \addToTail).onFree({
-        ("freed molly mixer synth track "++track_id).postln;
+        ("freed molly mixer synth inst "++inst_id).postln;
       }));
+
+      ("Sending instMollyMixer -> " ++ this.getTrackBus(track_id)).postln;
+    }, {
+
+      if( track_id.notNil, {
+        ("Updating existing molly inst bus+mixer " ++ inst_id ++ " track " ++ track_id).postln;
+
+        instMollyMixerSynth.at(inst_id).set(
+          \in, instMollyMixerBus.at(inst_id),
+          \out, this.getTrackBus(track_id),
+        );
+        ("Re-setting instMollyMixerSynth in: " ++ instMollyMixerBus.at(inst_id) ++ " out " ++ this.getTrackBus(track_id)).postln;
+      });
     });
 
-    ^trackMollyMixerBus.at(track_id);
+    ^instMollyMixerBus.at(inst_id);
   }
 
-  getTrackMollyMixerSynth {
-    arg track_id;
-    this.getTrackMollyMixerBus(track_id); // Force it to be created, ignore result
-    ^trackMollyMixerSynth.at(track_id);
+  getInstMollyMixerSynth {
+    arg inst_id;
+    this.getInstMollyMixerBus(inst_id, 0); // Force it to be created, ignore result
+    ^instMollyMixerSynth.at(inst_id);
   }
 
-  getTrackMollyLfoBus {
-    arg track_id;
+  getInstMollySetting {
+    arg inst_id, setting;
+    this.getInstMollyMixerBus(inst_id); // Force it to be created, ignore result
+    ^instMollySettings.at(inst_id).at(setting);
+  }
 
-    if(trackMollyLfoBus.at(track_id) == nil, {
-      ("Creating new molly track bus+mixer " ++ track_id).postln;
+  setInstMollySetting {
+    arg inst_id, setting, value;
+    this.getInstMollyMixerBus(inst_id); // Force it to be created, ignore result
+    ^instMollySettings.at(inst_id).put(setting, value);
+  }
 
-      trackMollyLfoBus.put(track_id, Bus.audio(context.server, 1));
-      trackMollyRingModBus.put(track_id, Bus.audio(context.server, 1));
 
-      trackMollyLfo.put(track_id, Synth(\mollyLfo, [
-        \mollyLfoOut, trackMollyLfoBus.at(track_id),
-        \mollyRingModOut, trackMollyRingModBus.at(track_id)
+  getInstMollyLfoBus {
+    arg inst_id;
+
+    if(instMollyLfoBus.at(inst_id) == nil, {
+      ("Creating new molly lfo inst bus+mixer " ++ inst_id).postln;
+
+      instMollyLfoBus.put(inst_id, Bus.audio(context.server, 1));
+      instMollyRingModBus.put(inst_id, Bus.audio(context.server, 1));
+
+      instMollyLfo.put(inst_id, Synth(\mollyLfo, [
+        \mollyLfoOut, instMollyLfoBus.at(inst_id),
+        \mollyRingModOut, instMollyRingModBus.at(inst_id)
       ], target: context.server, addAction: \addToHead).onFree({
-        ("freed molly mixer synth track "++track_id).postln;
+        ("freed molly mixer synth inst "++inst_id).postln;
       }));
     });
 
-    ^trackMollyLfoBus.at(track_id);
+    ^instMollyLfoBus.at(inst_id);
   }
 
-  getTrackMollyLfo {
-    arg track_id;
-    this.getTrackMollyLfoBus(track_id); // Force it to be created, ignore result
-    ^trackMollyLfo.at(track_id);
+  getInstMollyLfo {
+    arg inst_id;
+    this.getInstMollyLfoBus(inst_id); // Force it to be created, ignore result
+    ^instMollyLfo.at(inst_id);
   }
 
-  getTrackMollyRingModBus {
-    arg track_id;
-    this.getTrackMollyLfoBus(track_id); // Force it to be created, ignore result
-    ^trackMollyRingModBus.at(track_id);
+  getInstMollyRingModBus {
+    arg inst_id;
+    this.getInstMollyLfoBus(inst_id); // Force it to be created, ignore result
+    ^instMollyRingModBus.at(inst_id);
   }
 
   queueLoadSample {
@@ -2528,11 +2592,11 @@ Engine_ReplLooper : CroneEngine {
     ///////// MOLLY THE POLY SLICE ////////////////////////
 
 
-    trackMollyMixerBus.keysValuesDo({ arg key, value; value.free; });
-    trackMollyMixerSynth.keysValuesDo({ arg key, value; value.free; });
+    instMollyMixerBus.keysValuesDo({ arg key, value; value.free; });
+    instMollyMixerSynth.keysValuesDo({ arg key, value; value.free; });
 
-    trackMollyLfoBus.keysValuesDo({ arg key, value; value.free; });
-    trackMollyLfo.keysValuesDo({ arg key, value; value.free; });
+    instMollyLfoBus.keysValuesDo({ arg key, value; value.free; });
+    instMollyLfo.keysValuesDo({ arg key, value; value.free; });
     ///////// END MOLLY THE POLY SLICE ////////////////////////
 
     // Sampler thing
