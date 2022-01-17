@@ -879,23 +879,38 @@ function init()
 
   -- Kick out the jams
   s808 = {}
+
+  -- Bass
   s808.BD = Sample.new("/home/we/dust/audio/common/808/808-BD.wav", "one-shot")
-  s808.CH = Sample.new("/home/we/dust/audio/common/808/808-CH.wav", "one-shot")
-  s808.CY = Sample.new("/home/we/dust/audio/common/808/808-CY.wav", "one-shot")
-  s808.LC = Sample.new("/home/we/dust/audio/common/808/808-LC.wav", "one-shot")
-  s808.MC = Sample.new("/home/we/dust/audio/common/808/808-MC.wav", "one-shot")
-  s808.RS = Sample.new("/home/we/dust/audio/common/808/808-RS.wav", "one-shot")
   s808.BS = Sample.new("/home/we/dust/audio/common/808/808-BS.wav", "one-shot")
-  s808.CL = Sample.new("/home/we/dust/audio/common/808/808-CL.wav", "one-shot")
-  s808.HC = Sample.new("/home/we/dust/audio/common/808/808-HC.wav", "one-shot")
-  s808.LT = Sample.new("/home/we/dust/audio/common/808/808-LT.wav", "one-shot")
-  s808.MT = Sample.new("/home/we/dust/audio/common/808/808-MT.wav", "one-shot")
-  s808.SD = Sample.new("/home/we/dust/audio/common/808/808-SD.wav", "one-shot")
+
+  -- cowbell
   s808.CB = Sample.new("/home/we/dust/audio/common/808/808-CB.wav", "one-shot")
-  s808.CP = Sample.new("/home/we/dust/audio/common/808/808-CP.wav", "one-shot")
-  s808.HT = Sample.new("/home/we/dust/audio/common/808/808-HT.wav", "one-shot")
-  s808.MA = Sample.new("/home/we/dust/audio/common/808/808-MA.wav", "one-shot")
+
+  -- closed/open hat
+  s808.CH = Sample.new("/home/we/dust/audio/common/808/808-CH.wav", "one-shot")
   s808.OH = Sample.new("/home/we/dust/audio/common/808/808-OH.wav", "one-shot")
+
+  s808.CL = Sample.new("/home/we/dust/audio/common/808/808-CL.wav", "one-shot")
+
+  -- Clap
+  s808.CP = Sample.new("/home/we/dust/audio/common/808/808-CP.wav", "one-shot")
+
+  -- Cymbols
+  s808.CY = Sample.new("/home/we/dust/audio/common/808/808-CY.wav", "one-shot")
+
+  s808.HC = Sample.new("/home/we/dust/audio/common/808/808-HC.wav", "one-shot")
+  s808.MC = Sample.new("/home/we/dust/audio/common/808/808-MC.wav", "one-shot")
+  s808.LC = Sample.new("/home/we/dust/audio/common/808/808-LC.wav", "one-shot")
+
+  s808.HT = Sample.new("/home/we/dust/audio/common/808/808-HT.wav", "one-shot")
+  s808.MT = Sample.new("/home/we/dust/audio/common/808/808-MT.wav", "one-shot")
+  s808.LT = Sample.new("/home/we/dust/audio/common/808/808-LT.wav", "one-shot")
+
+  s808.MA = Sample.new("/home/we/dust/audio/common/808/808-MA.wav", "one-shot")
+
+  s808.RS = Sample.new("/home/we/dust/audio/common/808/808-RS.wav", "one-shot")
+  s808.SD = Sample.new("/home/we/dust/audio/common/808/808-SD.wav", "one-shot")
 end
 
 -- Handy shortcuts
