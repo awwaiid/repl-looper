@@ -873,6 +873,13 @@ function init()
   molly = Molly.new()
   molly2 = Molly.new()
   molly3 = Molly.new()
+  molly4 = Molly.new()
+  molly5 = Molly.new()
+  molly6 = Molly.new()
+  molly7 = Molly.new()
+  molly8 = Molly.new()
+
+  mollies = { molly, molly2, molly3, molly4, molly5, molly6, molly7, molly8 }
 
   -- A lovely piano via timber
   piano = Timber.new("/home/we/dust/code/timber/audio/piano-c.wav")
