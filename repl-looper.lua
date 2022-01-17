@@ -428,9 +428,18 @@ end
 -- a:gen("CH", "n >= 8") puts the "CH" on the second half of steps
 -- a:gen("CH", 1, 4) puts the "CH" on 1 of ever 4 steps
 -- a:gen("CH", { 1, 3, 4.5 }) puts the "CH" on the given steps (even fractional)
+-- a:gen({"BD","SD","CP"}) puts each one on each step
 function Loop:gen(code_string, condition, mod_base)
-
-  if type(condition) == "table" then
+  if type(code_string) == "table" then
+    for n, cmd in ipairs(code_string) do
+      local event = Event.new({
+        pulse = (n - 1) * self.lattice.ppqn,
+        command = cmd
+      })
+      self:update_event(event)
+      table.insert(self.events, event)
+    end
+  elseif type(condition) == "table" then
     for _, n in ipairs(condition) do
       local expanded_code_string =
         string.gsub(
