@@ -426,7 +426,7 @@ end
 -- a:gen("CH") puts the "CH" function on every step
 -- a:gen("CH", 1/2) puts the "CH" on every half step
 -- a:gen("CH", "n >= 8") puts the "CH" on the second half of steps
--- a:gen("CH", 1, 4) puts the "CH" on 1 of ever 4 steps
+-- a:gen("CH", 2, 2) puts the "CH" on every other step starting with step 2
 -- a:gen("CH", { 1, 3, 4.5 }) puts the "CH" on the given steps (even fractional)
 -- a:gen({"BD","SD","CP"}) puts each one on each step
 function Loop:gen(code_string, condition, mod_base)
@@ -458,9 +458,9 @@ function Loop:gen(code_string, condition, mod_base)
       table.insert(self.events, event)
     end
   elseif type(condition) == "number" then
-    local offset = mod_base or 0
+    local offset = mod_base or 1
     for step = 1, (self.loop_length_qn / condition) do
-      local n = (step - 1) * condition + 1 + offset
+      local n = (step - 1) * condition + offset
       local expanded_code_string =
         string.gsub(
           code_string,
