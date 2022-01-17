@@ -135,7 +135,7 @@ Engine_ReplLooper : CroneEngine {
 
     // Mixer and FX
     SynthDef(\trackMixerSynth, {
-      arg in, out, amp = 1;
+      arg in, out, amp = 1, ampLag = 0;
       var signal;
 
       signal = In.ar(in, 2);
@@ -144,6 +144,11 @@ Engine_ReplLooper : CroneEngine {
       signal = CompanderD.ar(in: signal, thresh: 0.7, slopeBelow: 1, slopeAbove: 0.4, clampTime: 0.008, relaxTime: 0.2);
       signal = tanh(signal).softclip;
 
+      // lag the amp for doing fade out
+      amp = Lag.kr(amp, ampLag);
+      // use envelope for doing fade in
+      amp = amp * EnvGen.ar(Env([0, 1], [ampLag]));
+
       // Final amplification
       signal = signal * amp;
 
@@ -151,12 +156,14 @@ Engine_ReplLooper : CroneEngine {
 
     }).add;
 
-    this.addCommand("trackMod","if", { arg msg;
+    this.addCommand("trackMod","iff", { arg msg;
       var track_id = msg[1];
       var amp = msg[2];
+      var ampLag = msg[3];
 
       this.getTrackMixer(track_id).set(
-        \amp, amp
+        \amp, amp,
+        \ampLag, ampLag
       );
     });
     /////////////////// END TRACKS //////////////////////

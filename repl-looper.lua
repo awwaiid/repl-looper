@@ -108,7 +108,8 @@ function Loop.new(init)
     auto_quantize = false,
     send_feedback = false,
     mods = {
-      amp = 1
+      amp = 1,
+      ampLag = 0
     }
   }
 
@@ -265,6 +266,7 @@ function Loop:lua()
   output.current_step = self.current_step
   output.loop_length_qn = self.loop_length_qn
   output.transport = self.lattice.transport
+  output.mods = self.mods
   output.events = {}
   for _, event in ipairs(self.events) do
     table.insert(output.events, event:lua())
@@ -604,11 +606,13 @@ end
 function Loop:updateTrack()
   engine.trackMod(
     self.id,
-    self.mods.amp
+    self.mods.amp,
+    self.mods.ampLag
   )
 end
 
-function Loop:amp(amp)
+function Loop:amp(amp, ampLag)
+  self.mods.ampLag = ampLag or 0
   self.mods.amp = amp
   self:updateTrack()
 end
