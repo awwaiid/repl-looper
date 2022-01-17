@@ -508,6 +508,10 @@ function Loop:gen(code_string, condition, mod_base)
   self:draw_grid_row()
 end
 
+-- Shorthand to put some code at a specific step
+function Loop:put(step, code_string)
+  self:gen(code_string, { step })
+end
 
 function Loop:slice(sample_name, step_offset, step_count, width)
   step_offset = step_offset or 1
