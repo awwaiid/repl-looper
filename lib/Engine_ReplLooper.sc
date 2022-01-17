@@ -1410,7 +1410,7 @@ Engine_ReplLooper : CroneEngine {
     arg track_id;
 
     if (trackMixer.at(track_id) == nil, {
-      ("Creating new track bus+mixer " ++ track_id).postln;
+      // ("Creating new track bus+mixer " ++ track_id).postln;
 
       trackBus.put(track_id, Bus.audio(context.server, 2));
 
@@ -1457,7 +1457,7 @@ Engine_ReplLooper : CroneEngine {
     arg inst_id, track_id;
 
     if(instMollyMixerBus.at(inst_id) == nil, {
-      ("Creating new molly inst bus+mixer " ++ inst_id ++ " track " ++ track_id).postln;
+      // ("Creating new molly inst bus+mixer " ++ inst_id ++ " track " ++ track_id).postln;
 
       instMollyMixerBus.put(inst_id, Bus.audio(context.server, 1));
       instMollySettings.put(inst_id, Dictionary.newFrom([
@@ -1505,17 +1505,17 @@ Engine_ReplLooper : CroneEngine {
         ("freed molly mixer synth inst "++inst_id).postln;
       }));
 
-      ("Sending instMollyMixer -> " ++ this.getTrackBus(track_id)).postln;
+      // ("Sending instMollyMixer -> " ++ this.getTrackBus(track_id)).postln;
     }, {
 
       if( track_id.notNil, {
-        ("Updating existing molly inst bus+mixer " ++ inst_id ++ " track " ++ track_id).postln;
+        // ("Updating existing molly inst bus+mixer " ++ inst_id ++ " track " ++ track_id).postln;
 
         instMollyMixerSynth.at(inst_id).set(
           \in, instMollyMixerBus.at(inst_id),
           \out, this.getTrackBus(track_id),
         );
-        ("Re-setting instMollyMixerSynth in: " ++ instMollyMixerBus.at(inst_id) ++ " out " ++ this.getTrackBus(track_id)).postln;
+        // ("Re-setting instMollyMixerSynth in: " ++ instMollyMixerBus.at(inst_id) ++ " out " ++ this.getTrackBus(track_id)).postln;
       });
     });
 
@@ -1545,7 +1545,7 @@ Engine_ReplLooper : CroneEngine {
     arg inst_id;
 
     if(instMollyLfoBus.at(inst_id) == nil, {
-      ("Creating new molly lfo inst bus+mixer " ++ inst_id).postln;
+      // ("Creating new molly lfo inst bus+mixer " ++ inst_id).postln;
 
       instMollyLfoBus.put(inst_id, Bus.audio(context.server, 1));
       instMollyRingModBus.put(inst_id, Bus.audio(context.server, 1));

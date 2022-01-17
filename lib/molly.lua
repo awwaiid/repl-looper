@@ -130,7 +130,7 @@ for funcName, engineFuncName in pairs(mollyVoiceFunctions) do
       id = musicutil.freq_to_note_num(freq)
     end
 
-    print("calling", funcName, engineFuncName, self.id, id, ...)
+    -- print("calling", funcName, engineFuncName, self.id, id, ...)
     engine[engineFuncName](self.id, id, ...)
     self:setParam(funcName, ...)
   end
@@ -181,7 +181,7 @@ local mollyFunctions = {
 
 for funcName, engineFuncName in pairs(mollyFunctions) do
   Molly[funcName] = function(self, ...)
-    print("calling", funcName, engineFuncName, self.id, ...)
+    -- print("calling", funcName, engineFuncName, self.id, ...)
     engine[engineFuncName](self.id, ...)
     self:setParam(funcName, ...)
   end

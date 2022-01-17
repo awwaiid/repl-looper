@@ -73,9 +73,9 @@ end
 current_context_loop_id = 0
 function Event:eval(context_loop_id, from_playing_loop)
   current_context_loop_id = context_loop_id
-  print("Set context loop id to", current_context_loop_id)
+  -- print("Set context loop id to", current_context_loop_id)
   local result = live_event(self.command, from_playing_loop)
-  print("Reset context loop id to 0")
+  -- print("Reset context loop id to 0")
   current_context_loop_id = 0
   return result
 end
@@ -797,9 +797,9 @@ end
 ------------------------------------------------------------------
 
 -- Tiiiimmmmmbbbbeeerrrrr!!!!! PLUS MOLLY THE POLY!!!
+-- .... PLUS GOLDENEYE!!!
 
 ReplLooper = include("repl-looper/lib/repllooper_engine")
--- MollyThePoly = include("repl-looper/lib/molly_the_poly_engine")
 
 -- engine.load('ReplLooper')
 engine.name = "ReplLooper"
