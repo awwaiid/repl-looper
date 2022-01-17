@@ -2574,6 +2574,8 @@ Engine_ReplLooper : CroneEngine {
   }
 
   free {
+
+    //// TIMBER ////
     if(waveformRoutine.notNil, {
       waveformRoutine.stop;
       waveformRoutine.free;
@@ -2594,16 +2596,23 @@ Engine_ReplLooper : CroneEngine {
     players.free;
     voiceGroup.free;
     lfos.free;
-    // mixer.free;
+    //// END TIMBER ////
 
     ///////// MOLLY THE POLY SLICE ////////////////////////
-
-
     instMollyMixerBus.keysValuesDo({ arg key, value; value.free; });
     instMollyMixerSynth.keysValuesDo({ arg key, value; value.free; });
-
     instMollyLfoBus.keysValuesDo({ arg key, value; value.free; });
     instMollyLfo.keysValuesDo({ arg key, value; value.free; });
+    instMollyRingModBus.keysValuesDo({ arg key, value; value.free; });
+    instMollyVoiceGroup.keysValuesDo({ arg key, value; value.free; });
+
+    // Two Layer
+    instMollyVoiceList.keyValuesDo({ |key, value|
+      value.keysValuesDo({ |key, value| value.free})
+    });
+    instMollySettings.keyValuesDo({ |key, value|
+      value.keysValuesDo({ |key, value| value.free})
+    });
     ///////// END MOLLY THE POLY SLICE ////////////////////////
 
     // Sampler thing
