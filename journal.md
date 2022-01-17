@@ -103,3 +103,10 @@
   * Making good progress on controlling dynamics better. I'm teaching all of the sub-engines how to route their output into per-loop tracks with independent volume control. I'll be able to add other things to those as well, like reverb and compression and whatnot. I got Timber and Goldeneye, need to get Molly The Poly as well -- but for those other two you can now do like `c:amp(0.5)` and every event generated on loop-c will pass through a 0.5 amp (half volume)
   * Worked out how to use musicutil+sequins to pretty easily generate a playable row in a certain key
   * I likely won't have time before flashcrash, but another idea is bringing in some live microphone recording of vocals or instruments like a normal boring looper BUT of course these could be samples which get sliced and so on easily
+* 2022-01-17
+  * I was further off than I thought for per-loop setup, but I got it sorted. I had to do a bunch more work to allow having multiple ACTUALLY independent instances of Molly, but I got it going
+  * Immediately I also got a fade-in/out going, so you can do `a:amp(0, 10)` to fade-out
+  * Came up with a cool multi-object wrapper so you can do `ALL{a,b,c}:amp(0, 10)` to fade out three loops at once. Also you can chain methods like `ALL{a,b,c}:play(1):amp(1,10)`. If you have a list of things you can do them all, `ALL(loops):amp(0, 10)` to fade all loops for example!
+  * This fading in and out is working out really well
+  * Also added `a:put(16, "ALL{a,b}:amp(0, 10)")` to make it easy to create control-buttons. Like you could have triggers that fade out the drums, fade them in, start them over, etc
+  * Recorded a video walk-through of techniques and now updating docs. Realized that Molly and Timber are GPL so I switched over the license on REPL-LOOPER to match

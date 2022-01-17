@@ -1,10 +1,12 @@
-// CroneEngine - ReplLooper - v2.0.0
+// CroneEngine - ReplLooper - v0.2.0
 // By Brock Wilcox <awwaiid@thelackthereof.org>
 //
 // Adapted from Timber by Mark Eats
 // Adapted from Molly The Poly by Mark Eats
 // Adapted from Internorns by InfiniteDigits
 // Adapted from Goldeneye by tyleretters
+//
+// GPL 3.0! See LICENSE.md
 
 Engine_ReplLooper : CroneEngine {
 
