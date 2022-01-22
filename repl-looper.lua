@@ -543,14 +543,20 @@ function Loop:put(step, code_string)
   self:gen(code_string, { step })
 end
 
-function Loop:slice(sample_name, step_offset, step_count, width)
+function Loop:slice(sample_name, step_offset, step_count, reverse)
   step_offset = step_offset or 1
-  width = width or (48000 / (self:qn_per_ms() * 1000)) -- 29090
+  width = 48000 / (self:qn_per_ms() * 1000) -- 29090
 
   local sample = eval(sample_name)
   local frame_offset = (step_offset - 1) * width
   local slice_start = width .. "* m + " .. frame_offset
   local slice_end = width .. "* n + " .. (frame_offset + 10)
+
+  if reverse then
+    local num_frames = sample:info().num_frames
+    slice_start = num_frames .. " - (" .. slice_start .. ")"
+    slice_end = num_frames .. " - (" .. slice_end .. ")"
+  end
 
   -- If this is less than a whole loop, cut the loop length
   step_count = step_count or math.floor((sample:info().num_frames - frame_offset) / width)

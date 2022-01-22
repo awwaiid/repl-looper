@@ -78,7 +78,20 @@ function Timber:noteOn(freq, vol, voice)
   engine.noteOn(current_context_loop_id, voice, freq, vol, self.id)
 end
 
-function Timber:play() self:noteOn() end
+function Timber:play(slice_start, slice_end)
+  if slice_start then
+    self:startFrame(slice_start)
+    self:loopStartFrame(slice_start)
+  end
+
+  if slice_end then
+    self:loopEndFrame(slice_end)
+    self:endFrame(slice_end)
+  end
+
+  self:noteOn()
+end
+
 function Timber:stop() self:noteOff() end
 
 function Timber:noteOff() engine.noteOff(self.id) end
