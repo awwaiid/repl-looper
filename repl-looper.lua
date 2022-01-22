@@ -103,11 +103,13 @@ function Loop.new(init)
     off_events = {},
     loop_length_qn = 16,
     current_step = 1,
+    current_substep = 1.0,
     duration = 10212,
     lattice = lattice:new{},
     record_feedback = false,
     auto_quantize = false,
     send_feedback = false,
+    stop_next = false,
     mods = {
       amp = 1,
       ampLag = 0
@@ -144,6 +146,11 @@ end
 function Loop:get_current_step(t)
   t = t or self.lattice.transport
   return (math.floor(t / self.lattice.ppqn) % self.loop_length_qn) + 1
+end
+
+function Loop:get_current_substep(t)
+  t = t or self.lattice.transport
+  return ((t / self.lattice.ppqn) % self.loop_length_qn) + 1
 end
 
 function Loop:send_status(t)
@@ -203,7 +210,18 @@ function Loop:update_event(event, off_event)
 
   local action = function(t)
     self.recent_command = event.command
-    event:eval(self.id, not self.send_feedback) -- `true` to indicate we are a playback event
+
+    -- Update current step (fractional) and see if we should stop
+    local substep = self:get_current_substep(t)
+    if self.stop_next and self.current_substep > substep then
+      self:stop()
+      self:setStep(1) -- Reset back to the top of the loop (we might already be there a little)
+    else
+      -- We don't need to stop, so go ahead and execute the command!
+      event:eval(self.id, not self.send_feedback) -- `true` to indicate we are a playback event
+    end
+
+    self.current_substep = substep
   end
 
   event.pattern = event.pattern or self.lattice:new_pattern{}
@@ -386,7 +404,11 @@ function Loop:stop()
 end
 
 function Loop:nextStop()
-  self.mode = "stop_next"
+  self.stop_next = true
+end
+
+function Loop:nextPlay()
+  self.stop_next = false
 end
 
 function Loop:rec()
