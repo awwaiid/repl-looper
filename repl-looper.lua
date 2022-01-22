@@ -64,7 +64,7 @@ function Event:lua()
   return {
     pulse = self.pulse, -- The absolute time
     pulse_offset = self.pulse_offset, -- loop relative time
-    phase = self.pattern.phase, -- current countdown in pulses
+    phase = self.pattern and self.pattern.phase, -- current countdown in pulses
     step = self.step,
     command = self.command
   }
@@ -100,6 +100,7 @@ Loop.last_id = 0
 function Loop.new(init)
   local self = init or {
     events = {},
+    off_events = {},
     loop_length_qn = 16,
     current_step = 1,
     duration = 10212,
@@ -186,9 +187,14 @@ function Loop:setLength(qn)
   self:update_lattice()
 end
 
-function Loop:update_event(event)
+function Loop:update_event(event, off_event)
   event.pulse_offset = event.pulse % self:loop_length_pulse()
   event.step = event.pulse_offset / self.lattice.ppqn + 1
+
+  if off_event then
+    -- Don't actually schedule grid-key-off events
+    return
+  end
 
   if self.auto_quantize then
     event.step = math.floor(event.step + 0.5) -- nearest whole step
@@ -271,6 +277,10 @@ function Loop:lua()
   for _, event in ipairs(self.events) do
     table.insert(output.events, event:lua())
   end
+  output.off_events = {}
+  for _, event in ipairs(self.off_events) do
+    table.insert(output.off_events, event:lua())
+  end
   return output
 end
 
@@ -302,6 +312,15 @@ end
 
 function Loop:play_events_at_step(step)
   for _, event in ipairs(self.events) do
+    local event_step = math.floor(event.step)
+    if event_step == step then
+      event:eval(self.id)
+    end
+  end
+end
+
+function Loop:play_off_events_at_step(step)
+  for _, event in ipairs(self.off_events) do
     local event_step = math.floor(event.step)
     if event_step == step then
       event:eval(self.id)
@@ -425,11 +444,11 @@ end
 
 -- a:gen("CH") puts the "CH" function on every step
 -- a:gen("CH", 1/2) puts the "CH" on every half step
--- a:gen("CH", "n >= 8") puts the "CH" on the second half of steps
 -- a:gen("CH", 2, 2) puts the "CH" on every other step starting with step 2
 -- a:gen("CH", { 1, 3, 4.5 }) puts the "CH" on the given steps (even fractional)
 -- a:gen({"BD","SD","CP"}) puts each one on each step
-function Loop:gen(code_string, condition, mod_base)
+-- a:gen("molly:note(`50+m`)", "molly:offNote(`50+m`)") off notes during grid-play
+function Loop:gen(code_string, modification, offset)
   if type(code_string) == "table" then
     for n, cmd in ipairs(code_string) do
       local event = Event.new({
@@ -439,8 +458,8 @@ function Loop:gen(code_string, condition, mod_base)
       self:update_event(event)
       table.insert(self.events, event)
     end
-  elseif type(condition) == "table" then
-    for _, n in ipairs(condition) do
+  elseif type(modification) == "table" then
+    for _, n in ipairs(modification) do
       local expanded_code_string =
         string.gsub(
           code_string,
@@ -457,10 +476,10 @@ function Loop:gen(code_string, condition, mod_base)
       self:update_event(event)
       table.insert(self.events, event)
     end
-  elseif type(condition) == "number" then
-    local offset = mod_base or 1
-    for step = 1, (self.loop_length_qn / condition) do
-      local n = (step - 1) * condition + offset
+  elseif type(modification) == "number" then
+    offset = offset or 1
+    for step = 1, (self.loop_length_qn / modification) do
+      local n = (step - 1) * modification + offset
       local expanded_code_string =
         string.gsub(
           code_string,
@@ -478,18 +497,28 @@ function Loop:gen(code_string, condition, mod_base)
       table.insert(self.events, event)
     end
   else
-
-    if mod_base then
-      condition = "(n-1) % " .. mod_base .. " == (" .. (condition - 1) .. ")"
-    end
-    condition = condition or "true"
-
     for n = 1, self.loop_length_qn do
-      local condition_met = eval("local n = dynamic('n'); local m = n - 1; return " .. condition);
-      if condition_met then
+      local expanded_code_string =
+        string.gsub(
+          code_string,
+          "`([^`]+)`",
+          function (snippet)
+            local injected_snippet = "local n = dynamic('n'); local m = n - 1; return " .. snippet
+            return eval(injected_snippet)
+          end
+        )
+      local event = Event.new({
+        pulse = (n - 1) * self.lattice.ppqn,
+        command = expanded_code_string
+      })
+      self:update_event(event)
+      table.insert(self.events, event)
+
+      -- Look for key-off modification
+      if modification then
         local expanded_code_string =
           string.gsub(
-            code_string,
+            modification,
             "`([^`]+)`",
             function (snippet)
               local injected_snippet = "local n = dynamic('n'); local m = n - 1; return " .. snippet
@@ -500,9 +529,10 @@ function Loop:gen(code_string, condition, mod_base)
           pulse = (n - 1) * self.lattice.ppqn,
           command = expanded_code_string
         })
-        self:update_event(event)
-        table.insert(self.events, event)
+        self:update_event(event, true)
+        table.insert(self.off_events, event)
       end
+
     end
   end
   self:draw_grid_row()
@@ -545,6 +575,7 @@ function Loop:clear()
     event:destroy()
   end
   self.events = {}
+  self.off_events = {}
   self:draw_grid_row()
 end
 
@@ -649,42 +680,25 @@ grid_mode = "one-shot"
 local grid_data = {}
 
 function handle_grid_key(col, row, state)
+  local loop_id = row
+  local step = col
+  local loop = loops[loop_id]
+
   if state == 0 then
-    return
-  end
-  -- Experiment with using bottom-row as a set of controls,
-  -- like having a copy/paste mode
-  --
-  -- if row == 8 then
-  --   if col == 1 then
-  --     grid_mode = "one-shot"
-  --     print("grid: one-shot mode")
-  --     clear_grid_row(8)
-  --     grid_device:led(1, 8, 15)
-  --   elseif col == 2 then
-  --     grid_mode = "sequence"
-  --     print("grid: sequence mode")
-  --     grid_data = {}
-  --     clear_grid_row(8)
-  --     grid_device:led(2, 8, 15)
-  --   end
-  --   grid_device:refresh()
-  --   redraw()
-  -- else
-    local loop_id = row
-    local step = col
+    loop:play_off_events_at_step(col)
+  else
     if grid_mode == "one-shot" then
-      loops[loop_id]:play_events_at_step(col)
+      loop:play_events_at_step(col)
     elseif grid_mode == "sequence" then
       if not grid_data.commands then
-        grid_data.commands = loops[loop_id]:commands_at_step(step)
-        loops[loop_id]:draw_grid_row()
+        grid_data.commands = loop:commands_at_step(step)
+        loop:draw_grid_row()
       else
-        loops[loop_id]:toggle_commands_at_step(step, grid_data.commands)
-        loops[loop_id]:draw_grid_row()
+        loop:toggle_commands_at_step(step, grid_data.commands)
+        loop:draw_grid_row()
       end
     end
-  -- end
+  end
 end
 
 recent_command = ""
@@ -861,6 +875,7 @@ end
 function init()
 
   -- Global Grid
+  print "Loading grid"
   grid_device = grid.connect()
   grid_device.key = handle_grid_key
 

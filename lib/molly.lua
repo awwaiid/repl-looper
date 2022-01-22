@@ -127,6 +127,7 @@ for funcName, engineFuncName in pairs(mollyVoiceFunctions) do
     if self.mode == "single" then
       id = self.id
     else
+      local freq = ...
       id = musicutil.freq_to_note_num(freq)
     end
 
@@ -212,6 +213,33 @@ function Molly:note(note, voice_id)
   end
 
   self:noteOn(freq, 1, current_context_loop_id)
+end
+
+function Molly:offNote(note, voice_id)
+  local voice_id = voice_id or self.id
+  local note = note or 60
+  local freq = 0
+
+  -- If we got an array, play them all!
+  if type(note) == "table" then
+    for i, n in ipairs(note) do
+      self:note(n, voice_id + (i * 100))
+    end
+    return
+  end
+
+  if string.match(note, "^%a") then
+    if not string.find(note, "%d") then
+      note = note .. "3"
+    end
+    note = string.upper(note)
+    freq = musicutil.note_name_to_freq(note)
+    note = musicutil.note_name_to_num(note)
+  else
+    freq = musicutil.note_num_to_freq(note)
+  end
+
+  self:noteOff(freq)
 end
 
 function Molly:play() self:note() end
