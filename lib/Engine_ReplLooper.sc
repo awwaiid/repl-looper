@@ -2609,10 +2609,10 @@ Engine_ReplLooper : CroneEngine {
     instMollyVoiceGroup.keysValuesDo({ arg key, value; value.free; });
 
     // Two Layer
-    instMollyVoiceList.keyValuesDo({ |key, value|
-      value.keysValuesDo({ |key, value| value.free})
+    instMollyVoiceList.keysValuesDo({ |key, value|
+      value.do({ |value| value.free})
     });
-    instMollySettings.keyValuesDo({ |key, value|
+    instMollySettings.keysValuesDo({ |key, value|
       value.keysValuesDo({ |key, value| value.free})
     });
     ///////// END MOLLY THE POLY SLICE ////////////////////////
