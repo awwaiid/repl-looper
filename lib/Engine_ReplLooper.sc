@@ -259,11 +259,11 @@ Engine_ReplLooper : CroneEngine {
     waveformQueue = Array.new(maxSamples);
 
     // Receive messages from server
-    replyFunc = OSCFunc({
-      arg msg;
-      var id = msg[2];
-      scriptAddress.sendBundle(0, ['/enginePlayPosition', msg[3].asInt, msg[4].asInt, msg[5]]);
-    }, path: '/replyPlayPosition', srcID: context.server.addr);
+    // replyFunc = OSCFunc({
+    //   arg msg;
+    //   var id = msg[2];
+    //   scriptAddress.sendBundle(0, ['/enginePlayPosition', msg[3].asInt, msg[4].asInt, msg[5]]);
+    // }, path: '/replyPlayPosition', srcID: context.server.addr);
 
     // Sample defaults
     samples = Array.fill(maxSamples, { defaultSample.deepCopy; });
@@ -361,51 +361,51 @@ Engine_ReplLooper : CroneEngine {
     });
 
     // Streaming players
-    2.do({
-      arg i;
-      players[i + 2] = {
-        arg freqRatio = 1, sampleRate, gate, playMode, voiceId, sampleId, bufnum, numFrames, i_lockedStartFrame, endFrame, loopStartFrame, loopEndFrame;
-        var signal, rate, progress, loopEnabled, oneShotActive, duckDuration, duckControl;
-
-        loopEnabled = InRange.kr(playMode, 0, 1);
-
-        rate = (sampleRate / SampleRate.ir) * freqRatio;
-
-        signal = VDiskIn.ar(numChannels: i + 1, bufnum: bufnum, rate: rate, loop: loopEnabled);
-
-        progress = Sweep.ar(1, SampleRate.ir * rate) + i_lockedStartFrame;
-        progress = Select.ar(loopEnabled, [progress.clip(0, endFrame), progress.wrap(0, numFrames)]);
-
-        // SendReply.kr(trig: Impulse.kr(15), cmdName: '/replyPlayPosition', values: [sampleId, voiceId, progress / numFrames]);
-
-        // Ducking
-        // Note: There will be some inaccuracies with the length of the duck for really long samples but tested fine at 1hr
-        duckDuration = 0.003 * sampleRate * rate.reciprocal;
-
-        // Start
-        duckControl = Select.ar(i_lockedStartFrame > 0, [
-          K2A.ar(1),
-          progress.linlin(i_lockedStartFrame, i_lockedStartFrame + duckDuration, 0, 1) + (progress < i_lockedStartFrame)
-        ]);
-
-        // End
-        duckControl = duckControl * Select.ar(endFrame < numFrames, [
-          ((progress <= endFrame) + loopEnabled).min(1),
-          progress.linlin(endFrame - duckDuration, endFrame, 1, loopEnabled)
-        ]);
-
-        // Duck at end of stream if loop is enabled and startFrame > 0
-        duckControl = duckControl * Select.ar(loopEnabled * (i_lockedStartFrame > 0), [
-          K2A.ar(1),
-          progress.linlin(numFrames - duckDuration, numFrames, 1, 0)
-        ]);
-
-        // One shot freer
-        FreeSelf.kr((progress >= endFrame) * (1 - loopEnabled));
-
-        signal = signal * duckControl;
-      };
-    });
+    // 2.do({
+    //   arg i;
+    //   players[i + 2] = {
+    //     arg freqRatio = 1, sampleRate, gate, playMode, voiceId, sampleId, bufnum, numFrames, i_lockedStartFrame, endFrame, loopStartFrame, loopEndFrame;
+    //     var signal, rate, progress, loopEnabled, oneShotActive, duckDuration, duckControl;
+    //
+    //     loopEnabled = InRange.kr(playMode, 0, 1);
+    //
+    //     rate = (sampleRate / SampleRate.ir) * freqRatio;
+    //
+    //     signal = VDiskIn.ar(numChannels: i + 1, bufnum: bufnum, rate: rate, loop: loopEnabled);
+    //
+    //     progress = Sweep.ar(1, SampleRate.ir * rate) + i_lockedStartFrame;
+    //     progress = Select.ar(loopEnabled, [progress.clip(0, endFrame), progress.wrap(0, numFrames)]);
+    //
+    //     // SendReply.kr(trig: Impulse.kr(15), cmdName: '/replyPlayPosition', values: [sampleId, voiceId, progress / numFrames]);
+    //
+    //     // Ducking
+    //     // Note: There will be some inaccuracies with the length of the duck for really long samples but tested fine at 1hr
+    //     duckDuration = 0.003 * sampleRate * rate.reciprocal;
+    //
+    //     // Start
+    //     duckControl = Select.ar(i_lockedStartFrame > 0, [
+    //       K2A.ar(1),
+    //       progress.linlin(i_lockedStartFrame, i_lockedStartFrame + duckDuration, 0, 1) + (progress < i_lockedStartFrame)
+    //     ]);
+    //
+    //     // End
+    //     duckControl = duckControl * Select.ar(endFrame < numFrames, [
+    //       ((progress <= endFrame) + loopEnabled).min(1),
+    //       progress.linlin(endFrame - duckDuration, endFrame, 1, loopEnabled)
+    //     ]);
+    //
+    //     // Duck at end of stream if loop is enabled and startFrame > 0
+    //     duckControl = duckControl * Select.ar(loopEnabled * (i_lockedStartFrame > 0), [
+    //       K2A.ar(1),
+    //       progress.linlin(numFrames - duckDuration, numFrames, 1, 0)
+    //     ]);
+    //
+    //     // One shot freer
+    //     FreeSelf.kr((progress >= endFrame) * (1 - loopEnabled));
+    //
+    //     signal = signal * duckControl;
+    //   };
+    // });
 
 
     // SynthDefs
@@ -435,7 +435,7 @@ Engine_ReplLooper : CroneEngine {
     }).play(target:context.xg, args: [\out, lfoBus], addAction: \addToHead);
 
 
-    synthNames = Array.with(\monoBufferVoice, \stereoBufferVoice, \monoStreamingVoice, \stereoStreamingVoice);
+    synthNames = Array.with(\monoBufferVoice, \stereoBufferVoice); // , \monoStreamingVoice, \stereoStreamingVoice);
     synthNames.do({
 
       arg name, i;
@@ -481,14 +481,14 @@ Engine_ReplLooper : CroneEngine {
         signal = SynthDef.wrap(players[i], [\kr, \kr, \kr, \kr], [freqRatio, sampleRate, gate, playMode]);
 
         // Downsample and bit reduction
-        if(i > 1, { // Streaming
-          downSampleTo = downSampleTo.min(sampleRate);
-        }, {
+        // if(i > 1, { // Streaming
+        //   downSampleTo = downSampleTo.min(sampleRate);
+        // }, {
           downSampleTo = Select.kr(downSampleTo >= sampleRate, [
             downSampleTo,
             downSampleTo = context.server.sampleRate
           ]);
-        });
+        // });
         signal = Decimator.ar(signal, downSampleTo, bitDepth);
 
         // 12dB LP/HP filter
@@ -1775,7 +1775,7 @@ Engine_ReplLooper : CroneEngine {
               // Streaming has fairly limited options for playback (no looping etc).
 
               // if(file.numFrames * sample.channels < 4800000, {
-              if(1 < 2, {
+              // if(1 < 2, {
 
                 // Load into memory
                 if(file.numChannels == 1, {
@@ -1808,20 +1808,20 @@ Engine_ReplLooper : CroneEngine {
                 sample.buffer = buffer;
                 sample.streaming = 0;
 
-              }, {
-                if(file.numChannels > 2, {
-                  this.loadFailed(sampleId, "Too many chans (" ++ file.numChannels ++ ")");
-                  this.loadSample();
-                }, {
-                  // Prepare for streaming from disk
-                  sample.streaming = 1;
-                  sample.numFrames = file.numFrames;
-                  samples[sampleId] = sample;
-                  scriptAddress.sendBundle(0, ['/engineSampleLoaded', sampleId, 1, file.numFrames, file.numChannels, file.sampleRate]);
-                  // ("Stream buffer" + sampleId + "prepared:" + file.numFrames + "frames." + file.duration.round(0.01) + "secs." + file.numChannels + "channels.").postln;
-                  this.loadSample();
-                });
-              });
+              // }, {
+              //   if(file.numChannels > 2, {
+              //     this.loadFailed(sampleId, "Too many chans (" ++ file.numChannels ++ ")");
+              //     this.loadSample();
+              //   }, {
+              //     // Prepare for streaming from disk
+              //     sample.streaming = 1;
+              //     sample.numFrames = file.numFrames;
+              //     samples[sampleId] = sample;
+              //     scriptAddress.sendBundle(0, ['/engineSampleLoaded', sampleId, 1, file.numFrames, file.numChannels, file.sampleRate]);
+              //     // ("Stream buffer" + sampleId + "prepared:" + file.numFrames + "frames." + file.duration.round(0.01) + "secs." + file.numChannels + "channels.").postln;
+              //     this.loadSample();
+              //   });
+              // });
             });
 
             file.close;
