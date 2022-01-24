@@ -179,6 +179,7 @@ On the norns side we need to run the lua server-side. During dev I do it this wa
   * Event sequencing: Take an event and place (or edit) the location of the event
   * Edit mode where a button-press loads all (timed) events for editing
 * Sync loops together better?
+* Add half-loops, like a2..h2 that span coluns 9..16 on grid
 
 # Shout Outs!
 

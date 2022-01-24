@@ -110,3 +110,9 @@
   * This fading in and out is working out really well
   * Also added `a:put(16, "ALL{a,b}:amp(0, 10)")` to make it easy to create control-buttons. Like you could have triggers that fade out the drums, fade them in, start them over, etc
   * Recorded a video walk-through of techniques and now updating docs. Realized that Molly and Timber are GPL so I switched over the license on REPL-LOOPER to match
+* 2022-01-22
+  * It ... is very difficult to resist adding more features
+  * Yesterday/today added: new note-off `gen` mode, stop-after-loop mode, timber-slicing
+  * Another idea I've been thinking of is that sometimes I end up with a bunch of 8-step loops and it starts feeling constrained on the left side of the grid. So could make like `a2..h2` loops that are always 8 steps (visually) and hang out on the right side of the grid
+  * With timber slicing again I also added reverse-loops
+  * Timber still loads down a surprising amount of CPU, I'm still thinking it is something that I messed up because other users of the upstream Timber seem to not have issues. Or maybe it is the way I'm doing slicing. Not sure

@@ -1,5 +1,11 @@
 ```lua
 
+-- Hip Hop Beat
+a:setLength(4)
+a:gen("BS", {1, 2.75, 3.5, 4.25, 4.75})
+a:gen("SD", {2, 4})
+a:gen("CH", {1,1.5,2,2.5,3,3.5,4,4.5})
+
 -- Let's try some sample slicing
 s4 = Sample.new("/home/we/dust/code/repl-looper/audio/mfa/The-Call-of-the-Polar-Star_fma-115766_001_00-00-01.ogg")
 s4:playMode(2) -- One-shot
@@ -20,21 +26,26 @@ s4 = Sample.new("/home/we/dust/code/repl-looper/audio/musicbox/" .. random_file)
 
 --
 
--- Hip Hop Beat
-a:setLength(4)
-a:gen("BS", {1, 2.75, 3.5, 4.25, 4.75})
-a:gen("SD", {2, 4})
-a:gen("CH", {1,1.5,2,2.5,3,3.5,4,4.5})
 
 -- Cool song, let's layer it
 s1 = Sample.new("/home/we/dust/code/repl-looper/audio/musicbox/Wouldnt-Mind-Workin-From-Sun-To-Sun_2011121108_001_00-01-05.ogg", "one-shot")
 s2 = Sample.new("/home/we/dust/code/repl-looper/audio/musicbox/Wouldnt-Mind-Workin-From-Sun-To-Sun_2011121108_002_00-01-32.ogg", "one-shot")
 s3 = Sample.new("/home/we/dust/code/repl-looper/audio/musicbox/Wouldnt-Mind-Workin-From-Sun-To-Sun_2011121108_003_00-01-52.ogg", "one-shot")
 
+s1 = Timber.new("/home/we/dust/code/repl-looper/audio/musicbox/Wouldnt-Mind-Workin-From-Sun-To-Sun_2011121108_001_00-01-05.ogg", "one-shot")
+s2 = Timber.new("/home/we/dust/code/repl-looper/audio/musicbox/Wouldnt-Mind-Workin-From-Sun-To-Sun_2011121108_002_00-01-32.ogg", "one-shot")
+s3 = Timber.new("/home/we/dust/code/repl-looper/audio/musicbox/Wouldnt-Mind-Workin-From-Sun-To-Sun_2011121108_003_00-01-52.ogg", "one-shot")
+
 b:slice("s1", 1, 8)
 c:slice("s2", 1, 8)
 d:slice("s3", 1, 8)
 
+s4 = Timber.new("/home/we/dust/code/repl-looper/audio/musicbox/Wouldnt-Mind-Workin-From-Sun-To-Sun_2011121108_001_00-01-05.ogg", "one-shot")
+s5 = Timber.new("/home/we/dust/code/repl-looper/audio/musicbox/Wouldnt-Mind-Workin-From-Sun-To-Sun_2011121108_002_00-01-32.ogg", "one-shot")
+s6 = Timber.new("/home/we/dust/code/repl-looper/audio/musicbox/Wouldnt-Mind-Workin-From-Sun-To-Sun_2011121108_003_00-01-52.ogg", "one-shot")
+f:slice("s4", 1, 8, true)
+g:slice("s5", 1, 8, true)
+h:slice("s6", 1, 8, true)
 
 -- More Molly
 molly2 = Molly.new()
@@ -111,6 +122,24 @@ s1 = Sample.new("/home/we/dust/code/repl-looper/audio/musicbox/Wouldnt-Mind-Work
 clock.internal.set_tempo(80)
 d:gen("clock.internal.set_tempo( util.wrap(clock:get_tempo()+1, 60, 140))")
 
+dir = '/home/we/dust/code/repl-looper/audio/jukebox-folk/'
+files = util.scandir(dir)
+random_file = dir .. files[math.random(#files)]
+
+function random_sample()
+  dir = '/home/we/dust/code/repl-looper/audio/jukebox-folk/'
+  files = util.scandir(dir)
+  random_file = dir .. files[math.random(#files)]
+  return Sample.new(random_file, "one-shot")
+end
+
+samples = {}
+for i = 1,8 do samples[i] = random_sample() end
+for i = 1,8 do loops[i]:slice("samples[" .. i .. "]") end
+
+
+all(mollies):stop()
+all(loops):amp(0, 5):stop()
 
 
 ```
