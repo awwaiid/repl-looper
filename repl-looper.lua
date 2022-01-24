@@ -291,6 +291,7 @@ function Loop:lua()
   output.current_step = self.current_step
   output.loop_length_qn = self.loop_length_qn
   output.transport = self.lattice.transport
+  output.stop_next = self.stop_next
   output.mods = self.mods
   output.events = {}
   for _, event in ipairs(self.events) do
@@ -388,6 +389,7 @@ function Loop:toggle_commands_at_step(step, commands)
 end
 
 function Loop:play(startStep)
+  self:yesLoop()
   if startStep then
     self:setStep(startStep)
   end
@@ -404,11 +406,16 @@ function Loop:stop()
   end
 end
 
-function Loop:nextStop()
+function Loop:noLoop()
   self.stop_next = true
 end
 
-function Loop:nextPlay()
+function Loop:once()
+  self:noLoop()
+  self:play(1)
+end
+
+function Loop:yesLoop()
   self.stop_next = false
 end
 
