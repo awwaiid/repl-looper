@@ -33,9 +33,9 @@ eval = helper.eval
 keys = helper.tabkeys
 
 -- ALL helper
--- Use like A{a,b,c}:stop()
+-- Use like all{a,b,c}:stop()
 -- Which is equivalent to a:stop();b:stop();c:stop()
-ALL = include("repl-looper/lib/all")
+all = include("repl-looper/lib/all")
 
 ---------------------------------------------------------------------
 -- Loop-related objects ---------------------------------------------
