@@ -112,7 +112,8 @@ function Loop.new(init)
     stop_next = false,
     mods = {
       amp = 1,
-      ampLag = 0
+      ampLag = 0,
+      pan = 0
     }
   }
 
@@ -679,13 +680,19 @@ function Loop:updateTrack()
   engine.trackMod(
     self.id,
     self.mods.amp,
-    self.mods.ampLag
+    self.mods.ampLag,
+    self.mods.pan
   )
 end
 
 function Loop:amp(amp, ampLag)
   self.mods.ampLag = ampLag or 0
   self.mods.amp = amp
+  self:updateTrack()
+end
+
+function Loop:pan(pan)
+  self.mods.pan = pan
   self:updateTrack()
 end
 

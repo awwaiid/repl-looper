@@ -137,14 +137,20 @@ Engine_ReplLooper : CroneEngine {
 
     // Mixer and FX
     SynthDef(\trackMixerSynth, {
-      arg in, out, amp = 1, ampLag = 0;
+      arg in, out, amp = 1, ampLag = 0, pan = 0;
       var signal;
 
       signal = In.ar(in, 2);
 
+      // DetectSilence.ar(signal, doneAction: 2);
+      // DetectSilence.ar(signal, doneAction: 1); // Pause but do not free; will it remember it's amp?
+
       // Compression etc
       signal = CompanderD.ar(in: signal, thresh: 0.7, slopeBelow: 1, slopeAbove: 0.4, clampTime: 0.008, relaxTime: 0.2);
-      signal = tanh(signal).softclip;
+      signal = signal.tanh.softclip;
+
+      // Simple pan
+      signal = Balance2.ar(signal[0], signal[1], pan);
 
       // lag the amp for doing fade out
       amp = Lag.kr(amp, ampLag);
@@ -154,18 +160,22 @@ Engine_ReplLooper : CroneEngine {
       // Final amplification
       signal = signal * amp;
 
+      signal.poll(1, "trackMixerSynth");
+
       Out.ar(out, signal);
 
     }).add;
 
-    this.addCommand("trackMod","iff", { arg msg;
+    this.addCommand("trackMod","ifff", { arg msg;
       var track_id = msg[1];
       var amp = msg[2];
       var ampLag = msg[3];
+      var pan = msg[4];
 
       this.getTrackMixer(track_id).set(
         \amp, amp,
-        \ampLag, ampLag
+        \ampLag, ampLag,
+        \pan, pan
       );
     });
     /////////////////// END TRACKS //////////////////////
@@ -1229,7 +1239,7 @@ Engine_ReplLooper : CroneEngine {
     SynthDef("playerGoldeneyeStereo",{
         arg bufnum, out, amp=0, ampLag=0, t_trig=0,
         sampleStart=0,sampleEnd=1,loop=0,
-        rate=1;
+        rate=1, lowPassFreq=20000, pan=0;
 
         var snd;
         var frames = BufFrames.kr(bufnum);
@@ -1270,13 +1280,19 @@ Engine_ReplLooper : CroneEngine {
         // if looping, free up synth if no output
         DetectSilence.ar(slice, doneAction: 2);
 
+        // Simple pan
+        slice = Balance2.ar(slice[0], slice[1], pan);
+
+        // Simple low-pass
+        slice = BLowPass.ar(slice, freq: lowPassFreq);
+
         Out.ar(out, slice)
     }).add;
 
     SynthDef("playerGoldeneyeMono",{
         arg bufnum, out, amp=0, ampLag=0, t_trig=0,
         sampleStart=0,sampleEnd=1,loop=0,
-        rate=1;
+        rate=1, lowPassFreq=20000, pan=0;
 
         var snd;
         var frames = BufFrames.kr(bufnum);
@@ -1320,16 +1336,22 @@ Engine_ReplLooper : CroneEngine {
         // if looping, free up synth if no output
         DetectSilence.ar(slice, doneAction: 2);
 
+        // Simple pan
+        slice = Balance2.ar(slice[0], slice[1], pan);
+
+        // Simple low-pass
+        slice = BLowPass.ar(slice, freq: lowPassFreq);
+
         Out.ar(out, slice)
     }).add;
 
 
 
-    this.addCommand("goldeneyePlay","fsfffffffi", { arg msg;
-      var voice=msg[1];
-      var filename=msg[2];
+    this.addCommand("goldeneyePlay","iisfffffffff", { arg msg;
+      var track_id = msg[1];
+      var voice=msg[2];
+      var filename=msg[3];
       var synName="playerGoldeneyeMono";
-      var track_id = msg[10];
 
       if (bufGoldeneye.at(voice)==nil,{
         // load buffer
@@ -1342,13 +1364,15 @@ Engine_ReplLooper : CroneEngine {
           scriptAddress.sendBundle(0, ['/engineGoldeneyeLoad', voice, bufnum.numFrames]);
           synGoldeneye.put(voice,Synth(synName,[
             \bufnum,bufnum,
-            \amp,msg[3],
-            \ampLag,msg[4],
-            \sampleStart,msg[5],
-            \sampleEnd,msg[6],
-            \loop,msg[7],
-            \rate,msg[8],
-            \t_trig,msg[9],
+            \amp,msg[4],
+            \ampLag,msg[5],
+            \sampleStart,msg[6],
+            \sampleEnd,msg[7],
+            \loop,msg[8],
+            \rate,msg[9],
+            \t_trig,msg[10],
+            \pan,msg[11],
+            \lowPassFreq,msg[12],
             \out,this.getTrackBus(track_id),
           ],target:context.server).onFree({
             // ("freed "++voice).postln;
@@ -1363,25 +1387,29 @@ Engine_ReplLooper : CroneEngine {
         if (synGoldeneye.at(voice).isRunning==true,{
           synGoldeneye.at(voice).set(
             \bufnum,bufGoldeneye.at(voice),
-            \amp,msg[3],
-            \ampLag,msg[4],
-            \sampleStart,msg[5],
-            \sampleEnd,msg[6],
-            \loop,msg[7],
-            \rate,msg[8],
-            \t_trig,msg[9],
+            \amp,msg[4],
+            \ampLag,msg[5],
+            \sampleStart,msg[6],
+            \sampleEnd,msg[7],
+            \loop,msg[8],
+            \rate,msg[9],
+            \t_trig,msg[10],
+            \pan,msg[11],
+            \lowPassFreq,msg[12],
             \out,this.getTrackBus(track_id),
           );
         },{
           synGoldeneye.put(voice,Synth(synName,[
             \bufnum,bufGoldeneye.at(voice),
-            \amp,msg[3],
-            \ampLag,msg[4],
-            \sampleStart,msg[5],
-            \sampleEnd,msg[6],
-            \loop,msg[7],
-            \rate,msg[8],
-            \t_trig,msg[9],
+            \amp,msg[4],
+            \ampLag,msg[5],
+            \sampleStart,msg[6],
+            \sampleEnd,msg[7],
+            \loop,msg[8],
+            \rate,msg[9],
+            \t_trig,msg[10],
+            \pan,msg[11],
+            \lowPassFreq,msg[12],
             \out,this.getTrackBus(track_id),
           ],target:context.server).onFree({
             // ("freed "++voice).postln;
@@ -1392,11 +1420,19 @@ Engine_ReplLooper : CroneEngine {
     });
 
     this.addCommand("goldeneyeAmp","iff", { arg msg;
-      synGoldeneye.at(msg[1]).set(\ampLag,msg[3],\amp,msg[2])
+      synGoldeneye.at(msg[1]).set(\ampLag, msg[3], \amp, msg[2])
     });
 
-    this.addCommand("goldeneyeRate","iff", { arg msg;
-      synGoldeneye.at(msg[1]).set(\rate,msg[2])
+    this.addCommand("goldeneyeRate","if", { arg msg;
+      synGoldeneye.at(msg[1]).set(\rate, msg[2])
+    });
+
+    this.addCommand("goldeneyeLowPassFreq","if", { arg msg;
+      synGoldeneye.at(msg[1]).set(\lowPassFreq, msg[2])
+    });
+
+    this.addCommand("goldeneyePan","if", { arg msg;
+      synGoldeneye.at(msg[1]).set(\pan, msg[2])
     });
     // </Goldeneye>
 
@@ -1414,13 +1450,16 @@ Engine_ReplLooper : CroneEngine {
     if (trackMixer.at(track_id) == nil, {
       // ("Creating new track bus+mixer " ++ track_id).postln;
 
-      trackBus.put(track_id, Bus.audio(context.server, 2));
+      if(trackBus.at(track_id) == nil, {
+        trackBus.put(track_id, Bus.audio(context.server, 2));
+      });
 
       trackMixer.put(track_id, Synth(\trackMixerSynth, [
         \in, trackBus.at(track_id),
         \out, 0,
       ], target: context.server, addAction: \addAfter).onFree({
         ("freed track "++track_id).postln;
+        trackMixer.removeAt(track_id);
       }));
     });
 
@@ -1526,7 +1565,7 @@ Engine_ReplLooper : CroneEngine {
 
   getInstMollyMixerSynth {
     arg inst_id;
-    this.getInstMollyMixerBus(inst_id, 0); // Force it to be created, ignore result
+    this.getInstMollyMixerBus(inst_id); // Force it to be created, ignore result
     ^instMollyMixerSynth.at(inst_id);
   }
 

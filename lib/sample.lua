@@ -14,6 +14,8 @@ function Sample.new(filename, play_mode)
     ampLevel = 1,
     ampLag = 0,
     playRate = 1,
+    panAmount = 0,
+    lowPassFreqLevel = 20000,
     loop = 1
   }
   setmetatable(self, Sample)
@@ -30,6 +32,7 @@ function Sample.new(filename, play_mode)
   -- Load it once to get the number of frames
   -- Runs as a 0-amp so doesn't make sound
   engine.goldeneyePlay(
+    0, -- track for pre-loading
     self.id,
     self.filename,
     0, -- amp
@@ -39,7 +42,8 @@ function Sample.new(filename, play_mode)
     0, -- loop?
     1, -- rate (0..1)
     1, -- t_trig
-    0 -- track for pre-loading
+    0, -- pan
+    20000 -- lowPassFreq
   )
 
   return self
@@ -53,6 +57,7 @@ function Sample:play(startFrame, endFrame)
   endAt = self:frame_to_fraction(endFrame)
 
   engine.goldeneyePlay(
+    current_context_loop_id, -- Current track from global! EVIL!
     self.id,
     self.filename,
     self.ampLevel, -- amp
@@ -62,7 +67,8 @@ function Sample:play(startFrame, endFrame)
     self.loops, -- loop?
     self.playRate, -- rate (0..1)
     1, -- t_trig
-    current_context_loop_id -- From global! EVIL!
+    self.panAmount,
+    self.lowPassFreqLevel
   )
 end
 
@@ -73,7 +79,8 @@ function Sample:amp(ampLevel, ampLag)
 end
 
 function Sample:pan(pan)
-  engine.samplerPan(self.id, pan)
+  self.panAmount = pan or self.panAmount
+  engine.goldeneyePan(self.id, pan)
 end
 
 function Sample:rate(playRate)
@@ -81,29 +88,10 @@ function Sample:rate(playRate)
   engine.goldeneyeRate(self.id, self.playRate)
 end
 
-function Sample:pos(pos, rate)
-  rate = rate or 1
-  engine.samplerPos(self.id, pos, rate)
+function Sample:lowPassFreq(freq)
+  self.lowPassFreqLevel = freq or self.lowPassFreqLevel
+  engine.goldeneyeLowPassFreq(self.id, freq)
 end
-
-function Sample:loop(startAt, endAt, times)
-  startAt = startAt or 0
-  endAt = endAt or 1
-  times = times or self.loops
-  engine.samplerLoop(self.id, startAt, endAt, times)
-end
-
-function Sample:loopFrames(startAt, endAt, times)
-  startAt = self:frame_to_fraction(startAt)
-  endAt = self:frame_to_fraction(endAt)
-  times = times or 100000
-  engine.samplerLoop(self.id, startAt, endAt, times)
-end
-
--- function Sample:play()
---   self:pos(0)
---   self:amp(1, 0)
--- end
 
 function Sample:stop()
   engine.goldeneyeAmp(self.id, 0, self.ampLag)
@@ -115,14 +103,6 @@ end
 
 function Sample:frame_to_fraction(frame)
   return frame / self:info().num_frames
-end
-
-function Sample:startFrame(frame)
-  engine.samplerStart(self.id, self:frame_to_fraction(frame) )
-end
-
-function Sample:endFrame(frame)
-  engine.samplerEnd(self.id, self:frame_to_fraction(frame) )
 end
 
 return Sample
