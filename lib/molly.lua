@@ -56,6 +56,7 @@ Molly.next_id = 0
 function Molly.new(filename, play_mode)
   local self = {
     mode = "single", -- single note at a time or multi (deal with note-off)
+    track_id = 0,
     params = {
       pitchBendRatio = 1,
       oscWaveShape = 0,
@@ -113,7 +114,7 @@ end
 
 local mollyVoiceFunctions = {
   noteOn = "mollyNoteOn",
-  noteOff = "mollyNoteOff",
+  -- noteOff = "mollyNoteOff",
   pitchBend = "mollyPitchBend",
   noteKill = "mollyNoteKill",
   pressure = "mollyPressure",
@@ -135,6 +136,18 @@ for funcName, engineFuncName in pairs(mollyVoiceFunctions) do
     engine[engineFuncName](self.id, id, ...)
     self:setParam(funcName, ...)
   end
+end
+
+function Molly:noteOff(freq)
+  -- print("noteOff", freq)
+  local id;
+  if self.mode == "single" then
+    id = self.id
+  else
+    id = musicutil.freq_to_note_num(freq)
+  end
+  -- print("calling mollyNoteOff", self.id, id)
+  engine.mollyNoteOff(self.id, id)
 end
 
 local mollyFunctions = {
@@ -196,7 +209,7 @@ function Molly:note(note, voice_id)
   -- If we got an array, play them all!
   if type(note) == "table" then
     for i, n in ipairs(note) do
-      self:note(n, voice_id + (i * 100))
+      self:note(n)
     end
     return
   end
@@ -212,7 +225,8 @@ function Molly:note(note, voice_id)
     freq = musicutil.note_num_to_freq(note)
   end
 
-  self:noteOn(freq, 1, current_context_loop_id)
+  self.track_id = current_context_loop_id
+  self:noteOn(freq, 1, self.track_id)
 end
 
 function Molly:offNote(note, voice_id)
@@ -223,7 +237,7 @@ function Molly:offNote(note, voice_id)
   -- If we got an array, play them all!
   if type(note) == "table" then
     for i, n in ipairs(note) do
-      self:note(n, voice_id + (i * 100))
+      self:offNote(n)
     end
     return
   end
