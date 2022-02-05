@@ -160,7 +160,7 @@ Engine_ReplLooper : CroneEngine {
       // Final amplification
       signal = signal * amp;
 
-      signal.poll(1, "trackMixerSynth");
+      // signal.poll(1, "trackMixerSynth");
 
       Out.ar(out, signal);
 
@@ -1450,9 +1450,9 @@ Engine_ReplLooper : CroneEngine {
     if (trackMixer.at(track_id) == nil, {
       // ("Creating new track bus+mixer " ++ track_id).postln;
 
-      if(trackBus.at(track_id) == nil, {
+      // if(trackBus.at(track_id) == nil, {
         trackBus.put(track_id, Bus.audio(context.server, 2));
-      });
+      // });
 
       trackMixer.put(track_id, Synth(\trackMixerSynth, [
         \in, trackBus.at(track_id),
@@ -2197,7 +2197,7 @@ Engine_ReplLooper : CroneEngine {
 
       });
 
-      scriptAddress.sendBundle(0, ['/enginePlayPosition', sampleId, voiceId, sample.startFrame / sample.numFrames]);
+      // scriptAddress.sendBundle(0, ['/enginePlayPosition', sampleId, voiceId, sample.startFrame / sample.numFrames]);
 
       newVoice.startRoutine.free;
       newVoice.startRoutine = nil;
