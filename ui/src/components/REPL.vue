@@ -2,23 +2,25 @@
 
   <div class="flex flex-col h-full bg-black text-white">
     <div class="flex items-center">
-      <img class="m-4" alt="REPL-LOOPER logo" src="../assets/logo-dark.png" width="50" />
-      <h1 class="text-3xl m-2">REPL-LOOPER</h1>
+      <div class="flex flex-col items-center m-2">
+        <img alt="REPL-LOOPER logo" src="../assets/logo-dark.png" width="50" />
+        <h1 class="text-m">REPL-LOOPER</h1>
+      </div>
       <div class="flex flex-col m-2 p-0">
-        <div class="flex flex-row" v-for="(loop, loop_id) in playbackStepCount">
-          <div class="text-xs"><pre><code>{{ playbackLoopLetter[loop_id] }}</code></pre></div>
+        <div class="flex flex-row items-center" v-for="(loop, loop_id) in playbackStepCount">
+          <div class="text-xs mr-1" style="line-height: 0.5"><pre><code>{{ playbackLoopLetter[loop_id] }}</code></pre></div>
           <div v-for="step in playbackStepCount[loop_id]">
-            <div v-if="playbackStep[loop_id] === step" style="width: 1rem; height: 1rem; border: 1px solid #888" :class="playbackMode[loop_id] == 'recording' ? 'bg-red-700' : 'bg-white'">
+            <div v-if="playbackStep[loop_id] === step" style="width: 0.5rem; height: 0.5rem; border: 1px solid #888" :class="playbackMode[loop_id] == 'recording' ? 'bg-red-700' : 'bg-white'">
             </div>
-            <div v-else style="width: 1rem; height: 1rem; border: 1px solid #888">
+            <div v-else style="width: 0.5rem; height: 0.5rem; border: 1px solid #888">
             </div>
           </div>
-          <div class="text-xs"><pre><code>{{ playbackCommand[loop_id] }}</code></pre></div>
+          <div class="text-xs ml-1" style="line-height: 0.5"><pre><code>{{ playbackCommand[loop_id] }}</code></pre></div>
         </div>
       </div>
     </div>
 
-    <div class="flex flex-col h-full min-h-0 border-2 border-gray-800 m-2 p-2">
+    <div class="flex flex-col h-full min-h-0 border-2 border-gray-800 m-1 p-2">
 
       <div class="grid grid-cols-3 min-h-0">
 
@@ -42,7 +44,7 @@
             id="command-input"
             class="w-full bg-black text-white outline-none"
             type=text
-            rows=5
+            rows=3
             autofocus
             @keydown.enter.exact.prevent="gotInput"
             @keydown.arrow-up.exact.prevent="historyUp"
@@ -149,12 +151,15 @@ function longestPrefix(words){
 let prev_data = "";
 norns.onmessage = async (event) => {
   console.log("got message", event);
+  console.log("got message data length", event.data.length);
+  console.log("last char", event.data.substring(event.data.length - 10));
   let data = event.data;
 
   // HACK! Cuts off at 4095 for long messages
   // Probably this is specific to ... something. Norns. Chrome. Dunno.
   // More proper would be to build this into the inline protocol with end-tags
-  if(data.length == 4095) {
+  // .... SOMETIMES there is a random length-1 also?
+  if(data.length == 4095 || data.length == 1) {
     prev_data += data;
     return;
   } else {
@@ -313,7 +318,7 @@ async function gotInput(v) {
   currentInput.value = "";
 
   console.log("Sending to norns: live_event(" + JSON.stringify(command) + ")\n");
-  norns.send("live_event(" + JSON.stringify(command) + ")\n");
+  norns.send("client_live_event(" + JSON.stringify(command) + ")\n");
   // norns.send(command + "\n");
   // norns.send(command);
 }
