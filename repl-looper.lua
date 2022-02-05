@@ -20,10 +20,10 @@ end
 
 json = require("cjson")
 lattice = require("lattice")
-sequins = require("sequins")
 
--- Locally augmented musicutil
+-- Locally augmented libraries
 musicutil = include("repl-looper/lib/musicutil_extended")
+sequins = include("repl-looper/lib/sequins_extended")
 
 -- Local helpers
 local helper = include("repl-looper/lib/helper")
