@@ -62,9 +62,9 @@ end
 
 function Event:lua()
   return {
-    pulse = self.pulse, -- The absolute time
-    pulse_offset = self.pulse_offset, -- loop relative time
-    phase = self.pattern and self.pattern.phase, -- current countdown in pulses
+    -- pulse = self.pulse, -- The absolute time
+    -- pulse_offset = self.pulse_offset, -- loop relative time
+    -- phase = self.pattern and self.pattern.phase, -- current countdown in pulses
     step = self.step,
     command = self.command
   }
@@ -156,6 +156,9 @@ end
 
 function Loop:send_status(t)
   t = t or 0
+
+  clock.sleep(0.001) -- Allow other things to run
+
   self.current_step = self:get_current_step(t)
   self:draw_grid_row()
 
@@ -278,7 +281,7 @@ function Loop:draw_grid_row()
   clear_grid_row(self.id)
 
   local row = self:to_grid_row()
-  for n = 1, self.loop_length_qn do
+  for n = 1, #row do
     -- Mod-16 so we can show long sequences overlaid; maybe confusing
     grid_device:led((((n-1) % 16)+1), self.id, row[n] or 0)
   end
@@ -306,24 +309,27 @@ end
 
 function Loop:to_grid_row()
   local row = {}
+  -- Basically zoom-out for longer loops, but still in increments of 16
+  -- This is might be weird for non-powers-of-2
+  local div = math.floor((self.loop_length_qn - 1) / 16) + 1
 
   -- Highlight the current step even if we're not
   -- on an event; all the rest are dark by default
   for n = 1, self.loop_length_qn do
-    if n == self.current_step then
-      row[n] = 10
+    if math.ceil(n/div) == math.ceil(self.current_step/div) then
+      row[math.ceil(n/div)] = 10
     else
-      row[n] = 0
+      row[math.ceil(n/div)] = 0
     end
   end
 
   -- Entries with events glow. Event+current glow a lot
   for _, event in ipairs(self.events) do
-    local step = math.floor(event.step)
-    if step == self.current_step then
-      row[step] = 15
+    local visual_step = math.ceil(math.floor(event.step)/div)
+    if visual_step == math.ceil(self.current_step/div) then
+      row[visual_step] = 15
     else
-      row[step] = 5
+      row[visual_step] = 5
     end
   end
 
@@ -463,6 +469,21 @@ function Loop:quantize()
   self:update_lattice()
 end
 
+function Loop:align(other_loop)
+  local substep_diff = self:get_current_substep() - other_loop:get_current_substep()
+  local transport_diff = substep_diff * self.lattice.ppqn
+
+  self.lattice.transport = self.lattice.transport - transport_diff
+
+  for _, event in ipairs(self.events) do
+    event.pulse = event.pulse - transport_diff
+  end
+
+  self.current_step = self:get_current_step()
+  self:update_lattice()
+  self:draw_grid_row()
+end
+
 -- Copy all of the events to another loop
 function Loop:clone(other_loop)
   other_loop:clear()
@@ -573,11 +594,17 @@ function Loop:put(step, code_string)
   self:gen(code_string, { step })
 end
 
-function Loop:slice(sample_name, step_offset, step_count, reverse)
+function Loop:slice(sample, step_offset, step_count, reverse)
   step_offset = step_offset or 1
   width = 48000 / (self:qn_per_ms() * 1000) -- 29090
 
-  local sample = eval(sample_name)
+  -- We'll name this like ls1 ls2 ls3 etc
+  -- like "loop_sample_1"
+  -- Then we can still use it by-name
+  local sample_name = "ls" .. self.id
+  _G[sample_name] = sample
+
+  -- local sample = eval(sample_name)
   local frame_offset = (step_offset - 1) * width
   local slice_start = width .. "* m + " .. frame_offset
   local slice_end = width .. "* n + " .. (frame_offset + 10)
@@ -616,35 +643,49 @@ function Loop:clear()
 end
 
 function Loop:merge(other_loop)
+
+  print "Aligning loops"
+  other_loop:align(self)
+  -- clock.sleep(0.001)
+
   for _, event in ipairs(other_loop.events) do
     self:add_event(event:clone())
   end
   other_loop:clear()
+  other_loop:stop()
   self:draw_grid_row()
 end
 
-function Loop:split(other_loop)
+function Loop:split(other_loop, base_command)
   if #self.events < 2 then
     return
   end
 
+  clock.run(function()
+
+  print "Gathering all events"
   local events = {}
   for _, event in ipairs(self.events) do
     table.insert(events, event:clone())
+    clock.sleep(0.001)
   end
 
   -- Do we need to stop? Eh
-  self:stop()
-  other_loop:stop()
+  -- print "Stopping both loops"
+  -- self:stop()
+  -- other_loop:stop()
 
+  print "Clearing both loops"
   self:clear()
   other_loop:clear()
 
+  print "Copying settings"
   other_loop.loop_length_qn = self.loop_length_qn
   other_loop.lattice.transport = self.lattice.transport
-  other_loop.current_stop = self.current_step
+  other_loop.current_step = self.current_step
 
-  local base_command = events[1].command
+  print "Calculating event distances"
+  base_command = base_command or events[1].command
   local distances = {}
   local total_dist = 0
   for _, event in ipairs(events) do
@@ -655,6 +696,7 @@ function Loop:split(other_loop)
     distances[event.command] = dist
   end
 
+  print "Sorting by distance"
   table.sort(events, function(a, b)
     local a_dist = distances[a.command]
     local b_dist = distances[b.command]
@@ -663,6 +705,7 @@ function Loop:split(other_loop)
 
   local mean_dist = total_dist / #events
 
+  print "Adding events back"
   for _, event in ipairs(events) do
     local event_dist = distances[event.command]
     if event_dist <= mean_dist then
@@ -670,15 +713,24 @@ function Loop:split(other_loop)
     else
       other_loop:add_event(event)
     end
+    clock.sleep(0.001)
   end
 
+  print "Redrawing grid"
   self:draw_grid_row()
   other_loop:draw_grid_row()
 
-  return {
-    mean_dist = mean_dist,
-    distances = distances
-  }
+  if self.mode == "play" then
+    print "We are playing so split should play too"
+    other_loop:play()
+  end
+
+  print "DONE!"
+  -- return {
+  --   mean_dist = mean_dist,
+  --   distances = distances
+  -- }
+  end)
 end
 
 -- Loops as tracks
@@ -801,6 +853,13 @@ end
 
 last = nil -- the output from the last command
 
+function client_live_event(command, from_playing_loop)
+  clock.run(function()
+    clock.sleep(0.001)
+    print(live_event(command, from_playing_loop))
+  end)
+end
+
 function live_event(command, from_playing_loop)
   local live_event_result, live_event_errors = eval(command)
 
@@ -843,11 +902,20 @@ function live_event(command, from_playing_loop)
     redraw()
 
     last = live_event_result
-    return "RESPONSE:" .. json.encode({
-      action = "live_event",
-      command = recent_command,
-      result = live_event_result
-    })
+
+    -- Catch and ignore JSON encoding errors
+    local status, response =
+      pcall(json.encode, {
+        action = "live_event",
+        command = recent_command,
+        result = live_event_result
+      })
+
+    if status then
+      return "RESPONSE:" .. response
+    else
+      return "JSON ERROR"
+    end
   end
 end
 
@@ -967,12 +1035,14 @@ function init()
   s808.MC = Sample.new("/home/we/dust/audio/common/808/808-MC.wav", "one-shot")
   s808.LC = Sample.new("/home/we/dust/audio/common/808/808-LC.wav", "one-shot")
 
+  -- Tom drum
   s808.HT = Sample.new("/home/we/dust/audio/common/808/808-HT.wav", "one-shot")
   s808.MT = Sample.new("/home/we/dust/audio/common/808/808-MT.wav", "one-shot")
   s808.LT = Sample.new("/home/we/dust/audio/common/808/808-LT.wav", "one-shot")
 
   s808.MA = Sample.new("/home/we/dust/audio/common/808/808-MA.wav", "one-shot")
 
+  -- Rimshot and Snare
   s808.RS = Sample.new("/home/we/dust/audio/common/808/808-RS.wav", "one-shot")
   s808.SD = Sample.new("/home/we/dust/audio/common/808/808-SD.wav", "one-shot")
 end
@@ -995,5 +1065,14 @@ function CP() s808.CP:play() end
 function HT() s808.HT:play() end
 function MA() s808.MA:play() end
 function OH() s808.OH:play() end
+
+
+function random_sample(subdir)
+  subdir = subdir or "folk"
+  dir = '/home/we/dust/code/repl-looper/audio/' .. subdir .. "/"
+  files = util.scandir(dir)
+  random_file = dir .. files[math.random(#files)]
+  return Sample.new(random_file, "one-shot")
+end
 
 
