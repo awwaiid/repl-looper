@@ -4,7 +4,9 @@
 a:setLength(4)
 a:gen("BS", {1, 2.75, 3.5, 4.25, 4.75})
 a:gen("SD", {2, 4})
-a:gen("CH", {1,1.5,2,2.5,3,3.5,4,4.5})
+a:gen("CH", 1/2)
+
+
 
 -- Let's try some sample slicing
 s4 = Sample.new("/home/we/dust/code/repl-looper/audio/mfa/The-Call-of-the-Polar-Star_fma-115766_001_00-00-01.ogg")
@@ -134,12 +136,28 @@ function random_sample()
 end
 
 samples = {}
-for i = 1,8 do samples[i] = random_sample() end
-for i = 1,8 do loops[i]:slice("samples[" .. i .. "]") end
+for i = 2,8 do samples[i] = random_sample() end
+for i = 2,8 do loops[i]:slice("samples[" .. i .. "]") end
 
 
 all(mollies):stop()
 all(loops):amp(0, 5):stop()
+
+-- "minor pentatonic"
+
+-- Nice
+s1 = Sample.new("/home/we/dust/code/repl-looper/audio/folk/The-old-oaken-bucket_jukebox-5370_004_00-01-03.ogg")
+b:slice(s1, 2, 8)
+s1:rate(2)
+
+
+-- I sleep
+s1 = Sample.new("/home/we/dust/code/repl-looper/audio/folk/Roll-on-silver-moon_jukebox-122577_008_00-02-23.ogg")
+
+
+-- 70. 67
+-- 64, 65, 66
+h:gen("molly2:note(musicutil.generate_chord(`60+m`))", "molly2:offNote(musicutil.generate_chord(`60+m`))")
 
 
 ```
