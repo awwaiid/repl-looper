@@ -7,8 +7,21 @@
 Check out the [dev branch](https://github.com/awwaiid/repl-looper/tree/dev) and [dev branch development journal](https://github.com/awwaiid/repl-looper/tree/dev/journal.md) for ongoing development work. The `main` branch is the current "stable" (haha) version.
 
 # Recent Releases
-* 0.1 - Initial release, generally working!
-* 0.2 - Multiple Mollies, per-loop amp/fade, `ALL` helper
+* v0.1 (2022-01-08) - Initial release, generally working!
+* v0.2 (2022-01-17) - Multiple Mollies, per-loop amp/fade, `all` helper
+* v0.3 (2022-02-06) - More loop utils, timing fixes, bug fixes
+  * Generate key-off events
+  * Fix Timber slicing
+  * `loop:pan(-0.5)` to pan the whole loop
+  * `loop:noLoop()` to stop looping
+  * `loop:once()` to play once
+  * `loop:align(other_loop)` to slide events into alignment
+  * `loop:slice(s1)` now takes sample-variable instead of sample-variable-name
+  * Fix `loop:split(other_loop)` to work more reliably and take a base-command
+  * Fix `loop:merge(other_loop)` to keep relative timings (using the new `loop:align`)
+  * Embedded Goldeneye - add pan, lowpass; fix rate
+  * Lay out long loops on the grid by zooming-out (more steps-per-button)
+  * Rename `ALL` to `all`
 
 # Installation and Usage
 
@@ -89,59 +102,75 @@ Now that you have the script running on norns and the local UI up in a browser a
 
 * Pre-defined variables/functions
   * `a`..`h` -- loops, one per grid-row
+    * `loops` is a table of all eight, so you can do `all(loops):amp(0, 10)` to fade everything at once
   * `p` -- a Timber-based piano sample player
   * `piano` -- the underlying piano sample (via Timber)
     * You can do things like `piano:reverse()`
   * `molly` -- an instance of Molly, which wraps Molly The Poly
     * `molly2` .. `molly8` -- more pre-defined Mollys
+    * `mollies` is a table of all eight, so you can do `all(mollies):stop()`
+    * Tip: ```h:gen("molly:note(`60+m`)")``` will put one molly-note on each step for a playable synth!
   * Pre-loaded 808 samples in `s808.*` with these shortcuts
     * `BD`, `BD`, `CH`, `CY`, `LC`, `MC`, `RS`, `BS`, `CL`, `HC`, `LT`, `MT`, `SD`, `CB`, `CP`, `HT`, `MA`, `OH`
     * Call with `CP` or `CP()` or `s808.CP:play()`
     * Modify with `s808.BS:amp(2)`
+    * Tip: `h:gen(keys(s808))` will put one sample on each step for a playable drum kit!
 * Loop (using loop `a` as the example)
   * `Loop.new()` -- Create a new Loop (I usually use `a`..`h` pre-defined loops instead)
   * `a.current_step` -- current step (integer)
   * `a:setLength(steps)` -- Set the number of steps (quarter-notes)
-  * `a:setStep(step)` -- Set the current step
   * `a:lua()` -- Convert into a lua-style string
-  * `a:play()` -- Start playing
-  * `a:stop()` -- Stop recording or stop playing
-  * `a:rec()` -- Start recording
-  * `a:clear()` -- Remove all events
-  * `a:put(step, command)` -- Assign a command at a specific step
-    * This is handy for building up a set of controls
-  * `a:gen(code_string, condition, offset)` -- Generate events in a loop programmatically, with macro expansion
-    * `a:gen("CH")` -- puts the "CH" function on every step
-    * `a:gen("CH", 1/2)` -- puts the "CH" on every half step
-    * `a:gen("CH", "n >= 8")` -- puts the "CH" on the second half of steps
-    * `a:gen("CH", 2, 2)` -- puts the "CH" on every other step starting with step 2
-    * `a:gen("CH", { 1, 3, 4.5 })` -- puts the "CH" on the given steps (even fractional)
-    * `a:gen({"BD","SD","CP"})` -- puts each one on each step
-    * macro expansion: Backticks are evaluated for each generated event. Use `n` for the one-based step/column and `m` for the zero-based step/colum
-      * ```a:gen("p(`50+m`)")``` -- Generates `p(50)`, `p(51)`, `p(52)`, etc
-      * ```a:gen("piano:filterFreq(`100 * n`)")``` -- Generates low-pass for 100 hz, 200 hz, 300 hz, etc
-  * `a:quantize()` -- Events are recorded at sub-steps by default; this immediately rounds them to the nearest step
-  * `a:nextStep()` -- Increment the current step to the next step
-  * `a:prevStep()` -- Decrement the current step to the previous step
-  * `a:clone(other_loop)` -- Copy this loop onto another (empty the other out)
-  * `a:merge(other_loop)` -- Merge other_loop into this one. New loop is the longest of the two, (TODO: merged timings based on playhead)
-  * `a:split(other_loop)` -- EXPERIMENTAL! Split the current loop, putting some events into `other_loop` and keeping some
-  * `a:slice(sample_name, step_offset, step_count, width)` -- Take a Goldeneye sample and slice it (TODO: Also support Timber)
-    * This is effectively a complex generator of frame-offsets in the sample playback
-    * Weirdly this is the variable NAME of the sample, like `a:slice("s1")` (NOT `a:slice(s1)`)
-  * `a:amp(level)` -- Set the amp (0..1) for the whole loop; the included engine loops everything through the triggered loop!
-    * `a:amp(level, lag_time)` -- Fade to the given volume over the given number of seconds
-    * Example: `a:amp(0, 10)` will fade out
+  * Control looping and recording
+    * `a:setStep(step)` -- Set the current step
+    * `a:play()` -- Start playing and looping
+    * `a:once()` -- Play once but do not loop
+    * `a:stop()` -- Stop recording or stop playing
+    * `a:noLoop()` -- Stop looping when we get to the end
+    * `a:nextStep()` -- Increment the current step to the next step
+    * `a:prevStep()` -- Decrement the current step to the previous step
+  * Modify or generate loop contents
+    * `a:rec()` -- Start recording. Manually triggered events or running commands in the REPL get recorded
+    * `a:clear()` -- Remove all events
+    * `a:put(step, command)` -- Assign a command at a specific step
+      * This is handy for building up a set of controls
+    * `a:gen(code_string, condition, offset)` -- Generate events in a loop programmatically, with macro expansion
+      * `a:gen("CH")` -- puts the "CH" function on every step
+      * `a:gen("CH", 1/2)` -- puts the "CH" on every half step
+      * `a:gen("CH", 2, 3)` -- puts the "CH" on every other step starting with step 3
+      * `a:gen("CH", { 1, 3, 4.5 })` -- puts the "CH" on the given steps (even fractional)
+      * `a:gen({"BD","SD","CP"})` -- puts each one on each step
+      * macro expansion: Backticks are evaluated for each generated event. Use `n` for the one-based step/column and `m` for the zero-based step/colum
+        * ```a:gen("p(`50+m`)")``` -- Generates `p(50)`, `p(51)`, `p(52)`, etc
+        * ```a:gen("piano:filterFreq(`100 * n`)")``` -- Generates low-pass for 100 hz, 200 hz, 300 hz, etc
+      * ```a:gen("molly:note(`60+m`)", "molly:offNote(`60+m`)")``` -- only for grid triggered events the "off" event will be executed on button release
+    * `a:quantize()` -- Events are recorded at sub-steps by default; this immediately rounds them to the nearest step
+    * `a:clone(other_loop)` -- Copy this loop onto another (empty the other out)
+    * `a:merge(other_loop)` -- Merge other_loop into this one. New loop is the longest of the two
+    * `a:split(other_loop)` -- Split the current loop, putting some events into `other_loop` and keeping some
+      * `a:split(other_loop, base_cmd)` -- You can pass in a base-command and it will try to keep things like that in the current loop
+    * `a:slice(sample, step_offset, step_count, reverse)` -- Take a Goldeneye/Timber sample and slice it
+      * This is effectively a complex generator of frame-offsets in the sample playback
+      * If `reverse` is true then start from the end of the sample
+    * `a:align(other_loop)` -- Slides events into alignment with another loop; does not modify the loop otherwise
+      * A fun thing to do is `all(loops):align(a)`
+  * Control loop dynamics
+    * `a:amp(level)` -- Set the amp (0..1) for the whole loop; the included engine loops everything through the triggered loop!
+      * `a:amp(level, lag_time)` -- Fade to the given volume over the given number of seconds
+      * Example: `a:amp(0, 10)` will fade out
+    * `a:pan(amount)` -- Pan the whole loop (-1 to 1, 0 is center)
 * Engine wrappers; once you have an instance use `t1:<tab>` to explore! Generally does what the engine does
   * `t1 = Timber.new("path/to/file.wav")` -- Timber wrapper (works with .ogg too!)
   * `s1 = Sample.new("path/to/file.wav")` -- Goldeneye wrapper (works with .ogg too!)
   * `m1 = Molly.new()` -- Molly the Poly wrapper (you can have several!)
+    * Tip: `molly:randomize()` -- Randomize the synth params!
+    * `molly` and `molly2..molly8` are pre-created for convenience
   * You could of course use any engine you like! Only the `Loop:slice(...)` method particularly cares. Otherwise this is arbitrary lua code getting sequenced
-* BONUS: `ALL` object wrapper. This can be used on a table of objects and then call a given method on each of them. Examples:
-  * `ALL{a,b,c}:play()` -- Play all three loops, equivalent of `a:play();b:play();c:play()`
-  * `ALL{a,b,c}:play(1):amp(1, 10)` -- Chained command that both plays and fades-in the loops
-  * `ALL(loops):amp(0, 10)` -- All the pre-created loops are stored in `loops`, this fades them all out!
-  * `ALL(mollies):stop()` -- All the pre-created mollies are stored in `mollies`, this stops them all!
+  * Tip: you can do `molly:<tab>` (press the `tab` key) to get a list of all the methods
+* BONUS: `all` object wrapper. This can be used on a table of objects and then call a given method on each of them. Examples:
+  * `all{a,b,c}:play()` -- Play all three loops, equivalent of `a:play();b:play();c:play()`
+  * `all{a,b,c}:play(1):amp(1, 10)` -- Chained command that both plays and fades-in the loops
+  * `all(loops):amp(0, 10)` -- All the pre-created loops are stored in `loops`, this fades them all out!
+  * `all(mollies):stop()` -- All the pre-created mollies are stored in `mollies`, this stops them all!
 
 # Development
 

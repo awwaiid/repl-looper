@@ -1,4 +1,4 @@
-// CroneEngine - ReplLooper - v0.2.0
+// CroneEngine - ReplLooper - v0.3.0
 // By Brock Wilcox <awwaiid@thelackthereof.org>
 //
 // Adapted from Timber by Mark Eats
@@ -739,6 +739,9 @@ Engine_ReplLooper : CroneEngine {
         this.getInstMollyVoiceList(inst_id).remove(voiceToRemove);
       });
 
+      // Force track to exist so we can get/set settings
+      this.getInstMollyMixerBus(inst_id, track_id);
+
       if(this.getInstMollySetting(inst_id, \mollyLastFreq) == 0, {
         this.setInstMollySetting(inst_id, \mollyLastFreq, freq);
       });
@@ -1447,19 +1450,17 @@ Engine_ReplLooper : CroneEngine {
   getTrackBus {
     arg track_id;
 
-    if (trackMixer.at(track_id) == nil, {
-      // ("Creating new track bus+mixer " ++ track_id).postln;
+    if (trackBus.at(track_id) == nil, {
+      ("Creating new track bus+mixer " ++ track_id).postln;
 
-      // if(trackBus.at(track_id) == nil, {
-        trackBus.put(track_id, Bus.audio(context.server, 2));
-      // });
-
+      trackBus.put(track_id, Bus.audio(context.server, 2));
       trackMixer.put(track_id, Synth(\trackMixerSynth, [
         \in, trackBus.at(track_id),
         \out, 0,
       ], target: context.server, addAction: \addAfter).onFree({
         ("freed track "++track_id).postln;
         trackMixer.removeAt(track_id);
+        trackBus.removeAt(track_id);
       }));
     });
 
@@ -1497,66 +1498,67 @@ Engine_ReplLooper : CroneEngine {
   getInstMollyMixerBus {
     arg inst_id, track_id;
 
-    if(instMollyMixerBus.at(inst_id) == nil, {
-      // ("Creating new molly inst bus+mixer " ++ inst_id ++ " track " ++ track_id).postln;
+    if(track_id.notNil, {
+      if(instMollyMixerBus.at(inst_id) == nil, {
+        ("Creating new molly inst bus+mixer " ++ inst_id ++ " track " ++ track_id).postln;
 
-      instMollyMixerBus.put(inst_id, Bus.audio(context.server, 1));
-      instMollySettings.put(inst_id, Dictionary.newFrom([
-        \mollyPitchBendRatio, 1,
-        \mollyOscWaveShape, 0,
-        \mollyPwMod, 0,
-        \mollyPwModSource, 0,
-        \mollyFreqModLfo, 0,
-        \mollyFreqModEnv, 0,
-        \mollyLastFreq, 0,
-        \mollyGlide, 0,
-        \mollyMainOscLevel, 1,
-        \mollySubOscLevel, 0,
-        \mollySubOscDetune, 0,
-        \mollyNoiseLevel, 0,
-        \mollyHpFilterCutoff, 10,
-        \mollyLpFilterType, 0,
-        \mollyLpFilterCutoff, 440,
-        \mollyLpFilterResonance, 0.2,
-        \mollyLpFilterCutoffEnvSelect, 0,
-        \mollyLpFilterCutoffModEnv, 0,
-        \mollyLpFilterCutoffModLfo, 0,
-        \mollyLpFilterTracking, 1,
-        \mollyLfoFade, 0,
-        \mollyEnv1Attack, 0.01,
-        \mollyEnv1Decay, 0.3,
-        \mollyEnv1Sustain, 0.5,
-        \mollyEnv1Release, 0.5,
-        \mollyEnv2Attack, 0.01,
-        \mollyEnv2Decay, 0.3,
-        \mollyEnv2Sustain, 0.5,
-        \mollyEnv2Release, 0.5,
-        \mollyAmpMod, 0,
-        \mollyChannelPressure, 0,
-        \mollyTimbre, 0,
-        \mollyRingModFade, 0,
-        \mollyRingModMix, 0,
-        \mollyChorusMix, 0
-      ]));
+        instMollyMixerBus.put(inst_id, Bus.audio(context.server, 1));
+        instMollySettings.put(inst_id, Dictionary.newFrom([
+          \mollyPitchBendRatio, 1,
+          \mollyOscWaveShape, 0,
+          \mollyPwMod, 0,
+          \mollyPwModSource, 0,
+          \mollyFreqModLfo, 0,
+          \mollyFreqModEnv, 0,
+          \mollyLastFreq, 0,
+          \mollyGlide, 0,
+          \mollyMainOscLevel, 1,
+          \mollySubOscLevel, 0,
+          \mollySubOscDetune, 0,
+          \mollyNoiseLevel, 0,
+          \mollyHpFilterCutoff, 10,
+          \mollyLpFilterType, 0,
+          \mollyLpFilterCutoff, 440,
+          \mollyLpFilterResonance, 0.2,
+          \mollyLpFilterCutoffEnvSelect, 0,
+          \mollyLpFilterCutoffModEnv, 0,
+          \mollyLpFilterCutoffModLfo, 0,
+          \mollyLpFilterTracking, 1,
+          \mollyLfoFade, 0,
+          \mollyEnv1Attack, 0.01,
+          \mollyEnv1Decay, 0.3,
+          \mollyEnv1Sustain, 0.5,
+          \mollyEnv1Release, 0.5,
+          \mollyEnv2Attack, 0.01,
+          \mollyEnv2Decay, 0.3,
+          \mollyEnv2Sustain, 0.5,
+          \mollyEnv2Release, 0.5,
+          \mollyAmpMod, 0,
+          \mollyChannelPressure, 0,
+          \mollyTimbre, 0,
+          \mollyRingModFade, 0,
+          \mollyRingModMix, 0,
+          \mollyChorusMix, 0
+        ]));
 
-      instMollyMixerSynth.put(inst_id, Synth(\mollyMixer, [
-        \in, instMollyMixerBus.at(inst_id),
-        \out, this.getTrackBus(track_id),
-      ], target: context.server, addAction: \addToTail).onFree({
-        ("freed molly mixer synth inst "++inst_id).postln;
-      }));
+        instMollyMixerSynth.put(inst_id, Synth(\mollyMixer, [
+          \in, instMollyMixerBus.at(inst_id),
+          \out, this.getTrackBus(track_id),
+        ], target: context.server, addAction: \addToTail).onFree({
+          ("freed molly mixer synth inst "++inst_id).postln;
+          // TODO: remove from dictionary?
+        }));
 
-      // ("Sending instMollyMixer -> " ++ this.getTrackBus(track_id)).postln;
-    }, {
+        ("Sending instMollyMixer -> " ++ this.getTrackBus(track_id)).postln;
+      }, {
 
-      if( track_id.notNil, {
-        // ("Updating existing molly inst bus+mixer " ++ inst_id ++ " track " ++ track_id).postln;
+        ("Updating existing molly inst bus+mixer " ++ inst_id ++ " to track " ++ track_id).postln;
 
         instMollyMixerSynth.at(inst_id).set(
           \in, instMollyMixerBus.at(inst_id),
           \out, this.getTrackBus(track_id),
         );
-        // ("Re-setting instMollyMixerSynth in: " ++ instMollyMixerBus.at(inst_id) ++ " out " ++ this.getTrackBus(track_id)).postln;
+        ("Re-setting instMollyMixerSynth in: " ++ instMollyMixerBus.at(inst_id) ++ " out " ++ this.getTrackBus(track_id)).postln;
       });
     });
 
@@ -1596,6 +1598,7 @@ Engine_ReplLooper : CroneEngine {
         \mollyRingModOut, instMollyRingModBus.at(inst_id)
       ], target: context.server, addAction: \addToHead).onFree({
         ("freed molly mixer synth inst "++inst_id).postln;
+        // TODO: Remove from dict?
       }));
     });
 

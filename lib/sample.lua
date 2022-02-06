@@ -56,6 +56,9 @@ function Sample:play(startFrame, endFrame)
   startAt = self:frame_to_fraction(startFrame)
   endAt = self:frame_to_fraction(endFrame)
 
+  -- In case we want to know what track bus we are on
+  self.track_id = current_context_loop_id
+
   engine.goldeneyePlay(
     current_context_loop_id, -- Current track from global! EVIL!
     self.id,

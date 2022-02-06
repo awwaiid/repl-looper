@@ -139,13 +139,13 @@ audio.rev_off()
 a:amp(0.25) -- Immediately set volume
 a:amp(1, 10) -- Go to full volume over 10 seconds
 
--- The "ALL" helper can work across things
-ALL{a,b}:amp(0, 10) -- 10 second fade-out
-ALL{a,b}:amp(1, 10) -- 10 second fade-in
+-- The "all" helper can work across things
+all{a,b}:amp(0, 10) -- 10 second fade-out
+all{a,b}:amp(1, 10) -- 10 second fade-in
 
 -- Built in list of all mollies and loops
-ALL(loops):amp(0, 10) -- Fade out all loops!
-ALL(mollies):stop() -- Fade out all mollies!
+all(loops):amp(0, 10) -- Fade out all loops!
+all(mollies):stop() -- Fade out all mollies!
 
 -- Generate a piano in a scale
 blues = sequins(musicutil.generate_scale_of_length(56, "blues", 16))
