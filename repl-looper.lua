@@ -114,7 +114,8 @@ function Loop.new(init)
       amp = 1,
       ampLag = 0,
       pan = 0
-    }
+    },
+    selected = false
   }
 
   setmetatable(self, Loop)
@@ -152,6 +153,16 @@ end
 function Loop:get_current_substep(t)
   t = t or self.lattice.transport
   return ((t / self.lattice.ppqn) % self.loop_length_qn) + 1
+end
+
+function Loop:select()
+  self.selected = true
+  self:draw_grid_row()
+end
+
+function Loop:deselect()
+  self.selected = false
+  self:draw_grid_row()
 end
 
 function Loop:send_status(t)
@@ -282,8 +293,15 @@ function Loop:draw_grid_row()
 
   local row = self:to_grid_row()
   for n = 1, #row do
+
+    -- Highlight currently selected row
+    local val = row[n] or 0
+    if self.selected then
+      val = util.clamp(val + 2, 0, 15)
+    end
+
     -- Mod-16 so we can show long sequences overlaid; maybe confusing
-    grid_device:led((((n-1) % 16)+1), self.id, row[n] or 0)
+    grid_device:led((((n-1) % 16)+1), self.id, val)
   end
 
   grid_device:refresh()
@@ -755,9 +773,12 @@ function Loop:pan(pan)
   self:updateTrack()
 end
 
-------------------------------------------------------
+---------------------------------------
+-- General controls across all loops --
+---------------------------------------
 
 loops = {}
+samples = {}
 
 -- Pre-create 8 loops
 for n = 1, 8 do
@@ -810,6 +831,71 @@ function redraw()
   screen.text_center(recent_command)
 
   screen.update()
+end
+
+selected_loop = 1
+function select_next_loop()
+  loops[selected_loop]:deselect()
+  selected_loop = (selected_loop % #loops) + 1
+  loops[selected_loop]:select()
+end
+
+function select_prev_loop()
+  loops[selected_loop]:deselect()
+  selected_loop = ((selected_loop - 2) % #loops) + 1
+  loops[selected_loop]:select()
+end
+
+function start_record_sample()
+  -- os.execute("mkdir -p ".._path.audio.."repl-looper")
+  audio.tape_record_open(_path.audio .. "repl-looper/loop-" .. selected_loop .. ".wav")
+  audio.tape_record_start()
+  print("Recording!")
+end
+
+function stop_record_sample()
+  audio.tape_record_stop()
+  clock.run(function()
+    clock.sleep(1)
+    local s = Sample.new(_path.audio .. "repl-looper/loop-" .. selected_loop .. ".wav")
+    clock.sleep(1)
+    samples[selected_loop] = s
+    loops[selected_loop]:slice(samples[selected_loop])
+    print("Recordding stopped! Sliced.")
+  end)
+end
+
+function handle_pedal_event(midi_data)
+  local msg = midi.to_msg(midi_data)
+  -- tab.print(msg)
+
+  local button = 0
+  if msg.note == 60 then
+    button = 1
+  elseif msg.note == 62 then
+    button = 2
+  elseif msg.note == 64 then
+    button = 3
+  end
+
+  if msg.type == "note_on" then
+    if button == 1 then
+      start_record_sample()
+    end
+    if button == 2 then
+      select_next_loop()
+    end
+    if button == 3 then
+      select_prev_loop()
+    end
+  end
+
+  if msg.type == "note_off" then
+    if button == 1 then
+      stop_record_sample()
+    end
+  end
+
 end
 
 ----------------------------------------------------------------------
@@ -988,6 +1074,11 @@ function init()
   print "Loading grid"
   grid_device = grid.connect()
   grid_device.key = handle_grid_key
+
+  -- Global midi pedal
+  print "Loading midi looper pedal"
+  pedal_device = midi.connect()
+  pedal_device.event = handle_pedal_event
 
   -- Set up params
   -- MollyThePoly.add_params()

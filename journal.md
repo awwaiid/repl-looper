@@ -116,3 +116,7 @@
   * Another idea I've been thinking of is that sometimes I end up with a bunch of 8-step loops and it starts feeling constrained on the left side of the grid. So could make like `a2..h2` loops that are always 8 steps (visually) and hang out on the right side of the grid
   * With timber slicing again I also added reverse-loops
   * Timber still loads down a surprising amount of CPU, I'm still thinking it is something that I messed up because other users of the upstream Timber seem to not have issues. Or maybe it is the way I'm doing slicing. Not sure
+* 2022-04-17
+  * I got the midi foot-switch working! (slight hack of norns C code)
+  * Copying from thirtythree, I got simple audio recording
+  * So now! It's an actual looper! Button 1 of the peddal starts/stops, button 2/3 change which loop you are recording into.
