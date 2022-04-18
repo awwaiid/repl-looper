@@ -846,6 +846,12 @@ function select_prev_loop()
   loops[selected_loop]:select()
 end
 
+function select_nth_loop(n)
+  loops[selected_loop]:deselect()
+  selected_loop = ((n - 1) % #loops) + 1
+  loops[selected_loop]:select()
+end
+
 function start_record_sample()
   -- os.execute("mkdir -p ".._path.audio.."repl-looper")
   audio.tape_record_open(_path.audio .. "repl-looper/loop-" .. selected_loop .. ".wav")
@@ -896,6 +902,12 @@ function handle_pedal_event(midi_data)
     end
   end
 
+end
+
+function enc(n, d)
+  if n == 3 then
+    select_nth_loop(selected_loop + d)
+  end
 end
 
 ----------------------------------------------------------------------
