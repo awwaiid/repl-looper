@@ -292,7 +292,7 @@ function Loop:draw_grid_row()
   clear_grid_row(self.id)
 
   local row = self:to_grid_row()
-  for n = 1, #row do
+  for n = 1, 16 do
 
     -- Highlight currently selected row
     local val = row[n] or 0
