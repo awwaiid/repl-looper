@@ -1128,6 +1128,9 @@ function init()
   pedal_device = midi.connect()
   pedal_device.event = handle_pedal_event
 
+  -- Get our file storage set up
+  os.execute("mkdir -p ".._path.audio.."repl-looper")
+
   -- Set up params
   -- MollyThePoly.add_params()
   -- params:add_separator()
