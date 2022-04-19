@@ -115,7 +115,8 @@ function Loop.new(init)
       ampLag = 0,
       pan = 0
     },
-    selected = false
+    selected = false,
+    mode = "stop"
   }
 
   setmetatable(self, Loop)
@@ -426,6 +427,7 @@ function Loop:stop()
     self.mode = "stop_recording"
     self:draw_grid_row()
   else
+    self.mode = "stop"
     self.lattice:stop()
   end
 end
@@ -910,6 +912,17 @@ function enc(n, d)
   end
 end
 
+function key(n, z)
+  if n == 2 and z == 1 then
+    local loop = loops[selected_loop]
+    if loop.mode == "stop" then
+      loop:play()
+    else
+      loop:stop()
+    end
+  end
+end
+
 ----------------------------------------------------------------------
 -- REPL communication ------------------------------------------------
 ----------------------------------------------------------------------
@@ -975,7 +988,7 @@ function live_event(command, from_playing_loop)
 
       -- Don't record the "stop" command
       if loop.mode == "stop_recording" then
-        loop.mode = "stopped_recording"
+        loop.mode = "play"
       end
 
       if loop.mode == "recording" or loop.mode == "recording_step" then
