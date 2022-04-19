@@ -854,17 +854,40 @@ function select_nth_loop(n)
   loops[selected_loop]:select()
 end
 
+recording_start = 0
 function start_record_sample()
-  -- os.execute("mkdir -p ".._path.audio.."repl-looper")
-  audio.tape_record_open(_path.audio .. "repl-looper/loop-" .. selected_loop .. ".wav")
-  audio.tape_record_start()
+  audio.level_adc_cut(1)
+  softcut.buffer_clear()
+  softcut.enable(1,1)
+  softcut.buffer(1,1)
+  softcut.level(1,1.0)
+  softcut.loop(1,0)
+  softcut.loop_start(1,0)
+  softcut.loop_end(1,300)
+  softcut.position(1,0)
+  softcut.rate(1,1.0)
+
+  -- set input rec level: input channel, voice, level
+  softcut.level_input_cut(1,1,1.0)
+  -- softcut.level_input_cut(2,1,1.0)
+  -- set voice 1 record level
+  softcut.rec_level(1,1.0)
+  -- set voice 1 pre level
+  softcut.pre_level(1,0.0)
+  -- set record state of voice 1 to 1
+  softcut.rec(1,1)
+  recording_start = util.time()
+
   print("Recording!")
 end
 
 function stop_record_sample()
-  audio.tape_record_stop()
+  softcut.rec(1,0)
+  local recording_length = util.time() - recording_start
+  print("Recording stopping! Length:", recording_length)
+  softcut.buffer_write_mono(_path.audio .. "repl-looper/loop-" .. selected_loop .. ".wav", 0, recording_length, 1)
   clock.run(function()
-    clock.sleep(1)
+    clock.sleep(3)
     local s = Sample.new(_path.audio .. "repl-looper/loop-" .. selected_loop .. ".wav")
     clock.sleep(1)
     samples[selected_loop] = s
