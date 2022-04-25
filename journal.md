@@ -120,3 +120,5 @@
   * I got the midi foot-switch working! (slight hack of norns C code)
   * Copying from thirtythree, I got simple audio recording
   * So now! It's an actual looper! Button 1 of the peddal starts/stops, button 2/3 change which loop you are recording into.
+* 2022-04-25
+  * Now I'm exploring an all-norns workflow. I've gotten keyboard input going and a log of commands on the screen. History up/down and tab completion too!

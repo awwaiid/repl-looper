@@ -18,8 +18,11 @@ if not string.find(package.cpath, "/home/we/dust/code/repl-looper/lib/", 1, true
   package.path = package.path .. ";/home/we/dust/code/repl-looper/lib/?.lua"
 end
 
-json = require("cjson")
-lattice = require("lattice")
+JSON = require("cjson")
+Lattice = require("lattice")
+Deque = require("container.deque")
+UI = require("ui")
+comp = require("completion")
 
 -- Locally augmented libraries
 musicutil = include("repl-looper/lib/musicutil_extended")
@@ -28,7 +31,6 @@ sequins = include("repl-looper/lib/sequins_extended")
 -- Local helpers
 local helper = include("repl-looper/lib/helper")
 ls = helper.ls
-leven = helper.leven
 eval = helper.eval
 keys = helper.tabkeys
 
@@ -105,7 +107,7 @@ function Loop.new(init)
     current_step = 1,
     current_substep = 1.0,
     duration = 10212,
-    lattice = lattice:new{},
+    lattice = Lattice:new{},
     record_feedback = false,
     auto_quantize = false,
     send_feedback = false,
@@ -492,8 +494,11 @@ end
 function Loop:align(other_loop)
   local substep_diff = self:get_current_substep() - other_loop:get_current_substep()
   local transport_diff = substep_diff * self.lattice.ppqn
+  self:shift(-1 * transport_diff)
+end
 
-  self.lattice.transport = self.lattice.transport - transport_diff
+function Loop:shift(transport_diff)
+  self.lattice.transport = self.lattice.transport + transport_diff
 
   for _, event in ipairs(self.events) do
     event.pulse = event.pulse - transport_diff
@@ -637,9 +642,9 @@ function Loop:slice(sample, step_offset, step_count, reverse)
 
   -- If this is less than a whole loop, cut the loop length
   step_count = step_count or math.floor((sample:info().num_frames - frame_offset) / width)
-  if step_count < 16 then
+  -- if step_count < 16 then
     self:setLength(step_count)
-  end
+  -- end
 
   -- self:gen(sample_name.. ":loopFrames(`" .. slice_start .. "`, `" .. slice_end .. "`)")
   self:gen(sample_name.. ":play(`" .. slice_start .. "`, `" .. slice_end .. "`)")
@@ -709,7 +714,7 @@ function Loop:split(other_loop, base_command)
   local distances = {}
   local total_dist = 0
   for _, event in ipairs(events) do
-    local dist = leven(base_command, event.command)
+    local dist = helper.leven(base_command, event.command)
     total_dist = total_dist + dist
 
     -- for debugging and to minimize sort calcs
@@ -818,21 +823,93 @@ function handle_grid_key(col, row, state)
   end
 end
 
-recent_command = ""
+local recent_command = ""
+local current_text_input = ""
+local history_select = nil
+
 function redraw()
   screen.ping()
   screen.clear()
-  screen.move(0,5)
-  screen.text("REPL-LOOPER")
+
+  --
+  -- screen.move(0,12)
+  -- screen.text("> " .. recent_command)
+
+  -- screen.move(0,19)
+  -- while result_history:count() > 5 do
+  --   result_history:pop()
+  -- end
+
+  local history_viz = {}
+  for i, entry in result_history:ipairs() do
+    history_viz[i] = entry.input .. " -> " .. entry.output
+  end
+
+  local lst = UI.ScrollingList.new(0, 0, (history_select or #history_viz), history_viz)
+  -- lst.num_above_selected = 0
+  lst:redraw()
 
   screen.move(0,62)
-  -- screen.text(grid_mode)
-  screen.text("bit.ly/norns-repl-looper")
+  screen.text("> " .. current_text_input)
 
-  screen.move(63,34)
-  screen.text_center(recent_command)
+  -- screen.move(128,5)
+  -- screen.text_right("REPL-LOOPER")
 
   screen.update()
+end
+
+function keyboard.char(character)
+  history_select = nil
+  current_text_input = current_text_input .. character
+  redraw()
+end
+
+function keyboard.code(code, value)
+  if value == 1 or value == 2 then -- 1 is down, 2 is held, 0 is release
+    print("keyboard code", code)
+
+    -- History selection
+    if code == "UP" then
+      if not history_select then
+        history_select = result_history:count()
+      else
+        history_select = history_select - 1
+        if history_select == 0 then
+          history_select = result_history:count()
+        end
+      end
+      print("Looking up entry", history_select)
+      current_text_input = result_history:peek(history_select).input
+    elseif code == "DOWN" then
+      if not history_select then
+        history_select = 1
+      else
+        history_select = history_select + 1
+        if history_select > result_history:count() then
+          history_select = 1
+        end
+      end
+      print("Looking up entry", history_select)
+      current_text_input = result_history:peek(history_select).input
+    else
+      history_select = nil
+    end
+
+    if code == "BACKSPACE" then
+      current_text_input = current_text_input:sub(1, -2) -- erase characters from current_text_input
+    elseif code == "ENTER" then
+      if current_text_input == "" then
+        -- If there is no new input, send the most recent history entry
+        current_text_input = result_history:peek_back().input
+      end
+      client_live_event(current_text_input)
+      current_text_input = "" -- clear current_text_input
+    elseif code == "TAB" then
+      local comps = comp.complete(current_text_input)
+      current_text_input = helper.longestPrefix(comps)
+    end
+    redraw()
+  end
 end
 
 selected_loop = 1
@@ -855,7 +932,8 @@ function select_nth_loop(n)
 end
 
 recording_start = 0
-function start_record_sample()
+recording_start_transport = 0
+function start_record_sample(sync_to_loop)
   audio.level_adc_cut(1)
   softcut.buffer_clear()
   softcut.enable(1,1)
@@ -876,7 +954,13 @@ function start_record_sample()
   softcut.pre_level(1,0.0)
   -- set record state of voice 1 to 1
   softcut.rec(1,1)
+
   recording_start = util.time()
+  if sync_to_loop then
+    recording_start_transport = sync_to_loop.lattice.transport
+  else
+    recording_start_transport = 0
+  end
 
   print("Recording!")
 end
@@ -892,6 +976,8 @@ function stop_record_sample()
     clock.sleep(1)
     samples[selected_loop] = s
     loops[selected_loop]:slice(samples[selected_loop])
+    loops[selected_loop]:shift(recording_start_transport)
+
     print("Recordding stopped! Sliced.")
   end)
 end
@@ -951,7 +1037,7 @@ end
 ----------------------------------------------------------------------
 
 function messageToServer(json_msg)
-  local msg = json.decode(json_msg)
+  local msg = JSON.decode(json_msg)
   if msg.command == "save_loop" then
     loops[msg.loop_num] = Loop.new(msg.loop)
   else
@@ -960,7 +1046,7 @@ function messageToServer(json_msg)
 end
 
 function messageFromServer(msg)
-  local msg_json = json.encode(msg)
+  local msg_json = JSON.encode(msg)
   print("SERVER MESSAGE: " .. msg_json .. "\n")
 end
 
@@ -985,7 +1071,8 @@ function dynamic(name)
 end
 
 
-last = nil -- the output from the last command
+result_history = Deque.new()
+last = "" -- the output from the last command
 
 function client_live_event(command, from_playing_loop)
   clock.run(function()
@@ -1033,13 +1120,23 @@ function live_event(command, from_playing_loop)
       end
     end
 
-    redraw()
-
     last = live_event_result
+
+    if not from_playing_loop then
+      -- if last ~= nil then
+      --   result_history:push_back(JSON.encode(last))
+      -- end
+      result_history:push_back({
+        input = command,
+        output = JSON.encode(last)
+      })
+    end
+
+    redraw()
 
     -- Catch and ignore JSON encoding errors
     local status, response =
-      pcall(json.encode, {
+      pcall(JSON.encode, {
         action = "live_event",
         command = recent_command,
         result = live_event_result
@@ -1053,10 +1150,9 @@ function live_event(command, from_playing_loop)
   end
 end
 
-comp = require("completion")
 function completions(command)
   local comps = comp.complete(command)
-  return "RESPONSE:" .. json.encode({
+  return "RESPONSE:" .. JSON.encode({
     action = "completions",
     command = command,
     result = comps

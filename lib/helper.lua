@@ -58,5 +58,33 @@ function helper.eval(code_string)
   return eval_command()
 end
 
+function helper.all_words_have(words, letter, offset)
+  for _, word in ipairs(words) do
+    if string.sub(word, offset, offset) ~= letter then
+      print("mm", word, offset)
+      return false
+    end
+  end
+  return true
+end
+
+function helper.longestPrefix(words)
+  -- check border cases size 1 array and empty first word
+  if (not words[1]) or (#words ==  1) then
+    return words[1] or ""
+  end
+
+  local i = 1
+  -- while all words have the same character at position i, increment i
+  while (#words[1] >= i) and helper.all_words_have(words, string.sub(words[1], i, i), i) do
+    i = i + 1
+  end
+  i = i - 1
+
+  -- prefix is the substring from the beginning to the last successfully checked i
+  return string.sub(words[1], 1, i)
+end
+
+
 return helper
 
