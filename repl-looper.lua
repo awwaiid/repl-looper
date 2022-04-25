@@ -860,7 +860,39 @@ function redraw()
   screen.update()
 end
 
+-- You could use this to do things like remap to Dvorak or whatnot
+-- In my case ... I swap my numbers and symbols. Slightly insane
+-- but I'm used to it so .... yeah.
+local remap_key = {
+  ["1"] = "!",
+  ["2"] = "@",
+  ["3"] = "#",
+  ["4"] = "$",
+  ["5"] = "%",
+  ["6"] = "^",
+  ["7"] = "&",
+  ["8"] = "*",
+  ["9"] = "(",
+  ["0"] = ")",
+  ["["] = "{",
+  ["]"] = "}",
+  ["!"] = "1",
+  ["@"] = "2",
+  ["#"] = "3",
+  ["$"] = "4",
+  ["%"] = "5",
+  ["^"] = "6",
+  ["&"] = "7",
+  ["*"] = "8",
+  ["("] = "9",
+  [")"] = "0",
+  ["{"] = "[",
+  ["}"] = "]",
+}
+remap_key = {}
+
 function keyboard.char(character)
+  local character = remap_key[character] or character
   history_select = nil
   current_text_input = current_text_input .. character
   redraw()
