@@ -846,7 +846,9 @@ function redraw()
   end
 
   local lst = UI.ScrollingList.new(0, 0, (history_select or #history_viz), history_viz)
-  -- lst.num_above_selected = 0
+  if not history_select then
+    lst.active = false
+  end
   lst:redraw()
 
   screen.move(0,62)
@@ -875,22 +877,26 @@ function keyboard.code(code, value)
       else
         history_select = history_select - 1
         if history_select == 0 then
-          history_select = result_history:count()
+          history_select = nil
+          current_text_input = ""
         end
       end
-      print("Looking up entry", history_select)
-      current_text_input = result_history:peek(history_select).input
+      if history_select then
+        current_text_input = result_history:peek(history_select).input
+      end
     elseif code == "DOWN" then
       if not history_select then
         history_select = 1
       else
         history_select = history_select + 1
         if history_select > result_history:count() then
-          history_select = 1
+          history_select = nil
+          current_text_input = ""
         end
       end
-      print("Looking up entry", history_select)
-      current_text_input = result_history:peek(history_select).input
+      if history_select then
+        current_text_input = result_history:peek(history_select).input
+      end
     else
       history_select = nil
     end
@@ -907,6 +913,14 @@ function keyboard.code(code, value)
     elseif code == "TAB" then
       local comps = comp.complete(current_text_input)
       current_text_input = helper.longestPrefix(comps)
+      if #comps > 1 then
+        for i, v in ipairs(comps) do
+          result_history:push_back({
+            input = v,
+            output = "..."
+          })
+        end
+      end
     end
     redraw()
   end
