@@ -628,6 +628,8 @@ end
 
 function Loop:slice(sample, step_offset, step_count, reverse)
   step_offset = step_offset or 1
+  bug("Current tempo", clock.get_tempo())
+  bug("Current qn_per_ms", self:qn_per_ms())
   width = math.ceil(48000 / (self:qn_per_ms() * 1000)) -- 29090
   bug("Slice width", width)
 
@@ -671,8 +673,13 @@ function Loop:fill(sample, step_count)
   bug("Fill frame_count", frame_count)
   local length_seconds = frame_count / 48000 -- 48k sample rate
   local bpm = step_count / length_seconds * 60
+
   bug("Fill set BPM", bpm)
-  clock.internal.set_tempo(bpm)
+  params:set("clock_tempo", bpm)
+
+  -- Run other callbacks
+  clock.sleep(0.1)
+
   self:slice(sample)
 end
 
@@ -858,7 +865,7 @@ function wrap_text(text, max_len)
     table.insert(lines, cur_text:sub(-1 * max_len))
     cur_text = cur_text:sub(max_len)
   end
-  print("unwrapped:", text, "wrapped:", table.concat(lines, "\n"))
+  -- print("unwrapped:", text, "wrapped:", table.concat(lines, "\n"))
   return table.concat(lines, "\n")
 end
 
@@ -926,7 +933,7 @@ end
 
 function keyboard.code(code, value)
   if value == 1 or value == 2 then -- 1 is down, 2 is held, 0 is release
-    print("keyboard code", code)
+    -- print("keyboard code", code)
 
     -- History selection
     if code == "UP" then
@@ -1036,26 +1043,32 @@ function start_record_sample(sync_to_loop)
   end
 
   print("Recording!")
+  add_history_msg("Recording to loop " .. selected_loop)
 end
 
 function stop_record_sample()
   softcut.rec(1,0)
   local recording_length = util.time() - recording_start
   print("Recording stopping! Length:", recording_length)
+  add_history_msg("Saving to loop " .. selected_loop)
   softcut.buffer_write_mono(_path.audio .. "repl-looper/loop-" .. selected_loop .. ".wav", 0, recording_length, 1)
   clock.run(function()
+    -- Wait for disk to flush; TODO see if there is a better way
     clock.sleep(3)
     local s = Sample.new(_path.audio .. "repl-looper/loop-" .. selected_loop .. ".wav")
+    -- Wait for sample to fully load; TODO see if there is a better way
     clock.sleep(1)
     samples[selected_loop] = s
     if selected_loop == 1 then
+      bug("Filling loop " .. selected_loop)
       loops[selected_loop]:fill(samples[selected_loop])
     else
+      bug("Slicing to loop " .. selected_loop)
       loops[selected_loop]:slice(samples[selected_loop])
       loops[selected_loop]:shift(recording_start_transport)
     end
 
-    print("Recordding stopped! Sliced.")
+    add_history_msg("Sliced into loop " .. selected_loop)
   end)
 end
 
@@ -1149,6 +1162,26 @@ end
 
 
 result_history = Deque.new()
+
+function add_history_msg(msg)
+  bug(msg)
+  result_history:push_back({
+    input = msg,
+    output = JSON.encode(nil)
+  })
+  redraw()
+end
+
+function safe_json_encode(data)
+  local status, response = pcall(JSON.encode, data)
+
+  if status then
+    return response
+  else
+    return JSON.encode(nil)
+  end
+end
+
 last = "" -- the output from the last command
 
 function client_live_event(command, from_playing_loop)
@@ -1205,7 +1238,7 @@ function live_event(command, from_playing_loop)
       -- end
       result_history:push_back({
         input = command,
-        output = JSON.encode(last)
+        output = safe_json_encode(last)
       })
     end
 
