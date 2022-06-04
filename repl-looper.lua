@@ -39,6 +39,13 @@ keys = helper.tabkeys
 -- Which is equivalent to a:stop();b:stop();c:stop()
 all = include("repl-looper/lib/all")
 
+-- Enable/Disable global debugging
+function bug(...)
+  if true then
+    print(...)
+  end
+end
+
 ---------------------------------------------------------------------
 -- Loop-related objects ---------------------------------------------
 ---------------------------------------------------------------------
@@ -621,7 +628,8 @@ end
 
 function Loop:slice(sample, step_offset, step_count, reverse)
   step_offset = step_offset or 1
-  width = 48000 / (self:qn_per_ms() * 1000) -- 29090
+  width = math.ceil(48000 / (self:qn_per_ms() * 1000)) -- 29090
+  bug("Slice width", width)
 
   -- We'll name this like ls1 ls2 ls3 etc
   -- like "loop_sample_1"
@@ -629,10 +637,10 @@ function Loop:slice(sample, step_offset, step_count, reverse)
   local sample_name = "ls" .. self.id
   _G[sample_name] = sample
 
-  -- local sample = eval(sample_name)
   local frame_offset = (step_offset - 1) * width
   local slice_start = width .. "* m + " .. frame_offset
-  local slice_end = width .. "* n + " .. (frame_offset + 10)
+  -- local slice_end = width .. "* n + " .. (frame_offset + 10)
+  local slice_end = width .. "* n + " .. (frame_offset + 1000)
 
   if reverse then
     local num_frames = sample:info().num_frames
@@ -641,13 +649,12 @@ function Loop:slice(sample, step_offset, step_count, reverse)
   end
 
   -- If this is less than a whole loop, cut the loop length
-  step_count = step_count or math.floor((sample:info().num_frames - frame_offset) / width)
-  -- if step_count < 16 then
-    self:setLength(step_count)
-  -- end
+  step_count = step_count or math.ceil((sample:info().num_frames - frame_offset) / width)
+  self:setLength(step_count)
+  bug("slice step_count", step_count)
 
-  -- self:gen(sample_name.. ":loopFrames(`" .. slice_start .. "`, `" .. slice_end .. "`)")
-  self:gen(sample_name.. ":play(`" .. slice_start .. "`, `" .. slice_end .. "`)")
+  self:gen(sample_name .. ":play(`" .. slice_start .. "`, `" .. slice_end .. "`)")
+  bug("slice gen", sample_name .. ":play(`" .. slice_start .. "`, `" .. slice_end .. "`)")
 
   -- self:gen(
   --      sample_name .. ":startFrame(`" .. slice_start .. "`);"
@@ -656,6 +663,27 @@ function Loop:slice(sample, step_offset, step_count, reverse)
   --   .. sample_name .. ":endFrame(`" .. slice_end .. "`);"
   --   .. sample_name .. ":play()"
   -- )
+end
+
+function Loop:fill(sample, step_count)
+  local step_count = step_count or 16 -- quarter notes
+  local frame_count = sample:info().num_frames
+  bug("Fill frame_count", frame_count)
+  local length_seconds = frame_count / 48000 -- 48k sample rate
+  local bpm = step_count / length_seconds * 60
+  bug("Fill set BPM", bpm)
+  clock.internal.set_tempo(bpm)
+  self:slice(sample)
+end
+
+function Loop:sampleRecord()
+  -- note the current record-start time
+  -- start recording
+  -- return sample
+  -- when done
+  -- add the sample to loop at the record-start time
+  -- optional: resize loop to sample size
+  -- optional: shift loop to sample start
 end
 
 function Loop:clear()
@@ -823,6 +851,17 @@ function handle_grid_key(col, row, state)
   end
 end
 
+function wrap_text(text, max_len)
+  local lines = {}
+  local cur_text = text
+  while #cur_text > 0 do
+    table.insert(lines, cur_text:sub(-1 * max_len))
+    cur_text = cur_text:sub(max_len)
+  end
+  print("unwrapped:", text, "wrapped:", table.concat(lines, "\n"))
+  return table.concat(lines, "\n")
+end
+
 local recent_command = ""
 local current_text_input = ""
 local history_select = nil
@@ -831,28 +870,33 @@ function redraw()
   screen.ping()
   screen.clear()
 
-  --
-  -- screen.move(0,12)
-  -- screen.text("> " .. recent_command)
-
-  -- screen.move(0,19)
-  -- while result_history:count() > 5 do
-  --   result_history:pop()
-  -- end
 
   local history_viz = {}
   for i, entry in result_history:ipairs() do
-    history_viz[i] = entry.input .. " -> " .. entry.output
+    history_viz[i] = entry.input
+    if entry.output ~= "null" then
+      history_viz[i] = history_viz[i] .. " -> " .. entry.output
+    end
   end
 
+  screen.level(15)
   local lst = UI.ScrollingList.new(0, 0, (history_select or #history_viz), history_viz)
   if not history_select then
     lst.active = false
   end
   lst:redraw()
 
-  screen.move(0,62)
-  screen.text("> " .. current_text_input)
+
+  screen.level(2)
+  screen.move(0, 55)
+  screen.line_width(1)
+  screen.line(128, 55)
+  screen.stroke()
+
+  screen.level(15)
+  screen.move(0, 62)
+  -- screen.text(">" .. current_text_input:sub(-30))
+  screen.text(">" .. wrap_text(current_text_input, 30))
 
   -- screen.move(128,5)
   -- screen.text_right("REPL-LOOPER")
@@ -864,32 +908,14 @@ end
 -- In my case ... I swap my numbers and symbols. Slightly insane
 -- but I'm used to it so .... yeah.
 local remap_key = {
-  ["1"] = "!",
-  ["2"] = "@",
-  ["3"] = "#",
-  ["4"] = "$",
-  ["5"] = "%",
-  ["6"] = "^",
-  ["7"] = "&",
-  ["8"] = "*",
-  ["9"] = "(",
-  ["0"] = ")",
-  ["["] = "{",
-  ["]"] = "}",
-  ["!"] = "1",
-  ["@"] = "2",
-  ["#"] = "3",
-  ["$"] = "4",
-  ["%"] = "5",
-  ["^"] = "6",
-  ["&"] = "7",
-  ["*"] = "8",
-  ["("] = "9",
-  [")"] = "0",
-  ["{"] = "[",
-  ["}"] = "]",
+  ["1"] = "!", ["2"] = "@", ["3"] = "#", ["4"] = "$",
+  ["5"] = "%", ["6"] = "^", ["7"] = "&", ["8"] = "*",
+  ["9"] = "(", ["0"] = ")", ["["] = "{", ["]"] = "}",
+  ["!"] = "1", ["@"] = "2", ["#"] = "3", ["$"] = "4",
+  ["%"] = "5", ["^"] = "6", ["&"] = "7", ["*"] = "8",
+  ["("] = "9", [")"] = "0", ["{"] = "[", ["}"] = "]",
 }
-remap_key = {}
+-- remap_key = {}
 
 function keyboard.char(character)
   local character = remap_key[character] or character
@@ -979,6 +1005,7 @@ end
 
 recording_start = 0
 recording_start_transport = 0
+
 function start_record_sample(sync_to_loop)
   audio.level_adc_cut(1)
   softcut.buffer_clear()
@@ -1021,8 +1048,12 @@ function stop_record_sample()
     local s = Sample.new(_path.audio .. "repl-looper/loop-" .. selected_loop .. ".wav")
     clock.sleep(1)
     samples[selected_loop] = s
-    loops[selected_loop]:slice(samples[selected_loop])
-    loops[selected_loop]:shift(recording_start_transport)
+    if selected_loop == 1 then
+      loops[selected_loop]:fill(samples[selected_loop])
+    else
+      loops[selected_loop]:slice(samples[selected_loop])
+      loops[selected_loop]:shift(recording_start_transport)
+    end
 
     print("Recordding stopped! Sliced.")
   end)
