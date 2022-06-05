@@ -128,3 +128,5 @@
   * Watching a lot of these other folks ... they do SO MUCH cool stuff with synth params, so now that I've explored samples a bit I might swing back that direction
   * That said... there are still some core timing issues to work out. Something with running multiple lattices or something has got them drifting, which I thought shouldn't happen
   * Might end up forking lattice, not sure
+  * Other thing is to keep working on-norns editor improvements
+  * And going back to adding some modes, like an edit mode where you can click into code and edit it
