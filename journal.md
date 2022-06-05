@@ -122,3 +122,9 @@
   * So now! It's an actual looper! Button 1 of the peddal starts/stops, button 2/3 change which loop you are recording into.
 * 2022-04-25
   * Now I'm exploring an all-norns workflow. I've gotten keyboard input going and a log of commands on the screen. History up/down and tab completion too!
+* 2022-06-04
+  * FlashCrash was today! I live sample/sliced/sequenced a mandolin riff and then sang a bit
+  * Chop up the singing, tweak the pitch, add some drums
+  * Watching a lot of these other folks ... they do SO MUCH cool stuff with synth params, so now that I've explored samples a bit I might swing back that direction
+  * That said... there are still some core timing issues to work out. Something with running multiple lattices or something has got them drifting, which I thought shouldn't happen
+  * Might end up forking lattice, not sure
