@@ -1,10 +1,10 @@
--- repl-looper v0.3.0
+-- repl-looper v0.4.0
 -- Record/play code loops!
 --
 -- llllllll.co/t/repl-looper
 --
--- Use in conjunction with grid
--- and web-UI in browser, open
+-- Use with grid, keyboard,
+-- optional web-UI in browser
 -- bit.ly/norns-repl-looper
 --
 -- (or long URL)

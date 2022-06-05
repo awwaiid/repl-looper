@@ -22,6 +22,12 @@ Check out the [dev branch](https://github.com/awwaiid/repl-looper/tree/dev) and 
   * Embedded Goldeneye - add pan, lowpass; fix rate
   * Lay out long loops on the grid by zooming-out (more steps-per-button)
   * Rename `ALL` to `all`
+* v0.4 (2022-06-04) - On-norns UI, live sample recording, midi-pedal
+  * Add the ability to select a current-loop and record via midi-pedal
+  * Add on-norns UI
+  * Add on-norns keyboard input
+  * Using softcut, live record a sample and then slice it into the current loop
+  * If the current loop is loop-1, then stretch the BPM to match the sample at 16 steps
 
 # Installation and Usage
 
