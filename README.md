@@ -60,7 +60,7 @@ The workflow is an alternative to maiden's REPL with a few different features an
 2+2
 ```
 
-Which should output `4` (give or take). While you can run any Lua commands you want, `repl-looper` also comes with a built-in engine. The built-in engine is a mash-up of Timber, Goldeneye, and Molly the Poly, along with some lua wrappers. Try these commands:
+Which should output `4` (give or take). While you can run any Lua commands you want, `repl-looper` comes with a built-in engine and a bunch of tools. The built-in engine is a mash-up of Timber, Goldeneye, and Molly the Poly, along with some lua wrappers. Try these commands:
 
 ```lua
 -- Timber piano shortcut
@@ -74,7 +74,7 @@ molly:note(62)
 molly:stop()
 ```
 
-Press `tab` for some completions. You can press `up` or `down` arrows to select previous commands or tab-completion choices. Press `enter` without any command to run the previous command again.
+Press `<tab>` for some completions. You can press `<up>` or `<down>` arrows to select previous commands or tab-completion choices. Press `<enter>` without any command to run the previous command again.
 
 Next thing to play with is loops/sequences. There are 8 pre-defined 16-step loops, one for each row, put into variables `a` to `h`. Start by recording into loop `a`:
 
@@ -109,7 +109,7 @@ a:play() -- start loop again
 a:clear() -- erase loop contents
 ```
 
-Now that you have the script running on norns and the local UI up in a browser and everything working together, read through [Techniques](techniques.lua) to get more some ideas!
+Now that you have the script running on norns and the local UI up in a browser and everything working together, read through [README Reference](#reference) below and [Techniques](techniques.lua) to get more some ideas!
 
 # Resources
 

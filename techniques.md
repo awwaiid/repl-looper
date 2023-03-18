@@ -21,7 +21,7 @@ SD
 -- Press <enter> again to run the most recent command
 CP
 
--- Errors and other output show up on the right side
+-- Errors and other output show up on the right side in the Web-UI
 print "hello"
 notreal()
 
@@ -130,10 +130,14 @@ molly:note('d')
 molly2:note('d')
 molly2:randomize()
 
--- global audio control
-g:gen("audio.level_dac(`(16-n)/32`)")
+-- global audio control is available through the `audio` global
+
+-- Turn on/off reverb
 audio.rev_on()
 audio.rev_off()
+
+-- Build a row for setting the global volume
+g:gen("audio.level_dac(`(16-n)/32`)")
 
 -- Loops ahve their own volume control
 a:amp(0.25) -- Immediately set volume
@@ -148,6 +152,7 @@ all(loops):amp(0, 10) -- Fade out all loops!
 all(mollies):stop() -- Fade out all mollies!
 
 -- Generate a piano in a scale
+-- Use <tab> while typing this out to make it easier
 blues = sequins(musicutil.generate_scale_of_length(56, "blues", 16))
 h:gen("p(`blues()`)")
 
