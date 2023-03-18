@@ -1454,7 +1454,7 @@ function init()
   pedal_device = midi.connect()
   pedal_device.event = handle_pedal_event
 
-  -- Get our file storage set up
+  -- Get our file storage set up for live-recording
   os.execute("mkdir -p ".._path.audio.."repl-looper")
 
   -- Set up params
@@ -1497,6 +1497,7 @@ function init()
   s808.CH = Sample.new("/home/we/dust/audio/common/808/808-CH.wav", "one-shot")
   s808.OH = Sample.new("/home/we/dust/audio/common/808/808-OH.wav", "one-shot")
 
+  -- Claves
   s808.CL = Sample.new("/home/we/dust/audio/common/808/808-CL.wav", "one-shot")
 
   -- Clap
@@ -1505,15 +1506,17 @@ function init()
   -- Cymbols
   s808.CY = Sample.new("/home/we/dust/audio/common/808/808-CY.wav", "one-shot")
 
+  -- Conga high, mid, low
   s808.HC = Sample.new("/home/we/dust/audio/common/808/808-HC.wav", "one-shot")
   s808.MC = Sample.new("/home/we/dust/audio/common/808/808-MC.wav", "one-shot")
   s808.LC = Sample.new("/home/we/dust/audio/common/808/808-LC.wav", "one-shot")
 
-  -- Tom drum
+  -- Tom drum high, mid, low
   s808.HT = Sample.new("/home/we/dust/audio/common/808/808-HT.wav", "one-shot")
   s808.MT = Sample.new("/home/we/dust/audio/common/808/808-MT.wav", "one-shot")
   s808.LT = Sample.new("/home/we/dust/audio/common/808/808-LT.wav", "one-shot")
 
+  -- Maracas
   s808.MA = Sample.new("/home/we/dust/audio/common/808/808-MA.wav", "one-shot")
 
   -- Rimshot and Snare
@@ -1521,7 +1524,7 @@ function init()
   s808.SD = Sample.new("/home/we/dust/audio/common/808/808-SD.wav", "one-shot")
 end
 
--- Handy shortcuts
+-- Handy 808 drum shortcuts
 function BD() s808.BD:play() end
 function CH() s808.CH:play() end
 function CY() s808.CY:play() end
