@@ -335,6 +335,10 @@ function Loop:lua()
   return output
 end
 
+function Loop:show()
+  return self:lua()
+end
+
 function Loop:to_grid_row()
   local row = {}
   -- Basically zoom-out for longer loops, but still in increments of 16
