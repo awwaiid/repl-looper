@@ -872,10 +872,68 @@ local recent_command = ""
 local current_text_input = ""
 local history_select = nil
 
+
+-- Modified redraw ScrollingList
+-- This version doesn't show blanks at the top/bottom
+function UI.ScrollingList:redraw()
+  local num_entries = #self.entries
+  -- Changed to `num_entries - 4` so we get the whole view
+  local scroll_offset = self.index - 1 - math.max(self.index - (num_entries - 4), 0)
+  scroll_offset = scroll_offset - util.linlin(num_entries - self.num_above_selected, num_entries, self.num_above_selected, 0, self.index - 1) -- For end of list
+
+  for i = 1, self.num_visible do
+    if self.active and self.index == i + scroll_offset then screen.level(15)
+    else screen.level(3) end
+    screen.move(self.x, self.y + 5 + (i - 1) * 11)
+    local entry = self.entries[i + scroll_offset] or ""
+    if self.text_align == "center" then
+      screen.text_center(entry)
+    elseif self.text_align == "right" then
+      screen.text_right(entry)
+    else
+      screen.text(entry)
+    end
+  end
+  screen.fill()
+end
+
+function draw_logo(x, y)
+  screen.move(x, y)
+
+  -- Top edge and right hook
+  screen.line_rel(9, 0)
+  screen.line_rel(0, 3)
+
+  -- bottom-right arrow
+  screen.move_rel(0, 2)
+  screen.line_rel(0, 5)
+  screen.move_rel(1, -3)
+  screen.line_rel(-3, 0)
+  screen.move_rel(2, 3)
+
+  -- bottom edge and left hook
+  screen.line_rel(-9, 0)
+  screen.line_rel(0, -4)
+
+  -- top left arrow
+  screen.move_rel(0, -2)
+  screen.line_rel(0, -5)
+  screen.move_rel(-2, 4)
+  screen.line_rel(3, 0)
+
+  -- prompt
+  screen.move_rel(2, -1)
+  screen.line_rel(3, 3)
+  screen.move_rel(-1, 0)
+  screen.line_rel(-2, 2)
+
+  screen.stroke()
+end
+
 function redraw()
+
   screen.ping()
   screen.clear()
-
 
   local history_viz = {}
   for i, entry in result_history:ipairs() do
@@ -890,8 +948,8 @@ function redraw()
   if not history_select then
     lst.active = false
   end
+  lst.num_above_selected = 0
   lst:redraw()
-
 
   screen.level(2)
   screen.move(0, 55)
@@ -906,6 +964,9 @@ function redraw()
 
   -- screen.move(128,5)
   -- screen.text_right("REPL-LOOPER")
+
+  screen.level(1)
+  draw_logo(118, 1)
 
   screen.update()
 end
