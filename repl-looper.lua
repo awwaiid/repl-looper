@@ -826,11 +826,6 @@ end
 loops = {}
 samples = {}
 
--- Pre-create 8 loops
-for n = 1, 8 do
-  Loop.new()
-end
-
 function clear_grid_row(row)
   for n = 1, 16 do
     grid_device:led(n, row, 0)
@@ -1346,7 +1341,13 @@ function init()
   -- params:add_separator()
   ReplLooper.add_params()
 
-  -- One global molly to start with
+  -- Pre-create 8 loops
+  -- Implicitly end up in `loops` with names `a`..`h`
+  for n = 1, 8 do
+    Loop.new()
+  end
+
+  -- Global mollys to start with
   molly = Molly.new()
   molly2 = Molly.new()
   molly3 = Molly.new()
