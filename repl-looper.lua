@@ -992,6 +992,13 @@ function keyboard.char(character)
 end
 
 function keyboard.code(code, value)
+  -- The grid logo is fun, but let's hide it once we have a keypress
+  if showing_grid_logo then
+    showing_grid_logo = false
+    grid_device:all(0)
+    grid_device:refresh()
+  end
+
   if value == 1 or value == 2 then -- 1 is down, 2 is held, 0 is release
     -- print("keyboard code", code)
 
@@ -1381,6 +1388,57 @@ end
 ---------------------------------------------------------------------
 -- Load up and mess with some samples for performance ---------------
 ---------------------------------------------------------------------
+function draw_grid_logo()
+  showing_grid_logo = true
+  local x = 3
+  local y = 0
+  local b = 15
+
+  -- Top
+  for i = 2, 9 do
+    grid_device:led(x + i, y + 1, b)
+  end
+
+  -- Left-top
+  for j = 1, 4 do
+    grid_device:led(x + 2, j, b)
+  end
+
+  -- Right-top
+  for j = 1, 2 do
+    grid_device:led(x + 9, j, b)
+  end
+
+  -- Right-bottom
+  for j = 4, 7 do
+    grid_device:led(x + 9, j, b)
+  end
+
+  -- Bottom
+  for i = 2, 9 do
+    grid_device:led(x + i, y + 7, b)
+  end
+
+  -- Left-bottom
+  for j = 6, 7 do
+    grid_device:led(x + 2, j, b)
+  end
+
+  -- Left arrowhead
+  grid_device:led(x + 1, 3, b)
+  grid_device:led(x + 3, 3, b)
+
+  -- Right arrowhead
+  grid_device:led(x + 8, 5, b)
+  grid_device:led(x + 10, 5, b)
+
+  -- middle triangle
+  grid_device:led(x + 5, 3, b)
+  grid_device:led(x + 6, 4, b)
+  grid_device:led(x + 5, 5, b)
+
+  grid_device:refresh()
+end
 
 function init()
 
@@ -1388,6 +1446,8 @@ function init()
   print "Loading grid"
   grid_device = grid.connect()
   grid_device.key = handle_grid_key
+
+  draw_grid_logo()
 
   -- Global midi pedal
   print "Loading midi looper pedal"
