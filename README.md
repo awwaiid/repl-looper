@@ -4,9 +4,9 @@
 
 <img src="docs/logo.png" align="right" style="padding-left: 1em" />
 
-Experimental performance and creative tool, mashing together several things that I like. REPL (Read-Eval-Print-Loop, a code execution console) for interactive code creating. Grid to have a tactile UI (maybe we'll throw in a midi pedal too). Dance between client and host, between recording loops and loops that can modify other loops and themselves.
+Experimental performance and creative tool, mashing together several things that I like. REPL (Read-Eval-Print-Loop, a code execution console) for interactive code creating. Grid to have a tactile UI (maybe we'll throw in a midi pedal too). Dance between sound-generating code, recording commands, looping, slicing, mixing, generating tools and patterns on the fly, and maybe make some self-modifying loops.
 
-<img src="docs/20230318-norns-screenshot.png" width="40%" align="right" />
+<img src="docs/20230318-norns-screenshot.png" width="40%" align="right" style="padding-left: 1em" />
 
 Check out the [dev branch](https://github.com/awwaiid/repl-looper/tree/dev) and [dev branch development journal](https://github.com/awwaiid/repl-looper/tree/dev/journal.md) for ongoing development work. The `main` branch is the current "stable" (haha) version.
 
