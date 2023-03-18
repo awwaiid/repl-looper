@@ -19,12 +19,12 @@ if not string.find(package.cpath, "/home/we/dust/code/repl-looper/lib/", 1, true
 end
 
 JSON = require("cjson")
-Lattice = require("lattice")
 Deque = require("container.deque")
 UI = require("ui")
 comp = require("completion")
 
 -- Locally augmented libraries
+Lattice = require("repl-looper/lib/lattice") -- system one is broken
 musicutil = include("repl-looper/lib/musicutil_extended")
 sequins = include("repl-looper/lib/sequins_extended")
 
@@ -73,7 +73,7 @@ function Event:lua()
   return {
     -- pulse = self.pulse, -- The absolute time
     -- pulse_offset = self.pulse_offset, -- loop relative time
-    -- phase = self.pattern and self.pattern.phase, -- current countdown in pulses
+    -- phase = self.sprocket and self.sprocket.phase, -- current countdown in pulses
     step = self.step,
     command = self.command
   }
@@ -90,7 +90,7 @@ function Event:eval(context_loop_id, from_playing_loop)
 end
 
 function Event:destroy()
-  self.pattern:destroy()
+  self.sprocket:destroy()
 end
 
 function Event:clone()
@@ -145,7 +145,7 @@ function Loop.new(init)
 
   -- Basically a quarter-note metronome
   -- This is used to update the grid and client
-  self.status_pattern = self.status_pattern or self.lattice:new_pattern {
+  self.status_sprocket = self.status_sprocket or self.lattice:new_sprocket {
     action = function(t)
       self:send_status(t)
     end,
@@ -203,11 +203,11 @@ function Loop:pulse_per_ms()
 end
 
 function Loop:pulse_per_measure()
-  return self.lattice.ppqn * self.lattice.meter
+  return self.lattice.ppqn * 4
 end
 
 function Loop:loop_length_measure()
-  return self.loop_length_qn / self.lattice.meter
+  return self.loop_length_qn / 4
 end
 
 function Loop:loop_length_pulse()
@@ -249,17 +249,17 @@ function Loop:update_event(event, off_event)
     self.current_substep = substep
   end
 
-  event.pattern = event.pattern or self.lattice:new_pattern{}
+  event.sprocket = event.sprocket or self.lattice:new_sprocket{}
 
-  event.pattern:set_action(action)
-  event.pattern:set_division(self:loop_length_measure()) -- division is in measures
+  event.sprocket:set_action(action)
+  event.sprocket:set_division(self:loop_length_measure()) -- division is in measures
 
-  -- Forcing the phase is what sets the actual offset for this pattern based on
+  -- Forcing the phase is what sets the actual offset for this sprocket based on
   -- the current transport (play position). The phase is a count-down until the
   -- event is fired
   local loop_phase = self.lattice.transport % self:loop_length_pulse()
   local phase_distance = (event.pulse_offset - loop_phase) % self:loop_length_pulse()
-  event.pattern.phase = self:loop_length_pulse() - phase_distance
+  event.sprocket.phase = self:loop_length_pulse() - phase_distance
 end
 
 -- Update all events; this is handy for re-working the loop length
@@ -284,8 +284,8 @@ function Loop:remove_event(event_to_remove)
   for i = #self.events, 1, -1 do
     local event = self.events[i]
     if event == event_to_remove then
-      event.pattern:destroy()
-      event.pattern = nil
+      event.sprocket:destroy()
+      event.sprocket = nil
       table.remove(self.events, i)
     end
   end
@@ -404,8 +404,8 @@ function Loop:toggle_commands_at_step(step, commands)
     local event = self.events[i]
     local event_step = math.floor(event.step)
     if event_step == step then
-      if self.events[i].pattern then
-        self.events[i].pattern:destroy()
+      if self.events[i].sprocket then
+        self.events[i].sprocket:destroy()
       end
       table.remove(self.events, i)
       found_commands = true
