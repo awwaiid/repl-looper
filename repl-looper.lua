@@ -439,6 +439,10 @@ function Loop:stop()
   if self.mode == "recording" then
     self.mode = "stop_recording"
     self:draw_grid_row()
+  elseif self.mode == "sample_recording" then
+    self.mode = "stop_recording"
+    stop_record_sample()
+    self:draw_grid_row()
   else
     self.mode = "stop"
     self.lattice:stop()
@@ -475,6 +479,12 @@ end
 
 function Loop:prevStep()
   self:setStep(self:get_current_step() - 1)
+end
+
+function Loop:sampleRec()
+  self.mode = "sample_recording"
+  select_nth_loop(self.id)
+  start_record_sample()
 end
 
 function Loop:add_event_command(cmd)
@@ -685,16 +695,6 @@ function Loop:fill(sample, step_count)
   clock.sleep(0.1)
 
   self:slice(sample)
-end
-
-function Loop:sampleRecord()
-  -- note the current record-start time
-  -- start recording
-  -- return sample
-  -- when done
-  -- add the sample to loop at the record-start time
-  -- optional: resize loop to sample size
-  -- optional: shift loop to sample start
 end
 
 function Loop:clear()
