@@ -109,7 +109,7 @@ a:play() -- start loop again
 a:clear() -- erase loop contents
 ```
 
-Now that you have the script running on norns and the local UI up in a browser and everything working together, read through [README Reference](#reference) below and [Techniques](techniques.lua) to get more some ideas!
+Now that you have the script running on norns and the local UI up in a browser and everything working together, read through the [Usage Reference](#fullish-usage-reference) below and [Techniques](techniques.lua) to get more some ideas!
 
 # Resources
 
@@ -117,7 +117,7 @@ Now that you have the script running on norns and the local UI up in a browser a
 * [Youtube video walk-through of the techniques](https://youtu.be/FPE5DOlScIY)
 * [Development Journal / Changelog](journal.md) for a running log of experiments
 
-# Reference
+# Fullish Usage Reference
 
 ## UI
 * Web UI
@@ -129,9 +129,9 @@ Now that you have the script running on norns and the local UI up in a browser a
 * Simple functions with no parameters are automatically evaluated, so you use `p` instead of `p()`
 * Common 808 samples are loaded under `s808.<tab>` and have shortcuts like `CP`
 
-# Library and Live-Coding Helpers
+## Library and Live-Coding Helpers
 
-There are a lot of pre-defined variables, functions, and objects to make live-coding with `repl-looper` convenient.
+There are a lot of pre-defined variables, functions, and objects to make live-coding with `repl-looper` convenient. These have been built organically based on usage, suggestions are welcome! In particular tab-complete-friendly prefixes for method names could be improved.
 
 ## Pre-defined variables/functions
   * `a`..`h` -- loops, one per grid-row
