@@ -83,7 +83,6 @@ function Grid:led(x, y, brightness)
   self.device:led(x, y, brightness)
   self.data[x] = self.data[x] or {}
   self.data[x][y] = brightness
-  -- redraw()
 end
 
 function Grid:all(brightness)
@@ -95,7 +94,6 @@ function Grid:all(brightness)
       self.data[x][y] = 0
     end
   end
-  -- redraw()
 end
 
 ---------------------------------------------------------------------
@@ -149,23 +147,19 @@ function Editor:draw_wrapped_content(start_x, start_y, do_draw)
         self:invert_rect(x, y-7, char_width, 9)
       else
         screen.level(15)
-        -- print("Drawing", char, "at", x, y)
         screen.text(char)
       end
     end
-    -- screen.text(char)
     x = x + char_width + 1
   end
   return y
 end
 
 function Editor:invert_rect(x, y, width, height)
-  -- print("Inverting rect", x, y, width, height)
   local rect = screen.peek(x, y, width, height)
   local out = {}
   for i = 1, #rect do
     out[i] = string.char(15 - string.byte(rect, i))
-    -- print("Inverting", i, string.byte(rect, i), out[i])
   end
   screen.poke(x, y, width, height, table.concat(out))
 end
@@ -178,7 +172,6 @@ function Editor:wrap_text(text, max_len)
   while #remaining_text > 0 do
     local next_character = remaining_text:sub(1, 1)
     local current_line_size = screen.text_extents(current_line .. next_character)
-    print("current_line_size", current_line_size)
     if current_line_size > max_len then
       table.insert(lines, current_line)
       current_line = ""
@@ -188,9 +181,7 @@ function Editor:wrap_text(text, max_len)
     character_number = character_number + 1
   end
   table.insert(lines, current_line)
-  print("unwrapped:", text, "wrapped:", table.concat(lines, "\n"))
   return lines
-  -- return table.concat(lines, "\n")
 end
 
 function Editor:insert(char)
