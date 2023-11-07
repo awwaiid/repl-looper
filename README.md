@@ -32,6 +32,9 @@ Check out the [dev branch](https://github.com/awwaiid/repl-looper/tree/dev) and 
   * Using softcut, live record a sample and then slice it into a loop
   * Add the ability to select a current-loop and record via midi-pedal
   * If the current loop is loop-1, then stretch the BPM to match the sample at 16 steps
+* v0.5 (IN PROGRESS) - Editor
+  * Add cursor, arrow keys, and dynamic height to input editor
+  * On-screen grid mirror
 
 # Installation
 
@@ -226,24 +229,24 @@ Here we use loop `a` as the example, but you could run these commands on any loo
 
 # Development
 
-When developing you can run the Web-UI directly on your laptop, but you'll need to use docker or install dependencies (nodejs/npm). You get live-reload of changes and such. Slightly-evil the `dist` dir is then checked in to git for serving from the norns/maiden webserver. For the UI (a VueJS app):
-
-```sh
-cd ui
-
-# Direct
-npm install
-npm run dev
-
-# OR Docker, if you like
-docker-compose up
-```
-
-On the norns side we need to run the lua server-side. During dev I do it this way:
+I made a fancy script that rsyncs changes to the lua files when you save:
 
 ```sh
 # Auto-push to norns
 ./util/watch-sync.sh
+```
+
+I also like to run VNC so that I can have it all on my laptop. I have a modified version of framebuffer-vncserver (the upstream one was causing weird screen glitches) which I run on the norns:
+
+```
+cd local/framebuffer-vncserver/build
+./framebuffer-vncserver -k /dev/input/event0
+```
+
+And then locally the best client I found was the proprietary RealVNC client; it did the scaling without blur the best. I'm still not sure how to get rid of the local X cursor. Bleh.
+
+```
+vncviewer EnableToolbar=0 SecurityNotificationTimeout=0 ColorLevel=full SendPointerEvents=0 norns:5900
 ```
 
 # Future Ideas
