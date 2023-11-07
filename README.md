@@ -36,6 +36,7 @@ Check out the [dev branch](https://github.com/awwaiid/repl-looper/tree/dev) and 
   * Add cursor, arrow keys, home/end, and dynamic height to input editor
   * On-screen grid mirror
   * Abandon web UI
+* v0.5.1 (2023-11-07) - Fix grid keypress
 
 # Installation
 

@@ -1,4 +1,4 @@
--- repl-looper v0.5.0
+-- repl-looper v0.5.1
 -- Record/play code loops!
 --
 -- llllllll.co/t/repl-looper
@@ -58,9 +58,10 @@ Grid.__index = Grid
 function Grid.new(key_handler)
   local self = {
     device = grid.connect(),
-    key = key_handler,
     data = {}
   }
+
+  self.device.key = key_handler
 
   -- Initialize data based on grid cols/rows
   for x = 1, 16 do
