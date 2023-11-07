@@ -33,8 +33,9 @@ Check out the [dev branch](https://github.com/awwaiid/repl-looper/tree/dev) and 
   * Add the ability to select a current-loop and record via midi-pedal
   * If the current loop is loop-1, then stretch the BPM to match the sample at 16 steps
 * v0.5 (IN PROGRESS) - Editor
-  * Add cursor, arrow keys, and dynamic height to input editor
+  * Add cursor, arrow keys, home/end, and dynamic height to input editor
   * On-screen grid mirror
+  * Abandon web UI
 
 # Installation
 
@@ -46,27 +47,25 @@ Install directly from maiden or by running this in the maiden/matron console:
 
 Then start `repl-looper` on the norns.
 
-There are two ways to interact with `repl-looper` -- Directly on the norns with a USB keyboard, or with a web browser. Both ways work with a monome-grid (optional).
+There are two primary ways to control `repl-looper` -- A USB keyboard and a Monome-Grid. The keyboard is for typing in live code that gets executed, the Grid for visualizing and sequencing events.
 
-<img src="docs/20211227-demo-running.gif" width="40%" border=1 align="right" />
-You can access the web interface at:
-
-http://bit.ly/norns-repl-looper or http://norns.local/api/v1/dust/code/repl-looper/ui/dist/repl-looper.html
-
-Both interfaces offer the same REPL functionality, but the web-UI adds some further visualization.
+BONUS interface: A USB/Midi foot pedal! You can use this to select the current loop and start/stop recording!
 
 # Basic Usage
 
-The workflow is an alternative to maiden's REPL with a few different features and style. The basic idea is the same -- you run Lua commands and see the results. Verify that everything is running with some simple math, type in:
+The workflow is similar to maiden's REPL - you run Lua commands and see the results. Besides being on the norns directly, the other big thing you get is a tiny DSL, Domain Specific Language, which are some nice built in shortcuts for doing some loop manipulation.
+
+Let's get started! First, verify that everything is running with some simple math, type in:
 
 ```lua
 2+2
 ```
 
-Which should output `4` (give or take). While you can run any Lua commands you want, `repl-looper` comes with a built-in engine and a bunch of tools. The built-in engine is a mash-up of Timber, Goldeneye, and Molly the Poly, along with some lua wrappers. Try these commands:
+Which should output `2+2 -> 4` (give or take). You can see both the input and the result. While you can run any Lua commands you want, `repl-looper` comes with a built-in engine and a bunch of tools. The built-in engine is a mash-up of Timber, Goldeneye, and Molly the Poly, along with some lua wrappers. Try these commands:
 
 ```lua
 -- Timber piano shortcut
+p
 p'c'
 p'd'
 p(68)
@@ -77,7 +76,7 @@ molly:note(62)
 molly:stop()
 ```
 
-Press `<tab>` for some completions. You can press `<up>` or `<down>` arrows to select previous commands or tab-completion choices. Press `<enter>` without any command to run the previous command again.
+Press `<tab>` for some completions. You can press `<up>` or `<down>` arrows to select previous commands or tab-completion choices. Press `<enter>` without any command to run the previous command again. You can use `<left>`, `<right>`, `<home>`, `<end>`, and `<backspace>` to do some light editing.
 
 Next thing to play with is loops/sequences. There are 8 pre-defined 16-step loops, one for each row, put into variables `a` to `h`. Start by recording into loop `a`:
 
@@ -112,7 +111,7 @@ a:play() -- start loop again
 a:clear() -- erase loop contents
 ```
 
-Now that you have the script running on norns and the local UI up in a browser and everything working together, read through the [Usage Reference](#fullish-usage-reference) below and [Techniques](techniques.lua) to get more some ideas!
+Now that you have the script running on norns and everything working, read through the [Usage Reference](#fullish-usage-reference) below and [Techniques](techniques.lua) to get more some ideas!
 
 # Resources
 
@@ -123,9 +122,8 @@ Now that you have the script running on norns and the local UI up in a browser a
 # Fullish Usage Reference
 
 ## UI
-* Web UI
-  * On the right is output, including errors
-  * Loops on the grid will be visualized as they are played, and turn red in record mode
+* At the bottom is your input, above that are recent commands and completion suggestions
+* `<left>`, `<right>`, `<home>`, `<end>`, and `<backspace>` to do some light editing
 * Use `<up>` and `<down>` arrows to select commands and output from history
 * Press `<enter>` to execute the most recent item from history (re-run command)
 * Use `<tab>` to see what functions/methods are available (tab-complete)
@@ -137,20 +135,20 @@ Now that you have the script running on norns and the local UI up in a browser a
 There are a lot of pre-defined variables, functions, and objects to make live-coding with `repl-looper` convenient. These have been built organically based on usage, suggestions are welcome! In particular tab-complete-friendly prefixes for method names could be improved.
 
 ## Pre-defined variables/functions
-  * `a`..`h` -- loops, one per grid-row
-    * `loops` is a table of all eight, so you can do `all(loops):amp(0, 10)` to fade everything at once
-  * `p` -- a Timber-based piano sample player
-  * `piano` -- the underlying piano sample (via Timber)
-    * You can do things like `piano:reverse()`
-  * `molly` -- an instance of Molly, which wraps Molly The Poly
-    * `molly2` ... `molly8` -- more pre-defined Mollys
-    * `mollies` is a table of all eight, so you can do `all(mollies):stop()`
-    * Tip: ```h:gen("molly:note(`60+m`)")``` will put one molly-note on each step for a playable synth!
-  * Pre-loaded 808 samples in `s808.*` with these shortcuts
-    * `BD`, `BD`, `CH`, `CY`, `LC`, `MC`, `RS`, `BS`, `CL`, `HC`, `LT`, `MT`, `SD`, `CB`, `CP`, `HT`, `MA`, `OH`
-    * Call with `CP` or `CP()` or `s808.CP:play()`
-    * Modify with `s808.BS:amp(2)`
-    * Tip: `h:gen(keys(s808))` will put one sample on each step for a playable drum kit!
+* `a`..`h` -- loops, one per grid-row
+  * `loops` is a table of all eight, so you can do `all(loops):amp(0, 10)` to fade everything at once
+* `p` -- a Timber-based piano sample player
+* `piano` -- the underlying piano sample (via Timber)
+  * You can do things like `piano:reverse()`
+* `molly` -- an instance of Molly, which wraps Molly The Poly
+  * `molly2` ... `molly8` -- more pre-defined Mollys
+  * `mollies` is a table of all eight, so you can do `all(mollies):stop()`
+  * Tip: ```h:gen("molly:note(`60+m`)")``` will put one molly-note on each step for a playable synth!
+* Pre-loaded 808 samples in `s808.*` with these shortcuts
+  * `BD`, `BD`, `CH`, `CY`, `LC`, `MC`, `RS`, `BS`, `CL`, `HC`, `LT`, `MT`, `SD`, `CB`, `CP`, `HT`, `MA`, `OH`
+  * Call with `CP` or `CP()` or `s808.CP:play()`
+  * Modify with `s808.BS:amp(2)`
+  * Tip: `h:gen(keys(s808))` will put one sample on each step for a playable drum kit!
 
 ## Loop
 
@@ -246,7 +244,7 @@ cd local/framebuffer-vncserver/build
 And then locally the best client I found was the proprietary RealVNC client; it did the scaling without blur the best. I'm still not sure how to get rid of the local X cursor. Bleh.
 
 ```
-vncviewer EnableToolbar=0 SecurityNotificationTimeout=0 ColorLevel=full SendPointerEvents=0 norns:5900
+vncviewer EnableToolbar=0 SecurityNotificationTimeout=0 ColorLevel=full SendPointerEvents=0 norns.local:5900
 ```
 
 # Future Ideas
@@ -258,12 +256,15 @@ vncviewer EnableToolbar=0 SecurityNotificationTimeout=0 ColorLevel=full SendPoin
   * Like a notebook but worse
   * Let the code edit the code
   * Constant fzf-style autocomplete
+  * LLM completions
 * Loop Recording / Editing Modes
   * Step first: Pick a step and record an event
   * Event sequencing: Take an event and place (or edit) the location of the event
   * Edit mode where a button-press loads all (timed) events for editing
 * Sync loops together better?
-* Add half-loops, like `a2`..`h2` that span coluns 9..16 on grid
+* Add visual half-loops (8 steps) for the grid
+  * `a1`..`h1` to span columns 1..8
+  * `a2`..`h2` to span columns 9..16
 
 # Shout Outs!
 
