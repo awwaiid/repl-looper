@@ -1042,21 +1042,8 @@ function handle_grid_key(col, row, state)
   end
 end
 
-function wrap_text(text, max_len)
-  local lines = {}
-  local cur_text = text
-  while #cur_text > 0 do
-    table.insert(lines, cur_text:sub(-1 * max_len))
-    cur_text = cur_text:sub(max_len)
-  end
-  -- print("unwrapped:", text, "wrapped:", table.concat(lines, "\n"))
-  return table.concat(lines, "\n")
-end
-
 local recent_command = ""
-local current_text_input = ""
 local history_select = nil
-
 
 -- Modified redraw ScrollingList
 -- This version doesn't show blanks at the top/bottom
@@ -1115,66 +1102,73 @@ function draw_logo(x, y)
   screen.stroke()
 end
 
+function draw_mini_grid_mirror(x, y)
+  local scale = 1
+  screen.move(x, y)
+
+  for col = 1, 16 do
+    for row = 1, 8 do
+      local val = grid_device.data[col][row]
+      if val == 0 then
+        val = 1
+      end
+      screen.level(val)
+      screen.rect(x + (col - 1) * scale, y + (row - 1) * scale, scale, scale)
+      screen.fill()
+    end
+  end
+end
+
 function redraw()
 
   screen.ping()
   screen.clear()
 
-  local history_viz = {}
-  for i, entry in result_history:ipairs() do
-    history_viz[i] = entry.input
-    if entry.output ~= "null" then
-      history_viz[i] = history_viz[i] .. " -> " .. entry.output
-    end
-  end
+  local editor_height = editor:redraw()
 
-  screen.level(15)
-  local lst = UI.ScrollingList.new(0, 0, (history_select or #history_viz), history_viz)
-  if not history_select then
-    lst.active = false
-  end
-  lst.num_above_selected = 0
-  lst:redraw()
-
+  -- Nice horizontal line between history and prompt
+  local divider_y = 64 - editor_height - 10
   screen.level(2)
-  screen.move(0, 55)
+  screen.move(0, divider_y)
   screen.line_width(1)
-  screen.line(128, 55)
+  screen.line(128, divider_y)
   screen.stroke()
 
+  local history_line_height = math.floor((divider_y - 2) / 9)
+  if history_line_height > 0 then
+    local history_viz = {}
+    for i, entry in result_history:ipairs() do
+      history_viz[i] = entry.input
+      if entry.output ~= "null" then
+        history_viz[i] = history_viz[i] .. " -> " .. entry.output
+      end
+    end
+
+    screen.level(15)
+    local lst = UI.ScrollingList.new(0, 0, (history_select or #history_viz), history_viz)
+    if not history_select then
+      lst.active = false
+    end
+    lst.num_above_selected = 0
+    lst.num_visible = history_line_height
+    lst:redraw()
+  end
+
+  -- Informational / cool displays
   screen.level(15)
-  screen.move(0, 62)
-  -- screen.text(">" .. current_text_input:sub(-30))
-  screen.text(">" .. wrap_text(current_text_input, 30))
-
-  -- screen.move(128,5)
-  -- screen.text_right("REPL-LOOPER")
-
-  screen.level(1)
-  draw_logo(118, 1)
+  -- draw_logo(118, 1)
+  draw_mini_grid_mirror(112, 1)
 
   screen.update()
 end
 
--- You could use this to do things like remap to Dvorak or whatnot
--- In my case ... I swap my numbers and symbols. Slightly insane
--- but I'm used to it so .... yeah.
-local remap_key = {
-  ["1"] = "!", ["2"] = "@", ["3"] = "#", ["4"] = "$",
-  ["5"] = "%", ["6"] = "^", ["7"] = "&", ["8"] = "*",
-  ["9"] = "(", ["0"] = ")", ["["] = "{", ["]"] = "}",
-  ["!"] = "1", ["@"] = "2", ["#"] = "3", ["$"] = "4",
-  ["%"] = "5", ["^"] = "6", ["&"] = "7", ["*"] = "8",
-  ["("] = "9", [")"] = "0", ["{"] = "[", ["}"] = "]",
-}
--- remap_key = {}
-
 function keyboard.char(character)
-  local character = remap_key[character] or character
   history_select = nil
-  current_text_input = current_text_input .. character
+  editor:insert(character)
   redraw()
 end
+
+saved_content = ""
 
 function keyboard.code(code, value)
   -- The grid logo is fun, but let's hide it once we have a keypress
@@ -1185,51 +1179,64 @@ function keyboard.code(code, value)
   end
 
   if value == 1 or value == 2 then -- 1 is down, 2 is held, 0 is release
-    -- print("keyboard code", code)
+    print("keyboard code and value", code, value)
 
     -- History selection
     if code == "UP" then
       if not history_select then
+        saved_content = editor.content
         history_select = result_history:count()
       else
         history_select = history_select - 1
         if history_select == 0 then
           history_select = nil
-          current_text_input = ""
+          editor:set_content(saved_content)
         end
       end
       if history_select then
-        current_text_input = result_history:peek(history_select).input
+        editor:set_content(result_history:peek(history_select).input)
       end
     elseif code == "DOWN" then
       if not history_select then
+        saved_content = editor.content
         history_select = 1
       else
         history_select = history_select + 1
         if history_select > result_history:count() then
           history_select = nil
-          current_text_input = ""
+          editor:set_content(saved_content)
         end
       end
       if history_select then
-        current_text_input = result_history:peek(history_select).input
+        editor:set_content(result_history:peek(history_select).input)
       end
     else
       history_select = nil
+      saved_content = ""
     end
 
     if code == "BACKSPACE" then
-      current_text_input = current_text_input:sub(1, -2) -- erase characters from current_text_input
+      editor:backspace()
+    elseif code == "DELETE" then
+      editor:delete()
+    elseif code == "LEFT" then
+      editor:move_cursor_left()
+    elseif code == "RIGHT" then
+      editor:move_cursor_right()
+    elseif code == "HOME" then
+      editor:move_cursor_to_start()
+    elseif code == "END" then
+      editor:move_cursor_to_end()
     elseif code == "ENTER" then
-      if current_text_input == "" then
+      if editor.content == "" then
         -- If there is no new input, send the most recent history entry
-        current_text_input = result_history:peek_back().input
+        editor:set_content(result_history:peek_back().input)
       end
-      client_live_event(current_text_input)
-      current_text_input = "" -- clear current_text_input
+      client_live_event(editor.content)
+      editor:clear()
     elseif code == "TAB" then
-      local comps = comp.complete(current_text_input)
-      current_text_input = helper.longestPrefix(comps)
+      local comps = comp.complete(editor.content)
+      editor:set_content(helper.longestPrefix(comps))
       if #comps > 1 then
         for i, v in ipairs(comps) do
           result_history:push_back({
@@ -1629,8 +1636,7 @@ function init()
 
   -- Global Grid
   print "Loading grid"
-  grid_device = grid.connect()
-  grid_device.key = handle_grid_key
+  grid_device = Grid.new(handle_grid_key)
 
   draw_grid_logo()
 
