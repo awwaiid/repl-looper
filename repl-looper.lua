@@ -1141,7 +1141,7 @@ function redraw()
     for i, entry in result_history:ipairs() do
       history_viz[i] = entry.input
       if entry.output ~= "null" then
-        history_viz[i] = history_viz[i] .. " -> " .. entry.output
+        history_viz[i] = history_viz[i] .. " → " .. entry.output
       end
     end
 
