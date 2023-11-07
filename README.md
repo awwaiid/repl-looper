@@ -32,7 +32,7 @@ Check out the [dev branch](https://github.com/awwaiid/repl-looper/tree/dev) and 
   * Using softcut, live record a sample and then slice it into a loop
   * Add the ability to select a current-loop and record via midi-pedal
   * If the current loop is loop-1, then stretch the BPM to match the sample at 16 steps
-* v0.5 (IN PROGRESS) - Editor
+* v0.5 (2023-11-06) - Editor
   * Add cursor, arrow keys, home/end, and dynamic height to input editor
   * On-screen grid mirror
   * Abandon web UI
