@@ -1,16 +1,18 @@
--- repl-looper v0.4.0
+-- repl-looper v0.5.0
 -- Record/play code loops!
 --
 -- llllllll.co/t/repl-looper
 --
--- Use with grid, keyboard,
--- optional web-UI in browser
--- bit.ly/norns-repl-looper
+-- Use with keyboard+grid
 --
--- (or long URL)
--- http://norns.local/api/v1
---   /dust/code/repl-looper
---   /ui/dist/repl-looper.html
+--     ███████████
+--     █         █
+--    ███   █
+--     █     █   █
+--          █   ███
+--     █         █
+--     ███████████
+--
 
 -- Add repl-looper lib dir in to load .so files like cjson.so
 if not string.find(package.cpath, "/home/we/dust/code/repl-looper/lib/", 1, true) then
