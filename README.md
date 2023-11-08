@@ -114,6 +114,24 @@ a:clear() -- erase loop contents
 
 Now that you have the script running on norns and everything working, read through the [Usage Reference](#fullish-usage-reference) below and [Techniques](techniques.lua) to get more some ideas!
 
+## The Grid
+
+![repl-looper-grid](docs/repl-looper-grid.png)
+
+The Grid visualizes the loops, their content, and their current status.
+
+* Each row is a loop (`a`..`h`)
+* Each step that has commands is lit up (dimly)
+* Press a button to execute all the commands at that step
+* You will see the command go into the REPL execution history exactly as if you had run it by hand
+* The current step is lit up brightly
+* When you are playing a loop (like `a:play()`) you will see the current step move across and then loop back around
+* If you are recording one loop, like `a:rec()` and you press buttons on any loop those events are executed _and recorded!_
+* So you can create an adhoc piano on loop `h`, start recording on loop `a`, and then jam the piano buttons
+  * ```h:gen("p(`50+m`)")``` -- put a piano note on each step
+  * You could also put some 808 stuff on a loop like ```g:gen(keys(s808))```
+  * `a:rec()` -- start recording, jamming, looping!!!
+
 # Resources
 
 * [Techniques / Tutorial](techniques.md) to get some ideas!
