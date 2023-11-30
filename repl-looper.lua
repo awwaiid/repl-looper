@@ -758,6 +758,18 @@ function Loop:gen(code_string, modification, offset)
             return eval(injected_snippet)
           end
         )
+      local expanded_code_string =
+        string.gsub(
+          expanded_code_string,
+          "([^%w_])N([^%w_])",
+          "%1" .. n .. "%2"
+        )
+      local expanded_code_string =
+        string.gsub(
+          expanded_code_string,
+          "([^%w_])M([^%w_])",
+          "%1" .. (n-1) .. "%2"
+        )
       local event = Event.new({
         pulse = (n - 1) * self.lattice.ppqn,
         command = expanded_code_string
@@ -778,6 +790,18 @@ function Loop:gen(code_string, modification, offset)
             return eval(injected_snippet)
           end
         )
+      local expanded_code_string =
+        string.gsub(
+          expanded_code_string,
+          "([^%w_])N([^%w_])",
+          "%1" .. n .. "%2"
+        )
+      local expanded_code_string =
+        string.gsub(
+          expanded_code_string,
+          "([^%w_])M([^%w_])",
+          "%1" .. (n-1) .. "%2"
+        )
       local event = Event.new({
         pulse = (n - 1) * self.lattice.ppqn,
         command = expanded_code_string
@@ -795,6 +819,18 @@ function Loop:gen(code_string, modification, offset)
             local injected_snippet = "local n = dynamic('n'); local m = n - 1; return " .. snippet
             return eval(injected_snippet)
           end
+        )
+      local expanded_code_string =
+        string.gsub(
+          expanded_code_string,
+          "([^%w_])N([^%w_])",
+          "%1" .. n .. "%2"
+        )
+      local expanded_code_string =
+        string.gsub(
+          expanded_code_string,
+          "([^%w_])M([^%w_])",
+          "%1" .. (n-1) .. "%2"
         )
       local event = Event.new({
         pulse = (n - 1) * self.lattice.ppqn,
