@@ -266,8 +266,10 @@ function Event:lua()
 end
 
 current_context_loop_id = 0
+loop = nil -- shortcut for "current eval loop"
 function Event:eval(context_loop_id, from_playing_loop)
   current_context_loop_id = context_loop_id
+  loop = loops[context_loop_id]
   -- print("Set context loop id to", current_context_loop_id)
   local result = live_event(self.command, from_playing_loop)
   -- print("Reset context loop id to 0")
@@ -554,10 +556,13 @@ function Loop:to_grid_row()
   return row
 end
 
+s = nil
+
 function Loop:play_events_at_step(step)
   for _, event in ipairs(self.events) do
     local event_step = math.floor(event.step)
     if event_step == step then
+      s = event_step
       event:eval(self.id)
     end
   end
@@ -567,6 +572,7 @@ function Loop:play_off_events_at_step(step)
   for _, event in ipairs(self.off_events) do
     local event_step = math.floor(event.step)
     if event_step == step then
+      s = event_step
       event:eval(self.id)
     end
   end
