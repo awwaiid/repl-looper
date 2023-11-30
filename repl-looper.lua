@@ -236,6 +236,14 @@ editor = Editor.new()
 -- Loop-related objects ---------------------------------------------
 ---------------------------------------------------------------------
 
+local superLattice = Lattice:new{}
+superLattice.children = {}
+superLattice.pulse = function(self)
+  for _, child in ipairs(self.children) do
+    child:pulse()
+  end
+end
+
 local Event = {}
 Event.__index = Event
 Event.last_id = 0
@@ -302,7 +310,7 @@ function Loop.new(init)
     step = 1,
     current_substep = 1.0,
     duration = 10212,
-    lattice = Lattice:new{},
+    lattice = Lattice:new{auto = false},
     record_feedback = false,
     auto_quantize = false,
     send_feedback = false,
@@ -339,6 +347,9 @@ function Loop.new(init)
     end,
     division = 1/4
   }
+
+  -- Hook this up as a child to the superLattice
+  superLattice.children[self.id] = self.lattice
 
   return self
 end
@@ -1668,6 +1679,9 @@ function init()
   -- MollyThePoly.add_params()
   -- params:add_separator()
   ReplLooper.add_params()
+
+  -- Turn on our superLattice
+  superLattice:start()
 
   -- Pre-create 8 loops
   -- Implicitly end up in `loops` with names `a`..`h`
