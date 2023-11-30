@@ -370,16 +370,6 @@ function Loop:send_status(t)
 
   self.step = self:get_current_step(t)
   self:draw_grid_row()
-
-  messageFromServer {
-    action = "playback_step",
-    step = self.current_step,
-    stepCount = self.loop_length_qn,
-    loop_id = self.id,
-    command = self.recent_command,
-    mode = self.mode,
-    loop_letter = self.loop_letter
-  }
 end
 
 function Loop:qn_per_ms()
@@ -1222,8 +1212,6 @@ function keyboard.code(code, value)
   end
 
   if value == 1 or value == 2 then -- 1 is down, 2 is held, 0 is release
-    print("keyboard code and value", code, value)
-
     -- History selection
     if code == "UP" then
       if not history_select then
@@ -1428,20 +1416,6 @@ end
 -- REPL communication ------------------------------------------------
 ----------------------------------------------------------------------
 
-function messageToServer(json_msg)
-  local msg = JSON.decode(json_msg)
-  if msg.command == "save_loop" then
-    loops[msg.loop_num] = Loop.new(msg.loop)
-  else
-    print "UNKNOWN COMMAND\n"
-  end
-end
-
-function messageFromServer(msg)
-  local msg_json = JSON.encode(msg)
-  print("SERVER MESSAGE: " .. msg_json .. "\n")
-end
-
 -- Look up a variable via dynamic scope
 -- Code from https://leafo.net/guides/dynamic-scoping-in-lua.html
 function dynamic(name)
@@ -1461,7 +1435,6 @@ function dynamic(name)
     level = level + 1
   end
 end
-
 
 result_history = Deque.new()
 
@@ -1562,14 +1535,14 @@ function live_event(command, from_playing_loop)
   end
 end
 
-function completions(command)
-  local comps = comp.complete(command)
-  return "RESPONSE:" .. JSON.encode({
-    action = "completions",
-    command = command,
-    result = comps
-  })
-end
+-- function completions(command)
+--   local comps = comp.complete(command)
+--   return "RESPONSE:" .. JSON.encode({
+--     action = "completions",
+--     command = command,
+--     result = comps
+--   })
+-- end
 
 ------------------------------------------------------------------
 -- Music utilities -----------------------------------------------
