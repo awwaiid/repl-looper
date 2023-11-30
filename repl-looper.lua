@@ -297,7 +297,7 @@ function Loop.new(init)
     events = {},
     off_events = {},
     loop_length_qn = 16,
-    current_step = 1,
+    step = 1,
     current_substep = 1.0,
     duration = 10212,
     lattice = Lattice:new{},
@@ -366,7 +366,7 @@ function Loop:send_status(t)
 
   clock.sleep(0.001) -- Allow other things to run
 
-  self.current_step = self:get_current_step(t)
+  self.step = self:get_current_step(t)
   self:draw_grid_row()
 
   messageFromServer {
@@ -460,7 +460,7 @@ function Loop:setStep(step)
   step = step - 1
   step = step % self.loop_length_qn
   self.lattice.transport = step * self.lattice.ppqn
-  self.current_step = self:get_current_step()
+  self.step = self:get_current_step()
   self:update_lattice()
   self:draw_grid_row()
 end
@@ -505,7 +505,7 @@ end
 
 function Loop:lua()
   local output = {}
-  output.current_step = self.current_step
+  output.step = self.step
   output.loop_length_qn = self.loop_length_qn
   output.transport = self.lattice.transport
   output.stop_next = self.stop_next
@@ -534,7 +534,7 @@ function Loop:to_grid_row()
   -- Highlight the current step even if we're not
   -- on an event; all the rest are dark by default
   for n = 1, self.loop_length_qn do
-    if math.ceil(n/div) == math.ceil(self.current_step/div) then
+    if math.ceil(n/div) == math.ceil(self.step/div) then
       row[math.ceil(n/div)] = 10
     else
       row[math.ceil(n/div)] = 0
@@ -544,7 +544,7 @@ function Loop:to_grid_row()
   -- Entries with events glow. Event+current glow a lot
   for _, event in ipairs(self.events) do
     local visual_step = math.ceil(math.floor(event.step)/div)
-    if visual_step == math.ceil(self.current_step/div) then
+    if visual_step == math.ceil(self.step/div) then
       row[visual_step] = 15
     else
       row[visual_step] = 5
@@ -711,7 +711,7 @@ function Loop:shift(transport_diff)
     event.pulse = event.pulse - transport_diff
   end
 
-  self.current_step = self:get_current_step()
+  self.step = self:get_current_step()
   self:update_lattice()
   self:draw_grid_row()
 end
@@ -932,7 +932,7 @@ function Loop:split(other_loop, base_command)
   print "Copying settings"
   other_loop.loop_length_qn = self.loop_length_qn
   other_loop.lattice.transport = self.lattice.transport
-  other_loop.current_step = self.current_step
+  other_loop.step = self.step
 
   print "Calculating event distances"
   base_command = base_command or events[1].command
