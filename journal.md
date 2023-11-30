@@ -130,3 +130,15 @@
   * Might end up forking lattice, not sure
   * Other thing is to keep working on-norns editor improvements
   * And going back to adding some modes, like an edit mode where you can click into code and edit it
+* 2023-11-10
+  * Well I'm back!
+  * I did a lot of stuff since last time we chatted
+  * I'm currenty debugging a bit of timing issues. So here's how to test:
+    * `all(loops):gen("CH")`
+    * `all(loops):play()`
+    * And now listen as it slowly drifts out of sync!
+* 2023-11-29
+  * I finally added a super-lattice to force all the others to stay in sequence
+  * Not sure how good an idea that is, but the simple test of filling the whole grid with a single closed-hat hit stays much more in time now
+  * Though right after that I crashed the whole norns, so that's fun
+  * I also added `M` and `N` as non-macro expansion of the current step during `loop:gen`. So instead of ```a:gen("p(`60+m`)")``` you can do `a:gen("p(60+M)")`
