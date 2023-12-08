@@ -307,10 +307,12 @@ Loop.__index = Loop
 Loop.last_id = 0
 
 function Loop.new(init)
-  local self = init or {
+  local self = {
     events = {},
     off_events = {},
     loop_length_qn = 16,
+    visual_length = 16,
+    visual_offset = 0,
     step = 1,
     current_substep = 1.0,
     duration = 10212,
@@ -328,20 +330,21 @@ function Loop.new(init)
     mode = "stop"
   }
 
-  setmetatable(self, Loop)
-
   Loop.last_id = Loop.last_id + 1
   self.id = Loop.last_id
 
+  self.visual_row = (self.id - 1) % 8 + 1
+
+  if init then
+    for k, v in pairs(init) do
+      self[k] = v
+    end
+  end
+
+  setmetatable(self, Loop)
+
   -- Register with global list of loops
   loops[self.id] = self
-
-  -- Kinda evil shortcut!
-  -- for loops 1..8 make global var 'a' .. 'h'
-  if self.id < 9 then
-    self.loop_letter = string.char(string.byte("a") + self.id - 1)
-    _G[self.loop_letter] = self
-  end
 
   -- Basically a quarter-note metronome
   -- This is used to update the grid and client
@@ -492,10 +495,10 @@ end
 
 -- Let's get some GRID!!
 function Loop:draw_grid_row()
-  clear_grid_row(self.id)
+  -- clear_grid_row(self.id)
 
   local row = self:to_grid_row()
-  for n = 1, 16 do
+  for n = 1, self.visual_length do
 
     -- Highlight currently selected row
     local val = row[n] or 0
@@ -504,7 +507,7 @@ function Loop:draw_grid_row()
     end
 
     -- Mod-16 so we can show long sequences overlaid; maybe confusing
-    grid_device:led((((n-1) % 16)+1), self.id, val)
+    grid_device:led((((n-1) % self.visual_length)+1+self.visual_offset), self.visual_row, val)
   end
 
   grid_device:refresh()
@@ -536,7 +539,7 @@ function Loop:to_grid_row()
   local row = {}
   -- Basically zoom-out for longer loops, but still in increments of 16
   -- This is might be weird for non-powers-of-2
-  local div = math.floor((self.loop_length_qn - 1) / 16) + 1
+  local div = math.floor((self.loop_length_qn - 1) / self.visual_length) + 1
 
   -- Highlight the current step even if we're not
   -- on an event; all the rest are dark by default
@@ -1069,22 +1072,23 @@ grid_mode = "one-shot"
 local grid_data = {}
 
 function handle_grid_key(col, row, state)
-  local loop_id = row
   local step = col
-  local loop = loops[loop_id]
-
-  if state == 0 then
-    loop:play_off_events_at_step(col)
-  else
-    if grid_mode == "one-shot" then
-      loop:play_events_at_step(col)
-    elseif grid_mode == "sequence" then
-      if not grid_data.commands then
-        grid_data.commands = loop:commands_at_step(step)
-        loop:draw_grid_row()
+  for _, loop in pairs(loops) do
+    if loop.visual_row == row then
+      if state == 0 then
+        loop:play_off_events_at_step(col - loop.visual_offset)
       else
-        loop:toggle_commands_at_step(step, grid_data.commands)
-        loop:draw_grid_row()
+        if grid_mode == "one-shot" then
+          loop:play_events_at_step(col - loop.visual_offset)
+        elseif grid_mode == "sequence" then
+          if not grid_data.commands then
+            grid_data.commands = loop:commands_at_step(step - loop.visual_offset)
+            loop:draw_grid_row()
+          else
+            loop:toggle_commands_at_step(step - loop.visual_offset, grid_data.commands)
+            loop:draw_grid_row()
+          end
+        end
       end
     end
   end
@@ -1692,11 +1696,31 @@ function init()
   -- Turn on our superLattice
   superLattice:start()
 
-  -- Pre-create 8 loops
-  -- Implicitly end up in `loops` with names `a`..`h`
-  for n = 1, 8 do
-    Loop.new()
-  end
+  -- Pre-create loops
+  a  = Loop.new({ visual_length = 16, visual_offset = 0, loop_length_qn = 16, visual_row = 1 })
+  a1 = Loop.new({ visual_length = 8,  visual_offset = 0, loop_length_qn = 8,  visual_row = 1 })
+  a2 = Loop.new({ visual_length = 8,  visual_offset = 8, loop_length_qn = 8,  visual_row = 1 })
+  b  = Loop.new({ visual_length = 16, visual_offset = 0, loop_length_qn = 16, visual_row = 2 })
+  b1 = Loop.new({ visual_length = 8,  visual_offset = 0, loop_length_qn = 8,  visual_row = 2 })
+  b2 = Loop.new({ visual_length = 8,  visual_offset = 8, loop_length_qn = 8,  visual_row = 2 })
+  c  = Loop.new({ visual_length = 16, visual_offset = 0, loop_length_qn = 16, visual_row = 3 })
+  c1 = Loop.new({ visual_length = 8,  visual_offset = 0, loop_length_qn = 8,  visual_row = 3 })
+  c2 = Loop.new({ visual_length = 8,  visual_offset = 8, loop_length_qn = 8,  visual_row = 3 })
+  d  = Loop.new({ visual_length = 16, visual_offset = 0, loop_length_qn = 16, visual_row = 4 })
+  d1 = Loop.new({ visual_length = 8,  visual_offset = 0, loop_length_qn = 8,  visual_row = 4 })
+  d2 = Loop.new({ visual_length = 8,  visual_offset = 8, loop_length_qn = 8,  visual_row = 4 })
+  e  = Loop.new({ visual_length = 16, visual_offset = 0, loop_length_qn = 16, visual_row = 5 })
+  e1 = Loop.new({ visual_length = 8,  visual_offset = 0, loop_length_qn = 8,  visual_row = 5 })
+  e2 = Loop.new({ visual_length = 8,  visual_offset = 8, loop_length_qn = 8,  visual_row = 5 })
+  f  = Loop.new({ visual_length = 16, visual_offset = 0, loop_length_qn = 16, visual_row = 6 })
+  f1 = Loop.new({ visual_length = 8,  visual_offset = 0, loop_length_qn = 8,  visual_row = 6 })
+  f2 = Loop.new({ visual_length = 8,  visual_offset = 8, loop_length_qn = 8,  visual_row = 6 })
+  g  = Loop.new({ visual_length = 16, visual_offset = 0, loop_length_qn = 16, visual_row = 7 })
+  g1 = Loop.new({ visual_length = 8,  visual_offset = 0, loop_length_qn = 8,  visual_row = 7 })
+  g2 = Loop.new({ visual_length = 8,  visual_offset = 8, loop_length_qn = 8,  visual_row = 7 })
+  h  = Loop.new({ visual_length = 16, visual_offset = 0, loop_length_qn = 16, visual_row = 8 })
+  h1 = Loop.new({ visual_length = 8,  visual_offset = 0, loop_length_qn = 8,  visual_row = 8 })
+  h2 = Loop.new({ visual_length = 8,  visual_offset = 8, loop_length_qn = 8,  visual_row = 8 })
 
   -- Global mollys to start with
   molly = Molly.new()
