@@ -737,6 +737,13 @@ function Loop:clone(other_loop)
     other_loop:add_event(event:clone())
   end
   self:draw_grid_row()
+  other:draw_grid_row()
+end
+
+function Loop:gsub(pattern, replacement)
+  for _, event in ipairs(self.events) do
+    event.command = string.gsub(event.command, pattern, replacement)
+  end
 end
 
 -- a:gen("CH") puts the "CH" function on every step
