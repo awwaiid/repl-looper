@@ -136,11 +136,11 @@ function Editor:draw_wrapped_content(start_x, start_y, do_draw)
     if char_width == 0 then
       char_width = 4
     end
-    if x + char_width > 127 then
+    if x + char_width > 127 or char == "\n" then
       x = 0
       y = y + 8
     end
-    if do_draw then
+    if do_draw and char ~= "\n" then
       screen.move(x, y)
       if i == self.cursor then
         screen.level(15)
@@ -151,7 +151,9 @@ function Editor:draw_wrapped_content(start_x, start_y, do_draw)
         screen.text(char)
       end
     end
-    x = x + char_width + 1
+    if char ~= "\n" then
+      x = x + char_width + 1
+    end
   end
   return y
 end
@@ -173,11 +175,13 @@ function Editor:wrap_text(text, max_len)
   while #remaining_text > 0 do
     local next_character = remaining_text:sub(1, 1)
     local current_line_size = screen.text_extents(current_line .. next_character)
-    if current_line_size > max_len then
+    if current_line_size > max_len or next_character == "\n" then
       table.insert(lines, current_line)
       current_line = ""
     end
-    current_line = current_line .. next_character
+    if next_character ~= "\n" then
+      current_line = current_line .. next_character
+    end
     remaining_text = remaining_text:sub(2)
     character_number = character_number + 1
   end
@@ -1270,12 +1274,17 @@ function keyboard.code(code, value)
     elseif code == "END" then
       editor:move_cursor_to_end()
     elseif code == "ENTER" then
-      if editor.content == "" then
-        -- If there is no new input, send the most recent history entry
-        editor:set_content(result_history:peek_back().input)
+      if keyboard.shift() then
+        print("Got a newline")
+        editor:insert("\n")
+      else
+        if editor.content == "" then
+          -- If there is no new input, send the most recent history entry
+          editor:set_content(result_history:peek_back().input)
+        end
+        client_live_event(editor.content)
+        editor:clear()
       end
-      client_live_event(editor.content)
-      editor:clear()
     elseif code == "TAB" then
       local comps = comp.complete(editor.content)
       editor:set_content(helper.longestPrefix(comps))
