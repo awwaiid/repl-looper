@@ -944,8 +944,14 @@ function Loop:clear()
   for _, event in ipairs(self.events) do
     event:destroy()
   end
+
   self.events = {}
   self.off_events = {}
+  self.step = 1
+  self.current_substep = 1.0
+  self.mods = { amp = 1, ampLag = 0, pan = 0 }
+  self.mode = "stop"
+
   self:draw_grid_row()
 end
 
