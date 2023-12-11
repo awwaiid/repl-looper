@@ -24,7 +24,7 @@ function Granchild:play()
 end
 
 function Granchild:stop()
-  engine.zglut_gate(self.id, 1)
+  engine.zglut_gate(self.id, 0)
 end
 
 function Granchild:seek(pos)
