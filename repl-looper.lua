@@ -1596,6 +1596,7 @@ engine.name = "ReplLooper"
 Timber = include("repl-looper/lib/timber")
 Molly = include("repl-looper/lib/molly")
 Sample = include("repl-looper/lib/sample")
+Granchild = include("repl-looper/lib/granchild")
 
 -- Play a note or a chord
 -- The note can be either a midi number OR a note-string like "C3"
