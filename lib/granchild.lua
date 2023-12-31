@@ -3,7 +3,9 @@ local Granchild = {}
 Granchild.__index = Granchild
 Granchild.next_id = 1
 
-function Granchild.new()
+Granchild.instances = {}
+
+function Granchild.new(filename)
   local self = {}
 
   setmetatable(self, Granchild)
@@ -11,15 +13,25 @@ function Granchild.new()
   self.id = Granchild.next_id
   Granchild.next_id = Granchild.next_id + 1
 
+  Granchild.instances[self.id] = self
+
+  if filename then
+    self:load(filename)
+  end
+
   return self
 end
 
 function Granchild:load(filename)
+  if not string.find(filename, "/") then
+    filename = "/home/we/dust/code/repl-looper/audio/" .. filename
+  end
   self.filename = filename
   engine.zglut_read(self.id, filename)
 end
 
 function Granchild:play()
+  self:track(current_context_loop_id)
   engine.zglut_gate(self.id, 1)
 end
 
@@ -28,6 +40,7 @@ function Granchild:stop()
 end
 
 function Granchild:seek(pos)
+  self:track(current_context_loop_id)
   engine.zglut_seek(self.id, pos)
 end
 
@@ -79,7 +92,7 @@ function Granchild:send(send)
   engine.zglut_send(self.id, send)
 end
 
-function Granchild:volume(volume)
+function Granchild:amp(volume)
   engine.zglut_volume(self.id, volume)
 end
 
@@ -121,6 +134,20 @@ end
 
 function Granchild:delay_volume(delay_volume)
   engine.zglut_delay_volume(self.id, delay_volume)
+end
+
+function Granchild:track(track_id)
+  engine.zglut_track(self.id, track_id)
+end
+
+function Granchild._fileLoaded(id, numFrames)
+  local self = Granchild.instances[id]
+  if self then
+    self.numFrames = numFrames
+    if self.on_load then
+      self:on_load()
+    end
+  end
 end
 
 return Granchild;

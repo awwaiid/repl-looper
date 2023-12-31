@@ -9,7 +9,7 @@
 // GPL 3.0! See LICENSE.md
 
 Engine_ReplLooper : CroneEngine {
-	classvar zglut_nvoices = 1;
+	classvar zglut_nvoices = 4;
 
   var maxVoices = 7;
   var maxSamples = 256;
@@ -811,6 +811,7 @@ Engine_ReplLooper : CroneEngine {
       var inst_id = msg[1];
       var voice = this.getInstMollyVoiceList(inst_id).detect{arg v; v.id == msg[2]};
       if(voice.notNil, {
+        voice.trace;
         voice.theSynth.set(\gate, 0);
         voice.gate = 0;
       });
@@ -841,6 +842,14 @@ Engine_ReplLooper : CroneEngine {
       this.getInstMollyVoiceGroup(inst_id).set(\gate, 0);
       this.getInstMollyVoiceGroup(inst_id).set(\killGate, 0);
       this.getInstMollyVoiceList(inst_id).clear;
+    });
+
+    this.addCommand(\mollyTrace, "ii", { arg msg;
+      var inst_id = msg[1];
+      var voice = this.getInstMollyVoiceList(inst_id).detect{arg v; v.id == msg[2]};
+      if(voice.notNil, {
+        voice.theSynth.trace;
+      });
     });
 
     // mollyPitchBend(id, ratio)
@@ -1521,10 +1530,10 @@ Engine_ReplLooper : CroneEngine {
 			buf_pos = Phasor.kr(trig: t_reset_pos,
 				rate: buf_dur.reciprocal / ControlRate.ir * speed,
 				resetPos: pos);
-      buf_pos.poll(1, "buf_pos");
+      // buf_pos.poll(1, "buf_pos");
 
 			pos_sig = Wrap.kr(Select.kr(freeze, [buf_pos, pos]));
-      pos_sig.poll(1, "pos_sig");
+      // pos_sig.poll(1, "pos_sig");
 
 			sig = GrainBuf.ar(
 						numChannels: 2,
@@ -1635,20 +1644,20 @@ Engine_ReplLooper : CroneEngine {
 			// 	pan: pan_sig,
 			// 	rate: pitch,
 			// 	);
-      sig.poll(1, "zglut sig after grainbuf");
+      // sig.poll(1, "zglut sig after grainbuf");
 			sig = BLowPass4.ar(sig, cutoff, q);
-      sig.poll(1, "zglut sig after lowpass");
+      // sig.poll(1, "zglut sig after lowpass");
 			sig = Compander.ar(sig,sig,0.25)/2;
-      sig.poll(1, "zglut sig after compander");
+      // sig.poll(1, "zglut sig after compander");
 			sig = Balance2.ar(sig[0],sig[1],voice_pan);
-      sig.poll(1, "zglut sig after balance");
+      // sig.poll(1, "zglut sig after balance");
 			env = EnvGen.kr(Env.asr(1, 1, 1), gate: gate, timeScale: envscale);
 
 			level = env;
 
-      level.poll(1, "zglut level");
-      gain.poll(1, "zglut gain");
-      (sig * level * gain).poll(1, "zglut");
+      // level.poll(1, "zglut level");
+      // gain.poll(1, "zglut gain");
+      // (sig * level * gain).poll(1, "zglut");
 			Out.ar(out, sig * level * gain);
 			Out.ar(zglut_effectBus, sig * level * send );
 			Out.kr(phase_out, pos_sig);
@@ -1662,7 +1671,7 @@ Engine_ReplLooper : CroneEngine {
 			var sig = In.ar(in, 2);
 			sig = Greyhole.ar(sig, delayTime, damp, size, diff, feedback, modDepth, modFreq);
       signal = sig * delayVol;
-      signal.poll(1, "zglut effect out");
+      // signal.poll(1, "zglut effect out");
 			Out.ar(out, signal)
 		}).add;
 
@@ -1829,17 +1838,23 @@ Engine_ReplLooper : CroneEngine {
 			zglut_voices[voice].set(\subharmonics, msg[2]);
 		});
 
-		zglut_nvoices.do({ arg i;
-			this.addPoll(("phase_" ++ (i+1)).asSymbol, {
-				var val = zglut_phases[i].getSynchronous;
-				val
-			});
-   //
-		// 	this.addPoll(("level_" ++ (i+1)).asSymbol, {
-		// 		var val = zglut_levels[i].getSynchronous;
+    this.addCommand("zglut_track", "ii", { arg msg;
+      var voice = msg[1] - 1;
+      var track = msg[2];
+      zglut_voices[voice].set(\out, this.getTrackBus(track));
+    });
+
+		// zglut_nvoices.do({ arg i;
+		// 	this.addPoll(("phase_" ++ (i+1)).asSymbol, {
+		// 		var val = zglut_phases[i].getSynchronous;
 		// 		val
 		// 	});
-	 });
+   // //
+		// // 	this.addPoll(("level_" ++ (i+1)).asSymbol, {
+		// // 		var val = zglut_levels[i].getSynchronous;
+		// // 		val
+		// // 	});
+	 // });
    //
 		zglut_seek_tasks = Array.fill(zglut_nvoices, { arg i;
 			Routine {}
@@ -2483,11 +2498,14 @@ Engine_ReplLooper : CroneEngine {
 					zglut_voices[i].set(\buf, newbuf);
 					zglut_buffers[i].free;
 					zglut_buffers[i] = newbuf;
+          ("zglut_buffers[i] loaded:" + newbuf.numFrames + "frames." + newbuf.duration.round(0.01) + "secs." + newbuf.numChannels + "channels.").postln;
+          scriptAddress.sendBundle(0, ['/engineZglutLoad', i, newbuf.numFrames]);
 				});
 				var newbuf2 = Buffer.readChannel(context.server, path, 0, -1, [1], {
 					zglut_voices[i].set(\buf2, newbuf2);
 					zglut_buffers[i+zglut_nvoices].free;
 					zglut_buffers[i+zglut_nvoices] = newbuf2;
+          ("zglut_buffers[i+zglut_nvoices] loaded:" + newbuf2.numFrames + "frames." + newbuf2.duration.round(0.01) + "secs." + newbuf2.numChannels + "channels.").postln;
 				});
 			});
 		});

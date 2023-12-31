@@ -687,13 +687,37 @@ function Loop:sampleRec()
   start_record_sample()
 end
 
-function Loop:add_event_command(cmd)
+function Loop:add_event_command(cmd, step)
+  local pulse
+  if step then
+    pulse = (step - 1) * self.lattice.ppqn
+  else
+    pulse = self.lattice.transport
+  end
+
   local event = Event.new({
-    pulse = self.lattice.transport,
+    pulse = pulse,
     command = cmd
   })
   self:update_event(event)
   table.insert(self.events, event)
+  return event
+end
+
+function Loop:add_off_event_command(cmd, step)
+  local pulse
+  if step then
+    pulse = (step - 1) * self.lattice.ppqn
+  else
+    pulse = self.lattice.transport
+  end
+
+  local event = Event.new({
+    pulse = pulse,
+    command = cmd
+  })
+  self:update_event(event)
+  table.insert(self.off_events, event)
   return event
 end
 
@@ -746,6 +770,33 @@ function Loop:gsub(pattern, replacement)
   end
 end
 
+-- Helper for expanding generated code
+-- Injects both a macro eval and replaces step-number (M is zero-based, N is one-based)
+function expand_code_string(code_string, n)
+  local expanded_code_string =
+    string.gsub(
+      code_string,
+      "`([^`]+)`",
+      function (snippet)
+        local injected_snippet = "local n = dynamic('n'); local m = n - 1; return " .. snippet
+        return eval(injected_snippet)
+      end
+    )
+  local expanded_code_string =
+    string.gsub(
+      expanded_code_string,
+      "([^%w_])N([^%w_])",
+      "%1" .. n .. "%2"
+    )
+  local expanded_code_string =
+    string.gsub(
+      expanded_code_string,
+      "([^%w_])M([^%w_])",
+      "%1" .. (n-1) .. "%2"
+    )
+  return expanded_code_string
+end
+
 -- a:gen("CH") puts the "CH" function on every step
 -- a:gen("CH", 1/2) puts the "CH" on every half step
 -- a:gen("CH", 2, 2) puts the "CH" on every other step starting with step 2
@@ -755,124 +806,30 @@ end
 function Loop:gen(code_string, modification, offset)
   if type(code_string) == "table" then
     for n, cmd in ipairs(code_string) do
-      local event = Event.new({
-        pulse = (n - 1) * self.lattice.ppqn,
-        command = cmd
-      })
-      self:update_event(event)
-      table.insert(self.events, event)
+      self:add_event_command(cmd, n)
     end
   elseif type(modification) == "table" then
     for _, n in ipairs(modification) do
-      local expanded_code_string =
-        string.gsub(
-          code_string,
-          "`([^`]+)`",
-          function (snippet)
-            local injected_snippet = "local n = dynamic('n'); local m = n - 1; return " .. snippet
-            return eval(injected_snippet)
-          end
-        )
-      local expanded_code_string =
-        string.gsub(
-          expanded_code_string,
-          "([^%w_])N([^%w_])",
-          "%1" .. n .. "%2"
-        )
-      local expanded_code_string =
-        string.gsub(
-          expanded_code_string,
-          "([^%w_])M([^%w_])",
-          "%1" .. (n-1) .. "%2"
-        )
-      local event = Event.new({
-        pulse = (n - 1) * self.lattice.ppqn,
-        command = expanded_code_string
-      })
-      self:update_event(event)
-      table.insert(self.events, event)
+      local expanded_code_string = expand_code_string(code_string, n)
+      self:add_event_command(expanded_code_string, n)
     end
   elseif type(modification) == "number" then
     offset = offset or 1
     for step = 1, (self.loop_length_qn / modification) do
       local n = (step - 1) * modification + offset
-      local expanded_code_string =
-        string.gsub(
-          code_string,
-          "`([^`]+)`",
-          function (snippet)
-            local injected_snippet = "local step = dynamic('step'); local n = dynamic('n'); local m = n - 1; return " .. snippet
-            return eval(injected_snippet)
-          end
-        )
-      local expanded_code_string =
-        string.gsub(
-          expanded_code_string,
-          "([^%w_])N([^%w_])",
-          "%1" .. n .. "%2"
-        )
-      local expanded_code_string =
-        string.gsub(
-          expanded_code_string,
-          "([^%w_])M([^%w_])",
-          "%1" .. (n-1) .. "%2"
-        )
-      local event = Event.new({
-        pulse = (n - 1) * self.lattice.ppqn,
-        command = expanded_code_string
-      })
-      self:update_event(event)
-      table.insert(self.events, event)
+      local expanded_code_string = expand_code_string(code_string, n)
+      self:add_event_command(expanded_code_string, n)
     end
   else
     for n = 1, self.loop_length_qn do
-      local expanded_code_string =
-        string.gsub(
-          code_string,
-          "`([^`]+)`",
-          function (snippet)
-            local injected_snippet = "local n = dynamic('n'); local m = n - 1; return " .. snippet
-            return eval(injected_snippet)
-          end
-        )
-      local expanded_code_string =
-        string.gsub(
-          expanded_code_string,
-          "([^%w_])N([^%w_])",
-          "%1" .. n .. "%2"
-        )
-      local expanded_code_string =
-        string.gsub(
-          expanded_code_string,
-          "([^%w_])M([^%w_])",
-          "%1" .. (n-1) .. "%2"
-        )
-      local event = Event.new({
-        pulse = (n - 1) * self.lattice.ppqn,
-        command = expanded_code_string
-      })
-      self:update_event(event)
-      table.insert(self.events, event)
+      local expanded_code_string = expand_code_string(code_string, n)
+      self:add_event_command(expanded_code_string, n)
 
       -- Look for key-off modification
       if modification then
-        local expanded_code_string =
-          string.gsub(
-            modification,
-            "`([^`]+)`",
-            function (snippet)
-              local injected_snippet = "local n = dynamic('n'); local m = n - 1; return " .. snippet
-              return eval(injected_snippet)
-            end
-          )
-        local event = Event.new({
-          pulse = (n - 1) * self.lattice.ppqn,
-          command = expanded_code_string
-        })
-        self:update_event(event, true)
-        table.insert(self.off_events, event)
+        local expanded_code_string = expand_code_string(modification, n)
+        self:add_off_event_command(expanded_code_string, n)
       end
-
     end
   end
   self:draw_grid_row()

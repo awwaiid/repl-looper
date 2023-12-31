@@ -53,9 +53,9 @@ local Molly = {}
 Molly.__index = Molly
 Molly.next_id = 0
 
-function Molly.new(filename, play_mode)
+function Molly.new(play_mode)
   local self = {
-    mode = "single", -- single note at a time or multi (deal with note-off)
+    mode = play_mode or "single", -- single note at a time or multi (deal with note-off)
     track_id = 0,
     params = {
       pitchBendRatio = 1,
@@ -118,7 +118,8 @@ local mollyVoiceFunctions = {
   pitchBend = "mollyPitchBend",
   noteKill = "mollyNoteKill",
   pressure = "mollyPressure",
-  timbre = "mollyTimbre"
+  timbre = "mollyTimbre",
+  trace = "mollyTrace"
 }
 
 for funcName, engineFuncName in pairs(mollyVoiceFunctions) do
@@ -272,7 +273,7 @@ function Molly:ringModFade(value)
   self:setParam("ringModFade", value)
 end
 
-function Molly:randomize(sound_type)
+function Molly:randomize(sound_type, save_seed)
   sound_type = sound_type or "lead"
 
   self:oscWaveShape(math.random(#options.OSC_WAVE_SHAPE) - 1)
@@ -462,7 +463,14 @@ function Molly:randomize(sound_type)
   if self.params.lpFilterCutoff < 600 and self.params.lpFilterCutoffModEnv < 0 then
     self:lpFilterCutoffModEnv(math.abs(self.params.lpFilterCutoffModEnv))
   end
+end
 
+function Molly:notRandom(seed, sound_type)
+  if not seed then seed = math.random(100000) end
+  math.randomseed(seed)
+  math.random() -- Seems unecessary :shrug:
+  self:randomize(sound_type)
+  return seed
 end
 
 return Molly
