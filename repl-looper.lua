@@ -1996,4 +1996,15 @@ function random_sample(subdir)
   return Sample.new(random_file, "one-shot")
 end
 
+function bpm(bpm)
+  if bpm then
+    clock.internal.set_tempo(bpm)
+    return bpm
+  end
+  return clock.get_tempo()
+end
+
+function chord(note)
+  return musicutil.generate_chord(note)
+end
 
