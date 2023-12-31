@@ -14,104 +14,14 @@
 --     ███████████
 --
 
--- seamstress -l 8888 -s engine-demo.lua
+PROJECT_PATH = "/home/we/dust/code/repl-looper"
 
--- ------------------------------------------------------------------------
+FLIP_SYMBOLS = false
 
-SC_HOST = "127.0.0.1"
-SC_PORT = "57120"
-
-DEBUG_OSC = true
--- DEBUG_OSC = false
-
---- Create a read-only proxy for a given table.
--- @param params params.table is the table to proxy, params.except a list of writable keys, params.expose limits which keys from params.table are exposed (optional)
--- @treturn table the proxied read-only table
-function tab.readonly(params)
-  local t = params.table
-  local exceptions = params.except or {}
-  local proxy = {}
-  local mt = {
-    __index = function(_, k)
-      if params.expose == nil or tab.contains(params.expose, k) then
-        return t[k]
-      end
-      return nil
-    end,
-    __newindex = function (_,k,v)
-      if (tab.contains(exceptions, k)) then
-        t[k] = v
-      else
-        error("'"..k.."', a read-only key, cannot be re-assigned.")
-      end
-    end,
-    __pairs = function (_) return pairs(proxy) end,
-    __ipairs = function (_) return ipairs(proxy) end,
-  }
-  setmetatable(proxy, mt)
-  return proxy
+if seamstress then
+  seamstress_setup = require("lib/seamstress_setup")
+  PROJECT_PATH = "."
 end
-
-engine = tab.readonly{table = require 'core/engine', except = {'name'}}
-
-
--- ------------------------------------------------------------------------
-
-engines = {}
-loaded_engine = nil
-engine_commands = {}
-
-osc.event = function(path, args, from)
-  host, port = table.unpack(from)
-
-  if DEBUG_OSC then
-    print("----------")
-    print("<- " .. host .. ":" .. port .. " " .. path)
-    tab.print(args)
-  end
-
-  if path == '/report/engines/start' then
-    print("dumping list of engines")
-    engines = {}
-  elseif path == '/report/engines/entry' then
-    local id, name = table.unpack(args)
-    -- engines[id] = name
-    table.insert(engines, name)
-  elseif path == '/report/engines/end' then
-    print("DONE getting engine list")
-
-    engine.register(engines, tab.count(engines))
-
-    if tab.count(engines) > 1 then
-      -- local engine_to_load = engines[1]
-      -- local engine_to_load = 'Sines'
-      local engine_to_load = 'ReplLooper'
-      print("Loading engine: " .. engine_to_load)
-      engine.load(engine_to_load)
-      osc.send({SC_HOST, SC_PORT}, '/engine/load/name', {engine_to_load})
-    end
-  elseif path == '/report/commands/start' then
-      print("dumping list of commands for engine")
-      -- engine_commands = {}
-  elseif path == '/report/commands/entry' then
-    local id, name, var_type = table.unpack(args)
-    -- engines[id] = name
-    table.insert(engine_commands, {name, var_type})
-  elseif path == '/report/commands/end' then
-    print("DONE getting list of commands for engine")
-    engine.register_commands(engine_commands, tab.count(engine_commands))
-  end
-  ReplLooper.osc_event(path, args, from)
-end
-
-
--- Add repl-looper lib dir in to load .so files like cjson.so
--- if not string.find(package.cpath, "/home/we/dust/code/repl-looper/lib/", 1, true) then
---   package.cpath = package.cpath .. ";/home/we/dust/code/repl-looper/lib/?.so"
---   package.path = package.path .. ";/home/we/dust/code/repl-looper/lib/?.lua"
--- end
-  -- package.cpath = package.cpath .. ";/home/awwaiid/seamstress/repl-looper/lib/?.so"
-  -- package.path = package.path .. ";/home/awwaiid/seamstress/repl-looper/lib/?.lua"
 
 JSON = require("lib/json")
 Deque = require("lib/container/deque")
@@ -119,7 +29,7 @@ UI = require("ui")
 comp = require("lib/completion")
 
 -- Locally augmented libraries
-Lattice = require("lib/lattice") -- system one is broken
+Lattice = require("lib/lattice")
 musicutil = include("lib/musicutil_extended")
 sequins = include("lib/sequins_extended")
 
@@ -145,183 +55,15 @@ end
 -- Grid Wrapper -----------------------------------------------------
 ---------------------------------------------------------------------
 
-local Grid = {}
-Grid.__index = Grid
-
-function Grid.new(key_handler)
-  local self = {
-    device = grid.connect(),
-    data = {}
-  }
-
-  self.device.key = key_handler
-
-  -- Initialize data based on grid cols/rows
-  for x = 1, 16 do
-    self.data[x] = {}
-    for y = 1, 8 do
-      self.data[x][y] = 0
-    end
-  end
-
-  setmetatable(self, Grid)
-  return self
-end
-
-function Grid:refresh()
-  self.device:refresh()
-  redraw()
-end
-
-function Grid:led(x, y, brightness)
-  self.device:led(x, y, brightness)
-  self.data[x] = self.data[x] or {}
-  self.data[x][y] = brightness
-end
-
-function Grid:all(brightness)
-  self.device:all(brightness)
-  self.data = {}
-  for x = 1, 16 do
-    self.data[x] = {}
-    for y = 1, 8 do
-      self.data[x][y] = 0
-    end
-  end
-end
+local Grid = include("lib/grid")
 
 ---------------------------------------------------------------------
 -- Editor -----------------------------------------------------------
 ---------------------------------------------------------------------
 
-local Editor = {}
-Editor.__index = Editor
-
-function Editor.new()
-  local self = {
-    content = "",
-    draw_at_x = 1,
-    draw_at_y = 62,
-    cursor = 1
-  }
-  setmetatable(self, Editor)
-  return self
-end
-
-function Editor:redraw()
-  -- This allows us to have a bottom-aligned editor
-  local height = self:draw_wrapped_content(1, 1, false)
-  self:draw_wrapped_content(1, self.draw_at_y - height - 7, true)
-  return height
-end
-
-local _cached_text_size = {}
-function Editor:text_size(text)
-  if _cached_text_size[text] then
-    return _cached_text_size[text]
-  end
-  local width, height = screen.get_text_size(text)
-  _cached_text_size[text] = {width, height}
-  return width, height
-end
-
-function Editor:draw_wrapped_content(start_x, start_y, do_draw)
-  -- Draw characters one at a time based on width
-  -- And then reverse the currect character if it is where the cursor is
-  -- screen.text draws from the lower-left corner for some weird reason, that's
-  -- weird. I guess we'll call this method twice, first to get the height and the second to draw the content
-  local content = self.content .. " " -- Add a space so we can see the cursor
-  local x = start_x
-  local y = start_y
-  for i = 1, #content do
-    local char = content:sub(i, i)
-    -- local char_width = screen.text_extents(char)
-    -- local char_width, char_height = screen.get_text_size(char)
-    local char_width, char_height = self:text_size(char)
-    if char_width == 0 then
-      char_width = 4
-    end
-    if x + char_width > 127 or char == "\n" then
-      x = 1
-      y = y + 8
-    end
-    if do_draw and char ~= "\n" then
-      screen.move(x, y)
-      if i == self.cursor then
-        screen.level(15)
-        screen.text(char)
-        self:invert_rect(x, y, char_width, 9)
-      else
-        screen.level(15)
-        screen.text(char)
-      end
-    end
-    if char ~= "\n" then
-      x = x + char_width + 1
-    end
-  end
-  return y
-end
-
-function Editor:invert_rect(x, y, width, height)
-  screen.move(x, y)
-  screen.rect_fill(width, height)
-  -- local rect = screen.peek(x, y, width, height)
-  -- local out = {}
-  -- for i = 1, #rect do
-  --   out[i] = string.char(15 - string.byte(rect, i))
-  -- end
-  -- screen.poke(x, y, width, height, table.concat(out))
-end
-
-
-function Editor:insert(char)
-  -- self.content = self.content:sub(1, self.cursor - 1) .. char .. self.content:sub(self.cursor)
-  self.content = self.content .. char
-  self.cursor = self.cursor + 1
-end
-
-function Editor:backspace()
-  if self.cursor > 1 then
-    self.content = self.content:sub(1, self.cursor - 2) .. self.content:sub(self.cursor)
-    self.cursor = self.cursor - 1
-  end
-end
-
-function Editor:delete()
-  if self.cursor <= #self.content then
-    self.content = self.content:sub(1, self.cursor - 1) .. self.content:sub(self.cursor + 1)
-  end
-end
-
-function Editor:move_cursor_left()
-  self.cursor = math.max(1, self.cursor - 1)
-end
-
-function Editor:move_cursor_right()
-  self.cursor = math.min(#self.content + 1, self.cursor + 1)
-end
-
-function Editor:move_cursor_to_start()
-  self.cursor = 1
-end
-
-function Editor:move_cursor_to_end()
-  self.cursor = #self.content + 1
-end
-
-function Editor:clear()
-  self.content = ""
-  self.cursor = 1
-end
-
-function Editor:set_content(new_content)
-  self.content = new_content
-  self.cursor = #new_content + 1
-end
-
 -- Single global editor for all to use
-editor = Editor.new()
+local Editor = include("lib/editor")
+local editor = Editor.new()
 
 ---------------------------------------------------------------------
 -- Loop-related objects ---------------------------------------------
@@ -1236,7 +978,7 @@ function redraw()
 end
 
 function _redraw()
-  print("Redraw!")
+  -- print("Redraw!")
 
   -- screen.ping()
   screen.clear()
@@ -1365,7 +1107,6 @@ function screen.key(code, modifiers, is_repeat, value)
       editor:move_cursor_to_end()
     elseif code == "ENTER" or code == "RETURN" then
       if modifier == "shift" then
-        print("Got a newline")
         editor:insert("\n")
       else
         if editor.content == "" then
@@ -1399,7 +1140,7 @@ function screen.key(code, modifiers, is_repeat, value)
     elseif code == "SPACE" then
       editor:insert(" ")
     else
-      print("Got a keypress: [" .. code .. "]")
+      -- print("Got a keypress: [" .. code .. "]")
       history_select = nil
       if modifier == "shift" then
         if code == "-" then code = "_" end
@@ -1410,27 +1151,43 @@ function screen.key(code, modifiers, is_repeat, value)
         if code == "." then code = ">" end
         if code == "/" then code = "?" end
 
+        if not FLIP_SYMBOLS then
+          if code == "1" then code = "!" end
+          if code == "2" then code = "@" end
+          if code == "3" then code = "#" end
+          if code == "4" then code = "$" end
+          if code == "5" then code = "%" end
+          if code == "6" then code = "^" end
+          if code == "7" then code = "&" end
+          if code == "8" then code = "*" end
+          if code == "9" then code = "(" end
+          if code == "0" then code = ")" end
+          if code == "[" then code = "{" end
+          if code == "]" then code = "}" end
+        end
 
 
         editor:insert(string.upper(code))
       else
         -- I like reverse shift for numbers
-        if code == "1" then code = "!" end
-        if code == "2" then code = "@" end
-        if code == "3" then code = "#" end
-        if code == "4" then code = "$" end
-        if code == "5" then code = "%" end
-        if code == "6" then code = "^" end
-        if code == "7" then code = "&" end
-        if code == "8" then code = "*" end
-        if code == "9" then code = "(" end
-        if code == "0" then code = ")" end
-        if code == "[" then code = "{" end
-        if code == "]" then code = "}" end
+        if FLIP_SYMBOLS then
+          if code == "1" then code = "!" end
+          if code == "2" then code = "@" end
+          if code == "3" then code = "#" end
+          if code == "4" then code = "$" end
+          if code == "5" then code = "%" end
+          if code == "6" then code = "^" end
+          if code == "7" then code = "&" end
+          if code == "8" then code = "*" end
+          if code == "9" then code = "(" end
+          if code == "0" then code = ")" end
+          if code == "[" then code = "{" end
+          if code == "]" then code = "}" end
+        end
         editor:insert(string.lower(code))
       end
     end
-    -- redraw()
+    redraw()
   end
 end
 
