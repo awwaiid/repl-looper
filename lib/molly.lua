@@ -196,8 +196,10 @@ local mollyFunctions = {
 
 for funcName, engineFuncName in pairs(mollyFunctions) do
   Molly[funcName] = function(self, ...)
-    -- print("calling", funcName, engineFuncName, self.id, ...)
-    engine[engineFuncName](self.id, ...)
+    print("calling", funcName, engineFuncName, self.id, ...)
+    if engine[engineFuncName] then
+      engine[engineFuncName](self.id, ...)
+    end
     self:setParam(funcName, ...)
   end
 end

@@ -14,21 +14,114 @@
 --     ███████████
 --
 
--- Add repl-looper lib dir in to load .so files like cjson.so
-if not string.find(package.cpath, "/home/we/dust/code/repl-looper/lib/", 1, true) then
-  package.cpath = package.cpath .. ";/home/we/dust/code/repl-looper/lib/?.so"
-  package.path = package.path .. ";/home/we/dust/code/repl-looper/lib/?.lua"
+-- seamstress -l 8888 -s engine-demo.lua
+
+-- ------------------------------------------------------------------------
+
+SC_HOST = "127.0.0.1"
+SC_PORT = "57120"
+
+DEBUG_OSC = true
+-- DEBUG_OSC = false
+
+--- Create a read-only proxy for a given table.
+-- @param params params.table is the table to proxy, params.except a list of writable keys, params.expose limits which keys from params.table are exposed (optional)
+-- @treturn table the proxied read-only table
+function tab.readonly(params)
+  local t = params.table
+  local exceptions = params.except or {}
+  local proxy = {}
+  local mt = {
+    __index = function(_, k)
+      if params.expose == nil or tab.contains(params.expose, k) then
+        return t[k]
+      end
+      return nil
+    end,
+    __newindex = function (_,k,v)
+      if (tab.contains(exceptions, k)) then
+        t[k] = v
+      else
+        error("'"..k.."', a read-only key, cannot be re-assigned.")
+      end
+    end,
+    __pairs = function (_) return pairs(proxy) end,
+    __ipairs = function (_) return ipairs(proxy) end,
+  }
+  setmetatable(proxy, mt)
+  return proxy
 end
 
-JSON = require("cjson")
-Deque = require("container.deque")
+engine = tab.readonly{table = require 'core/engine', except = {'name'}}
+
+
+-- ------------------------------------------------------------------------
+
+engines = {}
+loaded_engine = nil
+engine_commands = {}
+
+osc.event = function(path, args, from)
+  host, port = table.unpack(from)
+
+  if DEBUG_OSC then
+    print("----------")
+    print("<- " .. host .. ":" .. port .. " " .. path)
+    tab.print(args)
+  end
+
+  if path == '/report/engines/start' then
+    print("dumping list of engines")
+    engines = {}
+  elseif path == '/report/engines/entry' then
+    local id, name = table.unpack(args)
+    -- engines[id] = name
+    table.insert(engines, name)
+  elseif path == '/report/engines/end' then
+    print("DONE getting engine list")
+
+    engine.register(engines, tab.count(engines))
+
+    if tab.count(engines) > 1 then
+      -- local engine_to_load = engines[1]
+      -- local engine_to_load = 'Sines'
+      local engine_to_load = 'ReplLooper'
+      print("Loading engine: " .. engine_to_load)
+      engine.load(engine_to_load)
+      osc.send({SC_HOST, SC_PORT}, '/engine/load/name', {engine_to_load})
+    end
+  elseif path == '/report/commands/start' then
+      print("dumping list of commands for engine")
+      -- engine_commands = {}
+  elseif path == '/report/commands/entry' then
+    local id, name, var_type = table.unpack(args)
+    -- engines[id] = name
+    table.insert(engine_commands, {name, var_type})
+  elseif path == '/report/commands/end' then
+    print("DONE getting list of commands for engine")
+    engine.register_commands(engine_commands, tab.count(engine_commands))
+  end
+  ReplLooper.osc_event(path, args, from)
+end
+
+
+-- Add repl-looper lib dir in to load .so files like cjson.so
+-- if not string.find(package.cpath, "/home/we/dust/code/repl-looper/lib/", 1, true) then
+--   package.cpath = package.cpath .. ";/home/we/dust/code/repl-looper/lib/?.so"
+--   package.path = package.path .. ";/home/we/dust/code/repl-looper/lib/?.lua"
+-- end
+  -- package.cpath = package.cpath .. ";/home/awwaiid/seamstress/repl-looper/lib/?.so"
+  -- package.path = package.path .. ";/home/awwaiid/seamstress/repl-looper/lib/?.lua"
+
+JSON = require("lib/json")
+Deque = require("lib/container/deque")
 UI = require("ui")
-comp = require("completion")
+comp = require("lib/completion")
 
 -- Locally augmented libraries
-Lattice = require("repl-looper/lib/lattice") -- system one is broken
-musicutil = include("repl-looper/lib/musicutil_extended")
-sequins = include("repl-looper/lib/sequins_extended")
+Lattice = require("lib/lattice") -- system one is broken
+musicutil = include("lib/musicutil_extended")
+sequins = include("lib/sequins_extended")
 
 -- Local helpers
 local helper = include("repl-looper/lib/helper")
@@ -107,7 +200,7 @@ Editor.__index = Editor
 function Editor.new()
   local self = {
     content = "",
-    draw_at_x = 0,
+    draw_at_x = 1,
     draw_at_y = 62,
     cursor = 1
   }
@@ -117,9 +210,19 @@ end
 
 function Editor:redraw()
   -- This allows us to have a bottom-aligned editor
-  local height = self:draw_wrapped_content(0, 0, false)
-  self:draw_wrapped_content(0, self.draw_at_y - height, true)
+  local height = self:draw_wrapped_content(1, 1, false)
+  self:draw_wrapped_content(1, self.draw_at_y - height - 7, true)
   return height
+end
+
+local _cached_text_size = {}
+function Editor:text_size(text)
+  if _cached_text_size[text] then
+    return _cached_text_size[text]
+  end
+  local width, height = screen.get_text_size(text)
+  _cached_text_size[text] = {width, height}
+  return width, height
 end
 
 function Editor:draw_wrapped_content(start_x, start_y, do_draw)
@@ -132,12 +235,14 @@ function Editor:draw_wrapped_content(start_x, start_y, do_draw)
   local y = start_y
   for i = 1, #content do
     local char = content:sub(i, i)
-    local char_width = screen.text_extents(char)
+    -- local char_width = screen.text_extents(char)
+    -- local char_width, char_height = screen.get_text_size(char)
+    local char_width, char_height = self:text_size(char)
     if char_width == 0 then
       char_width = 4
     end
     if x + char_width > 127 or char == "\n" then
-      x = 0
+      x = 1
       y = y + 8
     end
     if do_draw and char ~= "\n" then
@@ -145,7 +250,7 @@ function Editor:draw_wrapped_content(start_x, start_y, do_draw)
       if i == self.cursor then
         screen.level(15)
         screen.text(char)
-        self:invert_rect(x, y-7, char_width, 9)
+        self:invert_rect(x, y, char_width, 9)
       else
         screen.level(15)
         screen.text(char)
@@ -159,38 +264,20 @@ function Editor:draw_wrapped_content(start_x, start_y, do_draw)
 end
 
 function Editor:invert_rect(x, y, width, height)
-  local rect = screen.peek(x, y, width, height)
-  local out = {}
-  for i = 1, #rect do
-    out[i] = string.char(15 - string.byte(rect, i))
-  end
-  screen.poke(x, y, width, height, table.concat(out))
+  screen.move(x, y)
+  screen.rect_fill(width, height)
+  -- local rect = screen.peek(x, y, width, height)
+  -- local out = {}
+  -- for i = 1, #rect do
+  --   out[i] = string.char(15 - string.byte(rect, i))
+  -- end
+  -- screen.poke(x, y, width, height, table.concat(out))
 end
 
-function Editor:wrap_text(text, max_len)
-  local lines = {}
-  local remaining_text = text
-  local current_line = ""
-  local character_number = 1
-  while #remaining_text > 0 do
-    local next_character = remaining_text:sub(1, 1)
-    local current_line_size = screen.text_extents(current_line .. next_character)
-    if current_line_size > max_len or next_character == "\n" then
-      table.insert(lines, current_line)
-      current_line = ""
-    end
-    if next_character ~= "\n" then
-      current_line = current_line .. next_character
-    end
-    remaining_text = remaining_text:sub(2)
-    character_number = character_number + 1
-  end
-  table.insert(lines, current_line)
-  return lines
-end
 
 function Editor:insert(char)
-  self.content = self.content:sub(1, self.cursor - 1) .. char .. self.content:sub(self.cursor)
+  -- self.content = self.content:sub(1, self.cursor - 1) .. char .. self.content:sub(self.cursor)
+  self.content = self.content .. char
   self.cursor = self.cursor + 1
 end
 
@@ -1073,7 +1160,7 @@ function UI.ScrollingList:redraw()
 
   for i = 1, self.num_visible do
     if self.active and self.index == i + scroll_offset then screen.level(15)
-    else screen.level(3) end
+    else screen.level(10) end
     screen.move(self.x, self.y + 5 + (i - 1) * 11)
     local entry = self.entries[i + scroll_offset] or ""
     if self.text_align == "center" then
@@ -1084,7 +1171,7 @@ function UI.ScrollingList:redraw()
       screen.text(entry)
     end
   end
-  screen.fill()
+  -- screen.fill()
 end
 
 function draw_logo(x, y)
@@ -1131,26 +1218,41 @@ function draw_mini_grid_mirror(x, y)
         val = 1
       end
       screen.level(val)
-      screen.rect(x + (col - 1) * scale, y + (row - 1) * scale, scale, scale)
-      screen.fill()
+      screen.move(x + (col - 1) * scale, y + (row - 1) * scale)
+      screen.rect_fill(scale, scale)
     end
   end
 end
 
+currently_redrawing = false
 function redraw()
+  if currently_redrawing then
+    return
+  end
+  currently_redrawing = true
+  clock.run(function()
+    _redraw()
+  end)
+end
 
-  screen.ping()
+function _redraw()
+  print("Redraw!")
+
+  -- screen.ping()
   screen.clear()
+  clock.sleep(0.01)
 
   local editor_height = editor:redraw()
+  clock.sleep(0.01)
 
   -- Nice horizontal line between history and prompt
   local divider_y = 64 - editor_height - 10
   screen.level(2)
-  screen.move(0, divider_y)
-  screen.line_width(1)
+  screen.move(1, divider_y)
+  -- screen.line_width(1)
   screen.line(128, divider_y)
-  screen.stroke()
+  -- screen.stroke()
+  clock.sleep(0.01)
 
   local history_line_height = math.floor((divider_y - 2) / 9)
   if history_line_height > 0 then
@@ -1163,7 +1265,7 @@ function redraw()
     end
 
     screen.level(15)
-    local lst = UI.ScrollingList.new(0, 0, (history_select or #history_viz), history_viz)
+    local lst = UI.ScrollingList.new(1, -4, (history_select or #history_viz), history_viz)
     if not history_select then
       lst.active = false
     end
@@ -1171,24 +1273,42 @@ function redraw()
     lst.num_visible = history_line_height
     lst:redraw()
   end
+  clock.sleep(0.01)
 
   -- Informational / cool displays
-  screen.level(15)
+  -- screen.level(15)
   -- draw_logo(118, 1)
-  draw_mini_grid_mirror(112, 1)
+  -- draw_mini_grid_mirror(112, 1)
 
   screen.update()
+  -- screen.peek(0, 0, 128, 64) -- try to help out some ndi-mod thing
+
+  currently_redrawing = false
 end
 
-function keyboard.char(character)
-  history_select = nil
-  editor:insert(character)
-  redraw()
-end
+-- function keyboard.char(character)
+--   history_select = nil
+--   editor:insert(character)
+--   redraw()
+-- end
 
 saved_content = ""
+function screen.key(code, modifiers, is_repeat, value)
+  local modifier
+  if #modifiers == 1 then
+    modifier = modifiers[1]
+  elseif #modifiers == 0 then
+    modifier = "none"
+  end
 
-function keyboard.code(code, value)
+  if code.name ~= nil then
+    code = code.name
+  else
+    code = code == " " and "space" or code
+  end
+
+  code = string.upper(code)
+
   -- The grid logo is fun, but let's hide it once we have a keypress
   if showing_grid_logo then
     showing_grid_logo = false
@@ -1243,8 +1363,8 @@ function keyboard.code(code, value)
       editor:move_cursor_to_start()
     elseif code == "END" then
       editor:move_cursor_to_end()
-    elseif code == "ENTER" then
-      if keyboard.shift() then
+    elseif code == "ENTER" or code == "RETURN" then
+      if modifier == "shift" then
         print("Got a newline")
         editor:insert("\n")
       else
@@ -1266,8 +1386,51 @@ function keyboard.code(code, value)
           })
         end
       end
+    elseif
+         code == "LSHIFT"
+      or code == "RSHIFT"
+      or code == "LCTRL"
+      or code == "RCTRL"
+      or code == "UP"
+      or code == "DOWN"
+      or code == "LSUPER"
+      or code == "RSUPER" then
+      -- Then nothing
+    elseif code == "SPACE" then
+      editor:insert(" ")
+    else
+      print("Got a keypress: [" .. code .. "]")
+      history_select = nil
+      if modifier == "shift" then
+        if code == "-" then code = "_" end
+        if code == "=" then code = "+" end
+        if code == ";" then code = ":" end
+        if code == "'" then code = '"' end
+        if code == "," then code = "<" end
+        if code == "." then code = ">" end
+        if code == "/" then code = "?" end
+
+
+
+        editor:insert(string.upper(code))
+      else
+        -- I like reverse shift for numbers
+        if code == "1" then code = "!" end
+        if code == "2" then code = "@" end
+        if code == "3" then code = "#" end
+        if code == "4" then code = "$" end
+        if code == "5" then code = "%" end
+        if code == "6" then code = "^" end
+        if code == "7" then code = "&" end
+        if code == "8" then code = "*" end
+        if code == "9" then code = "(" end
+        if code == "0" then code = ")" end
+        if code == "[" then code = "{" end
+        if code == "]" then code = "}" end
+        editor:insert(string.lower(code))
+      end
     end
-    redraw()
+    -- redraw()
   end
 end
 
@@ -1640,12 +1803,28 @@ function draw_grid_logo()
 end
 
 function init()
+  print("Init!")
+  screen.set_size(128, 64, 1)
+
+  clock.run(function()
+    clock.sleep(5)
+    osc.send({SC_HOST, SC_PORT}, '/report/engines', {})
+    clock.sleep(5)
+    osc.send({SC_HOST, SC_PORT}, '/report/engines', {})
+    clock.sleep(5)
+    delayed_init()
+  end)
+end
+
+function delayed_init()
+
 
   -- Global Grid
   print "Loading grid"
   grid_device = Grid.new(handle_grid_key)
 
-  draw_grid_logo()
+  -- draw_grid_logo()
+  animate_grid_logo()
 
   -- Global midi pedal
   print "Loading midi looper pedal"
@@ -1653,12 +1832,12 @@ function init()
   pedal_device.event = handle_pedal_event
 
   -- Get our file storage set up for live-recording
-  os.execute("mkdir -p ".._path.audio.."repl-looper")
+  -- os.execute("mkdir -p ".._path.audio.."repl-looper")
 
   -- Set up params
   -- MollyThePoly.add_params()
   -- params:add_separator()
-  ReplLooper.add_params()
+  -- ReplLooper.add_params()
 
   -- Turn on our superLattice
   superLattice:start()
@@ -1702,47 +1881,47 @@ function init()
   mollies = { molly, molly2, molly3, molly4, molly5, molly6, molly7, molly8 }
 
   -- A lovely piano via timber
-  piano = Timber.new("/home/we/dust/code/timber/audio/piano-c.wav")
+  piano = Timber.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/piano-c.wav")
 
   -- Kick out the jams
   s808 = {}
 
   -- Bass
-  s808.BD = Sample.new("/home/we/dust/audio/common/808/808-BD.wav", "one-shot")
-  s808.BS = Sample.new("/home/we/dust/audio/common/808/808-BS.wav", "one-shot")
+  s808.BD = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-BD.wav", "one-shot")
+  s808.BS = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-BS.wav", "one-shot")
 
   -- cowbell
-  s808.CB = Sample.new("/home/we/dust/audio/common/808/808-CB.wav", "one-shot")
+  s808.CB = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-CB.wav", "one-shot")
 
   -- closed/open hat
-  s808.CH = Sample.new("/home/we/dust/audio/common/808/808-CH.wav", "one-shot")
-  s808.OH = Sample.new("/home/we/dust/audio/common/808/808-OH.wav", "one-shot")
+  s808.CH = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-CH.wav", "one-shot")
+  s808.OH = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-OH.wav", "one-shot")
 
   -- Claves
-  s808.CL = Sample.new("/home/we/dust/audio/common/808/808-CL.wav", "one-shot")
+  s808.CL = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-CL.wav", "one-shot")
 
   -- Clap
-  s808.CP = Sample.new("/home/we/dust/audio/common/808/808-CP.wav", "one-shot")
+  s808.CP = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-CP.wav", "one-shot")
 
   -- Cymbols
-  s808.CY = Sample.new("/home/we/dust/audio/common/808/808-CY.wav", "one-shot")
+  s808.CY = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-CY.wav", "one-shot")
 
   -- Conga high, mid, low
-  s808.HC = Sample.new("/home/we/dust/audio/common/808/808-HC.wav", "one-shot")
-  s808.MC = Sample.new("/home/we/dust/audio/common/808/808-MC.wav", "one-shot")
-  s808.LC = Sample.new("/home/we/dust/audio/common/808/808-LC.wav", "one-shot")
+  s808.HC = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-HC.wav", "one-shot")
+  s808.MC = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-MC.wav", "one-shot")
+  s808.LC = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-LC.wav", "one-shot")
 
   -- Tom drum high, mid, low
-  s808.HT = Sample.new("/home/we/dust/audio/common/808/808-HT.wav", "one-shot")
-  s808.MT = Sample.new("/home/we/dust/audio/common/808/808-MT.wav", "one-shot")
-  s808.LT = Sample.new("/home/we/dust/audio/common/808/808-LT.wav", "one-shot")
+  s808.HT = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-HT.wav", "one-shot")
+  s808.MT = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-MT.wav", "one-shot")
+  s808.LT = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-LT.wav", "one-shot")
 
   -- Maracas
-  s808.MA = Sample.new("/home/we/dust/audio/common/808/808-MA.wav", "one-shot")
+  s808.MA = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-MA.wav", "one-shot")
 
   -- Rimshot and Snare
-  s808.RS = Sample.new("/home/we/dust/audio/common/808/808-RS.wav", "one-shot")
-  s808.SD = Sample.new("/home/we/dust/audio/common/808/808-SD.wav", "one-shot")
+  s808.RS = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-RS.wav", "one-shot")
+  s808.SD = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-SD.wav", "one-shot")
 end
 
 -- Handy 808 drum shortcuts

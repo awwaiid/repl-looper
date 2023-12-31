@@ -479,7 +479,7 @@ function ReplLooper.osc_event(path, args, from)
   end
 end
 
-osc.event = ReplLooper.osc_event
+-- osc.event = ReplLooper.osc_event
 -- NOTE: If you need the OSC callback in your script then ReplLooper.osc_event(path, args, from)
 -- must be called from the end of that function to pass the data down to this lib
 

@@ -265,7 +265,8 @@ Engine_ReplLooper : CroneEngine {
     players = Array.newClear(4);
 
     loadQueue = Array.new(maxSamples);
-    scriptAddress = NetAddr("localhost", 10111);
+    // scriptAddress = NetAddr("localhost", 10111);
+    scriptAddress = NetAddr("localhost", 8888);
     waveformQueue = Array.new(maxSamples);
 
     // Receive messages from server
@@ -859,6 +860,11 @@ Engine_ReplLooper : CroneEngine {
       if(voice.notNil, {
         voice.theSynth.set(\mollyPitchBendRatio, msg[3]);
       });
+    });
+
+    this.addCommand(\echo, "s", { arg msg;
+      var text = msg[1];
+      text.postln;
     });
 
     // mollyPitchBendAll(ratio)
