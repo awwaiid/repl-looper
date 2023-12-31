@@ -1961,6 +1961,11 @@ function delayed_init()
   -- Rimshot and Snare
   s808.RS = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-RS.wav", "one-shot")
   s808.SD = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-SD.wav", "one-shot")
+
+  -- Slow down NDI refresh
+  if ndi_mod then
+    ndi_mod.set_frame_rate_divisor(2)
+  end
 end
 
 -- Handy 808 drum shortcuts
