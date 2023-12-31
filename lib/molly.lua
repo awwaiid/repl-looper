@@ -4,7 +4,7 @@
 ---------------------------------------------------------------------
 
 local ControlSpec = require "controlspec"
-local musicutil = include("repl-looper/lib/musicutil_extended")
+local musicutil = require("lib/musicutil_extended")
 
 local specs = {}
 local options = {}
