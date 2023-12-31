@@ -1,12 +1,16 @@
 local Editor = {}
 Editor.__index = Editor
 
-function Editor.new()
+function Editor.new(options)
+  local options = options or {}
   local self = {
     content = "",
-    draw_at_x = 1,
-    draw_at_y = 62,
-    cursor = 1
+    cursor = 1,
+    x_offset = options.x_offset or 0,
+    y_offset = options.y_offset or 0,
+    line_y_adjustment = options.line_y_adjustment or 0,
+    max_x = options.max_x or 127,
+    max_y = options.max_y or 63
   }
   setmetatable(self, Editor)
   return self
@@ -14,19 +18,29 @@ end
 
 function Editor:redraw()
   -- This allows us to have a bottom-aligned editor
-  local height = self:draw_wrapped_content(1, 1, false)
-  self:draw_wrapped_content(1, self.draw_at_y - height - 7, true)
+  local height = self:draw_wrapped_content(
+    self.x_offset,
+    self.y_offset,
+    false)
+  self:draw_wrapped_content(
+    self.x_offset,
+    self.max_y - self.line_y_adjustment - height,
+    true)
   return height
 end
 
-local _cached_text_size = {}
-function Editor:text_size(text)
-  if _cached_text_size[text] then
-    return table.unpack(_cached_text_size[text])
+local _cached_text_width = {}
+function Editor:text_width(text)
+  if seamstress then
+    if _cached_text_width[text] then
+      return _cached_text_width[text]
+    end
+    local width, height = screen.get_text_size(text)
+    _cached_text_width[text] = width
+    return width
+  else
+    return screen.text_extents(char)
   end
-  local width, height = screen.get_text_size(text)
-  _cached_text_size[text] = {width, height}
-  return width, height
 end
 
 function Editor:draw_wrapped_content(start_x, start_y, do_draw)
@@ -39,22 +53,24 @@ function Editor:draw_wrapped_content(start_x, start_y, do_draw)
   local y = start_y
   for i = 1, #content do
     local char = content:sub(i, i)
-    -- local char_width = screen.text_extents(char)
-    -- local char_width, char_height = screen.get_text_size(char)
-    local char_width, char_height = self:text_size(char)
+    local char_width = self:text_width(char)
     if char_width == 0 then
-      char_width = 4
+      char_width = 4 -- When in doubt
     end
-    if x + char_width > 127 or char == "\n" then
-      x = 1
+    if x + char_width > self.max_x  or char == "\n" then
+      x = self.x_offset
       y = y + 8
     end
     if do_draw and char ~= "\n" then
       screen.move(x, y)
       if i == self.cursor then
+        -- screen.level(15)
+        -- screen.text(char)
+        -- self:invert_rect(x, y, char_width, 9)
         screen.level(15)
-        screen.text(char)
         self:invert_rect(x, y, char_width, 9)
+        screen.level(0)
+        screen.text(char)
       else
         screen.level(15)
         screen.text(char)

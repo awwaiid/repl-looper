@@ -14,13 +14,18 @@
 --     ███████████
 --
 
-PROJECT_PATH = "/home/we/dust/code/repl-looper"
-
 FLIP_SYMBOLS = false
 
 if seamstress then
+  print("Seamstress mode enabled!!!")
   seamstress_setup = require("lib/seamstress_setup")
-  PROJECT_PATH = "."
+  PROJECT_PATH = os.getenv("PWD")
+  SCREEN_WIDTH = 128
+  SCREEN_HEIGHT = 64
+else
+  PROJECT_PATH = "/home/we/dust/code/repl-looper"
+  SCREEN_WIDTH = 128
+  SCREEN_HEIGHT = 64
 end
 
 JSON = require("lib/json")
@@ -30,11 +35,11 @@ comp = require("lib/completion")
 
 -- Locally augmented libraries
 Lattice = require("lib/lattice")
-musicutil = include("lib/musicutil_extended")
-sequins = include("lib/sequins_extended")
+musicutil = require("lib/musicutil_extended")
+sequins = require("lib/sequins_extended")
 
 -- Local helpers
-local helper = include("repl-looper/lib/helper")
+local helper = require("lib/helper")
 ls = helper.ls
 eval = helper.eval
 keys = helper.tabkeys
@@ -42,7 +47,7 @@ keys = helper.tabkeys
 -- ALL helper
 -- Use like all{a,b,c}:stop()
 -- Which is equivalent to a:stop();b:stop();c:stop()
-all = include("repl-looper/lib/all")
+all = require("lib/all")
 
 -- Enable/Disable global debugging
 function bug(...)
@@ -55,15 +60,26 @@ end
 -- Grid Wrapper -----------------------------------------------------
 ---------------------------------------------------------------------
 
-local Grid = include("lib/grid")
+local Grid = require("lib/grid")
 
 ---------------------------------------------------------------------
 -- Editor -----------------------------------------------------------
 ---------------------------------------------------------------------
 
 -- Single global editor for all to use
-local Editor = include("lib/editor")
-local editor = Editor.new()
+local Editor = require("lib/editor")
+local editor
+if seamstress then
+  editor = Editor.new({
+    x_offset = 1,
+    y_offset = 1,
+    line_y_adjustment = 7,
+    max_x = 127,
+    max_y = 63
+  })
+else
+  editor = Editor.new()
+end
 
 ---------------------------------------------------------------------
 -- Loop-related objects ---------------------------------------------
@@ -1461,15 +1477,15 @@ end
 -- Tiiiimmmmmbbbbeeerrrrr!!!!! PLUS MOLLY THE POLY!!!
 -- .... PLUS GOLDENEYE!!!
 
-ReplLooper = include("repl-looper/lib/repllooper_engine")
+ReplLooper = require("lib/repllooper_engine")
 
 -- engine.load('ReplLooper')
 engine.name = "ReplLooper"
 
-Timber = include("repl-looper/lib/timber")
-Molly = include("repl-looper/lib/molly")
-Sample = include("repl-looper/lib/sample")
-Granchild = include("repl-looper/lib/granchild")
+Timber = require("lib/timber")
+Molly = require("lib/molly")
+Sample = require("lib/sample")
+Granchild = require("lib/granchild")
 
 -- Play a note or a chord
 -- The note can be either a midi number OR a note-string like "C3"
@@ -1677,47 +1693,47 @@ function delayed_init()
   mollies = { molly, molly2, molly3, molly4, molly5, molly6, molly7, molly8 }
 
   -- A lovely piano via timber
-  piano = Timber.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/piano-c.wav")
+  piano = Timber.new(PROJECT_PATH .. "/audio/piano-c.wav")
 
   -- Kick out the jams
   s808 = {}
 
   -- Bass
-  s808.BD = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-BD.wav", "one-shot")
-  s808.BS = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-BS.wav", "one-shot")
+  s808.BD = Sample.new(PROJECT_PATH .. "/audio/common/808/808-BD.wav", "one-shot")
+  s808.BS = Sample.new(PROJECT_PATH .. "/audio/common/808/808-BS.wav", "one-shot")
 
   -- cowbell
-  s808.CB = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-CB.wav", "one-shot")
+  s808.CB = Sample.new(PROJECT_PATH .. "/audio/common/808/808-CB.wav", "one-shot")
 
   -- closed/open hat
-  s808.CH = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-CH.wav", "one-shot")
-  s808.OH = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-OH.wav", "one-shot")
+  s808.CH = Sample.new(PROJECT_PATH .. "/audio/common/808/808-CH.wav", "one-shot")
+  s808.OH = Sample.new(PROJECT_PATH .. "/audio/common/808/808-OH.wav", "one-shot")
 
   -- Claves
-  s808.CL = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-CL.wav", "one-shot")
+  s808.CL = Sample.new(PROJECT_PATH .. "/audio/common/808/808-CL.wav", "one-shot")
 
   -- Clap
-  s808.CP = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-CP.wav", "one-shot")
+  s808.CP = Sample.new(PROJECT_PATH .. "/audio/common/808/808-CP.wav", "one-shot")
 
   -- Cymbols
-  s808.CY = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-CY.wav", "one-shot")
+  s808.CY = Sample.new(PROJECT_PATH .. "/audio/common/808/808-CY.wav", "one-shot")
 
   -- Conga high, mid, low
-  s808.HC = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-HC.wav", "one-shot")
-  s808.MC = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-MC.wav", "one-shot")
-  s808.LC = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-LC.wav", "one-shot")
+  s808.HC = Sample.new(PROJECT_PATH .. "/audio/common/808/808-HC.wav", "one-shot")
+  s808.MC = Sample.new(PROJECT_PATH .. "/audio/common/808/808-MC.wav", "one-shot")
+  s808.LC = Sample.new(PROJECT_PATH .. "/audio/common/808/808-LC.wav", "one-shot")
 
   -- Tom drum high, mid, low
-  s808.HT = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-HT.wav", "one-shot")
-  s808.MT = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-MT.wav", "one-shot")
-  s808.LT = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-LT.wav", "one-shot")
+  s808.HT = Sample.new(PROJECT_PATH .. "/audio/common/808/808-HT.wav", "one-shot")
+  s808.MT = Sample.new(PROJECT_PATH .. "/audio/common/808/808-MT.wav", "one-shot")
+  s808.LT = Sample.new(PROJECT_PATH .. "/audio/common/808/808-LT.wav", "one-shot")
 
   -- Maracas
-  s808.MA = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-MA.wav", "one-shot")
+  s808.MA = Sample.new(PROJECT_PATH .. "/audio/common/808/808-MA.wav", "one-shot")
 
   -- Rimshot and Snare
-  s808.RS = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-RS.wav", "one-shot")
-  s808.SD = Sample.new("/home/awwaiid/tmp/seamstress/repl-looper/audio/common/808/808-SD.wav", "one-shot")
+  s808.RS = Sample.new(PROJECT_PATH .. "/audio/common/808/808-RS.wav", "one-shot")
+  s808.SD = Sample.new(PROJECT_PATH .. "/audio/common/808/808-SD.wav", "one-shot")
 
   -- Slow down NDI refresh
   if ndi_mod then
@@ -1747,7 +1763,7 @@ function OH() s808.OH:play() end
 
 function random_sample(subdir)
   subdir = subdir or "folk"
-  dir = '/home/we/dust/code/repl-looper/audio/' .. subdir .. "/"
+  dir = PROJECT_PATH .. '/audio/' .. subdir .. "/"
   files = util.scandir(dir)
   random_file = dir .. files[math.random(#files)]
   return Sample.new(random_file, "one-shot")
