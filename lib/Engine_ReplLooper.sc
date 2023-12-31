@@ -2258,8 +2258,6 @@ Engine_ReplLooper : CroneEngine {
   clearSamples {
     arg firstId, lastId = firstId;
 
-    this.stopWaveformGeneration(firstId, lastId);
-
     firstId.for(lastId, {
       arg i;
       var removeQueueIndex;
@@ -2281,184 +2279,6 @@ Engine_ReplLooper : CroneEngine {
       });
 
     });
-  }
-
-  queueWaveformGeneration {
-    arg sampleId;
-    var item;
-
-    this.stopWaveformGeneration(sampleId);
-
-    if(samples[sampleId].filePath.notNil, {
-
-      item = (
-        sampleId: sampleId,
-        filePath: samples[sampleId].filePath
-      );
-
-      waveformQueue = waveformQueue.addFirst(item);
-
-      if(generatingWaveform == -1, {
-        this.generateWaveforms();
-      });
-    });
-  }
-
-  stopWaveformGeneration {
-    arg firstId, lastId = firstId;
-
-    // Clear from queue
-    firstId.for(lastId, {
-      arg i;
-      var removeQueueIndex;
-
-      // Remove any existing with same ID
-      removeQueueIndex = waveformQueue.detectIndex({
-        arg item;
-        item.sampleId == i;
-      });
-      if(removeQueueIndex.notNil, {
-        waveformQueue.removeAt(removeQueueIndex);
-      });
-    });
-
-    // Stop currently in progress
-    if((generatingWaveform >= firstId).and(generatingWaveform <= lastId), {
-      abandonCurrentWaveform = true;
-    });
-  }
-
-  generateWaveforms {
-
-    var samplesPerSlice = 1000; // Changes the fidelity of each 'slice' of the waveform (number of samples it checks peaks of)
-    var sendEvery = 3;
-    var totalStartSecs = Date.getDate.rawSeconds;
-    var waveformRoutine;
-
-    generatingWaveform = waveformQueue.last.sampleId;
-    "Started generating waveforms".postln;
-
-    waveformRoutine = Routine.new({
-
-      while({ waveformQueue.notEmpty }, {
-        var startSecs = Date.getDate.rawSeconds;
-        var file, rawData, waveform, numFramesRemaining, numChannels, chunkSize, numSlices, sliceSize, stride, framesInSliceRemaining;
-        var frame = 0, slice = 0, offset = 0;
-        var item = waveformQueue.pop;
-        var sampleId = item.sampleId;
-
-        generatingWaveform = sampleId;
-
-        // Pause if we're loading samples
-        while({ loadQueue.notEmpty }, {
-          0.2.yield;
-        });
-
-        file = SoundFile.openRead(item.filePath);
-        if(file.isNil, {
-          ("File could not be opened for waveform generation:" + item.filePath).postln;
-        }, {
-
-          // ("Waveform" + sampleId + "started").postln;
-
-          numFramesRemaining = file.numFrames;
-          numChannels = file.numChannels;
-          chunkSize = (1048576 / numChannels).floor * numChannels;
-          numSlices = waveformDisplayRes.min(file.numFrames);
-          sliceSize = file.numFrames / waveformDisplayRes;
-          framesInSliceRemaining = sliceSize;
-          stride = (sliceSize / samplesPerSlice).max(1);
-
-          waveform = Int8Array.new((numSlices * 2) + (numSlices % 4));
-
-          // Process in chunks
-          while({
-            (numFramesRemaining > 0).and({
-              rawData = FloatArray.newClear(min(numFramesRemaining * numChannels, chunkSize));
-              file.readData(rawData);
-              rawData.size > 0;
-            }).and(abandonCurrentWaveform == false)
-          }, {
-
-            var min = 0, max = 0;
-
-            while({ (frame.round * numChannels + numChannels - 1 < rawData.size).and(abandonCurrentWaveform == false) }, {
-              for(0, numChannels.min(2) - 1, {
-                arg c;
-                var sample = rawData[frame.round.asInt * numChannels + c];
-                min = sample.min(min);
-                max = sample.max(max);
-              });
-
-              frame = frame + stride;
-              framesInSliceRemaining = framesInSliceRemaining - stride;
-
-              // Slice done
-              if(framesInSliceRemaining < 1, {
-
-                framesInSliceRemaining = framesInSliceRemaining + sliceSize;
-
-                // 0-126, 63 is center (zero)
-                min = min.linlin(-1, 0, 0, 63).round.asInt;
-                max = max.linlin(0, 1, 63, 126).round.asInt;
-                waveform = waveform.add(min);
-                waveform = waveform.add(max);
-                min = 0;
-                max = 0;
-
-                if(((slice + 1) % sendEvery == 0).and(abandonCurrentWaveform == false), {
-                  this.sendWaveform(sampleId, offset, waveform);
-                  offset = offset + sendEvery;
-                  waveform = Int8Array.new(((numSlices - offset) * 2) + (numSlices % 4));
-                });
-                slice = slice + 1;
-              });
-
-              // Let other sclang work happen if it's a long file
-              if(file.numFrames > 1000000, {
-                0.00004.yield;
-              });
-            });
-
-            frame = frame - (rawData.size / numChannels);
-            numFramesRemaining = numFramesRemaining - (rawData.size / numChannels);
-          });
-
-          file.close;
-
-          if(abandonCurrentWaveform, {
-            abandonCurrentWaveform = false;
-            // ("Waveform" + sampleId + "abandoned after" + (Date.getDate.rawSeconds - startSecs).round(0.001) + "s").postln;
-          }, {
-            if(waveform.size > 0, {
-              this.sendWaveform(sampleId, offset, waveform);
-            });
-            // ("Waveform" + sampleId + "generated in" + (Date.getDate.rawSeconds - startSecs).round(0.001) + "s").postln;
-          });
-        });
-
-        // Let other sclang work happen
-        0.002.yield;
-      });
-
-      ("Finished generating waveforms in" + (Date.getDate.rawSeconds - totalStartSecs).round(0.001) + "s").postln;
-      generatingWaveform = -1;
-
-    }).play;
-  }
-
-  sendWaveform {
-    arg sampleId, offset, waveform;
-    var padding = 0;
-
-    // Pad to work around https://github.com/supercollider/supercollider/issues/2125
-    while({ waveform.size % 4 > 0 }, {
-      waveform = waveform.add(0);
-      padding = padding + 1;
-    });
-
-    // ("Send waveform for" + sampleId + "offset" + offset + "size" + waveform.size).postln;
-    scriptAddress.sendBundle(0, ['/engineWaveform', sampleId, offset, padding, waveform]);
   }
 
   assignVoice {
@@ -2675,12 +2495,6 @@ Engine_ReplLooper : CroneEngine {
 
 
   addCommands {
-
-    // generateWaveform(id)
-    this.addCommand(\generateWaveform, "i", {
-      arg msg;
-      this.queueWaveformGeneration(msg[1]);
-    });
 
     // noteOn(id, freq, vel, sampleId)
     this.addCommand(\noteOn, "iiffi", {
