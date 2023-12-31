@@ -564,13 +564,10 @@ function Loop:to_grid_row()
   return row
 end
 
-s = nil
-
 function Loop:play_events_at_step(step)
   for _, event in ipairs(self.events) do
     local event_step = math.floor(event.step)
     if event_step == step then
-      s = event_step
       event:eval(self.id)
     end
   end
@@ -580,7 +577,6 @@ function Loop:play_off_events_at_step(step)
   for _, event in ipairs(self.off_events) do
     local event_step = math.floor(event.step)
     if event_step == step then
-      s = event_step
       event:eval(self.id)
     end
   end
