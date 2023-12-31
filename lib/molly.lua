@@ -275,7 +275,11 @@ function Molly:ringModFade(value)
   self:setParam("ringModFade", value)
 end
 
-function Molly:randomize(sound_type, save_seed)
+function Molly:randomize(seed, sound_type)
+  if not seed then seed = math.random(100000) end
+  math.randomseed(seed)
+  math.random() -- Seems unecessary :shrug:
+
   sound_type = sound_type or "lead"
 
   self:oscWaveShape(math.random(#options.OSC_WAVE_SHAPE) - 1)
@@ -465,13 +469,7 @@ function Molly:randomize(sound_type, save_seed)
   if self.params.lpFilterCutoff < 600 and self.params.lpFilterCutoffModEnv < 0 then
     self:lpFilterCutoffModEnv(math.abs(self.params.lpFilterCutoffModEnv))
   end
-end
 
-function Molly:notRandom(seed, sound_type)
-  if not seed then seed = math.random(100000) end
-  math.randomseed(seed)
-  math.random() -- Seems unecessary :shrug:
-  self:randomize(sound_type)
   return seed
 end
 
