@@ -1802,6 +1802,45 @@ function draw_grid_logo()
   grid_device:refresh()
 end
 
+function animate_grid_logo()
+  showing_grid_logo = true
+
+  local pixels = {
+    { { 12, 2 }, { 5,  6 } },
+    { { 12, 1 }, { 5,  7 } },
+    { { 11, 1 }, { 6,  7 } },
+    { { 10, 1 }, { 7,  7 } },
+    { { 9,  1 }, { 8,  7 } },
+    { { 8,  1 }, { 9,  7 } },
+    { { 7,  1 }, { 10, 7 } },
+    { { 6,  1 }, { 11, 7 } },
+    { { 5,  1 }, { 12, 7 } },
+    { { 5,  2 }, { 12, 6 } },
+    { { 4, 3 }, { 5,  3 }, { 6, 3 },
+      { 11, 5 }, { 12, 5 }, { 13, 5}
+    },
+    { { 5,  4 }, { 12, 4 } },
+    -- { { 8, 3 }, { 9, 4 }, { 8, 5 } }
+    { { 8, 3, 3 }, { 9, 4, 3 }, { 8, 5, 3 } },
+    { { 8, 3, 5 }, { 9, 4, 5 }, { 8, 5, 5 } },
+    { { 8, 3, 7 }, { 9, 4, 7 }, { 8, 5, 7 } },
+    { { 8, 3, 9 }, { 9, 4, 9 }, { 8, 5, 9 } },
+    { { 8, 3, 11}, { 9, 4, 11}, { 8, 5, 11} },
+    { { 8, 3, 13}, { 9, 4, 13}, { 8, 5, 13} },
+    { { 8, 3, 15}, { 9, 4, 15}, { 8, 5, 15} },
+  }
+
+  clock.run(function()
+    for _, frame in ipairs(pixels) do
+      for _, pixel in ipairs(frame) do
+        grid_device:led(pixel[1], pixel[2], (pixel[3] or 15))
+      end
+      grid_device:refresh()
+      clock.sleep(0.1)
+    end
+  end)
+end
+
 function init()
   print("Init!")
   screen.set_size(128, 64, 1)
