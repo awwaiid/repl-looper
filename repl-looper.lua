@@ -1,4 +1,4 @@
--- repl-looper v0.5.1
+-- repl-looper v0.6.0
 -- Record/play code loops!
 --
 -- llllllll.co/t/repl-looper
