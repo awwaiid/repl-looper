@@ -142,3 +142,10 @@
   * Not sure how good an idea that is, but the simple test of filling the whole grid with a single closed-hat hit stays much more in time now
   * Though right after that I crashed the whole norns, so that's fun
   * I also added `M` and `N` as non-macro expansion of the current step during `loop:gen`. So instead of ```a:gen("p(`60+m`)")``` you can do `a:gen("p(60+M)")`
+* 2023-12-31
+  * Yesterday I performed as part of a Blue Moon Triptych
+  * While building up to it I kept running into xruns
+  * One suggestion from the 'net was to switch over to Seamstress
+  * So I'm trying that! And.... it's working. MADNESS
+  * So now I'm trying to make it work on both Norns and Seamstress
+  * The super-lattice seems to be working well

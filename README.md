@@ -1,6 +1,6 @@
 # Norns REPL-LOOPER
 
-> Anagogically integrated UI for Norns / Matron / Grid
+> Anagogically integrated UI for Norns / Seamstress / Grid
 
 <img src="https://github.com/awwaiid/repl-looper/raw/main/docs/logo.png" align="right" style="padding-left: 1em" />
 
@@ -37,6 +37,9 @@ Check out the [dev branch](https://github.com/awwaiid/repl-looper/tree/dev) and 
   * On-screen grid mirror
   * Abandon web UI
 * v0.5.1 (2023-11-07) - Fix grid keypress
+* v0.6 - Granchild and Seamstress
+  * Incorporate Granchild (or something like it)
+  * Make compatible with Seamstress; can use in both Norns and Seamstress
 
 # Installation
 
@@ -266,6 +269,7 @@ vncviewer EnableToolbar=0 SecurityNotificationTimeout=0 ColorLevel=full SendPoin
 * Add visual half-loops (8 steps) for the grid
   * `a1`..`h1` to span columns 1..8
   * `a2`..`h2` to span columns 9..16
+* Save current state (loops, samples, etc) to a file
 
 # Shout Outs!
 
