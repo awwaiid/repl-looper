@@ -473,6 +473,9 @@ function ReplLooper.osc_event(path, args, from)
 
   elseif path == "/engineGoldeneyeLoad" then
     goldeneye_loaded(args[1], args[2])
+
+  elseif path == "/engineZglutLoad" then
+    Granchild._fileLoaded(args[1]+1, args[2])
   end
 end
 
