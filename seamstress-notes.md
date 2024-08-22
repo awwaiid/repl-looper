@@ -3,6 +3,9 @@
 * copied lib/container in since that isn't included by seamstress
 * switched to lib/json.lua since lib/cjson.so dosn't work
 * start with `~/local/seamstress/bin/seamstress -l 8888 -s repl-looper.lua`
+* Oh ... also need to start supercollider!
+  * `sclang`
+  * Then use catia to route the audio!
 * modified engine OSC port from 10111 to 8888, not sure if that can be the same
 * deleted a bunch of dead code from SC engine and lua bindings
 * Switched from `math.pow(a,b)` to `a^b` in lua code (this should be compatible)
@@ -12,4 +15,3 @@
 * Significant modify screen-drawing
   * The methods aren't all the same, some are not there, and others are 1-based instead of 0-based coordinates
 * Most all file-path stuff needs to be tweaked
-* 
