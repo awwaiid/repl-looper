@@ -976,8 +976,13 @@ function draw_mini_grid_mirror(x, y)
         val = 1
       end
       screen.level(val)
-      screen.move(x + (col - 1) * scale, y + (row - 1) * scale)
-      screen.rect_fill(scale, scale)
+      if seamstress then
+        screen.move(x + (col - 1) * scale, y + (row - 1) * scale)
+        screen.rect_fill(scale, scale)
+      else
+        screen.rect(x + (col - 1) * scale, y + (row - 1) * scale, scale, scale)
+        screen.fill()
+      end
     end
   end
 end
@@ -996,7 +1001,9 @@ end
 function _redraw()
   -- print("Redraw!")
 
-  -- screen.ping()
+  if not seamstress then
+    screen.ping()
+  end
   screen.clear()
   clock.sleep(0.01)
 
@@ -1006,11 +1013,16 @@ function _redraw()
   -- Nice horizontal line between history and prompt
   local divider_y = 64 - editor_height - 10
   screen.level(2)
-  screen.move(1, divider_y)
-  -- screen.line_width(1)
-  screen.line(128, divider_y)
-  -- screen.stroke()
-  clock.sleep(0.01)
+  if seamstress then
+    screen.move(1, divider_y)
+    screen.line(128, divider_y)
+    clock.sleep(0.01)
+  else
+    screen.move(0, divider_y)
+    screen.line_width(1)
+    screen.line(128, divider_y)
+    screen.stroke()
+  end
 
   local history_line_height = math.floor((divider_y - 2) / 9)
   if history_line_height > 0 then
@@ -1023,7 +1035,12 @@ function _redraw()
     end
 
     screen.level(15)
-    local lst = UI.ScrollingList.new(1, -4, (history_select or #history_viz), history_viz)
+    local lst;
+    if seamstress then
+      lst = UI.ScrollingList.new(1, -4, (history_select or #history_viz), history_viz)
+    else
+      lst = UI.ScrollingList.new(0, 0, (history_select or #history_viz), history_viz)
+    end
     if not history_select then
       lst.active = false
     end
@@ -1034,9 +1051,11 @@ function _redraw()
   clock.sleep(0.01)
 
   -- Informational / cool displays
-  -- screen.level(15)
-  -- draw_logo(118, 1)
-  -- draw_mini_grid_mirror(112, 1)
+  if not seamstress then
+    screen.level(15)
+    -- draw_logo(118, 1)
+    draw_mini_grid_mirror(112, 1)
+  end
 
   screen.update()
   -- screen.peek(0, 0, 128, 64) -- try to help out some ndi-mod thing
@@ -1044,166 +1063,255 @@ function _redraw()
   currently_redrawing = false
 end
 
--- function keyboard.char(character)
---   history_select = nil
---   editor:insert(character)
---   redraw()
--- end
+if not seamstress then
+  function keyboard.char(character)
+    history_select = nil
+    editor:insert(character)
+    redraw()
+  end
+end
 
 saved_content = ""
-function screen.key(code, modifiers, is_repeat, value)
-  local modifier
-  if #modifiers == 1 then
-    modifier = modifiers[1]
-  elseif #modifiers == 0 then
-    modifier = "none"
-  end
 
-  if code.name ~= nil then
-    code = code.name
-  else
-    code = code == " " and "space" or code
-  end
-
-  code = string.upper(code)
-
-  -- The grid logo is fun, but let's hide it once we have a keypress
-  if showing_grid_logo then
-    showing_grid_logo = false
-    grid_device:all(0)
-    grid_device:refresh()
-  end
-
-  if value == 1 or value == 2 then -- 1 is down, 2 is held, 0 is release
-    -- History selection
-    if code == "UP" then
-      if not history_select then
-        saved_content = editor.content
-        history_select = result_history:count()
-      else
-        history_select = history_select - 1
-        if history_select == 0 then
-          history_select = nil
-          editor:set_content(saved_content)
-        end
-      end
-      if history_select then
-        editor:set_content(result_history:peek(history_select).input)
-      end
-    elseif code == "DOWN" then
-      if not history_select then
-        saved_content = editor.content
-        history_select = 1
-      else
-        history_select = history_select + 1
-        if history_select > result_history:count() then
-          history_select = nil
-          editor:set_content(saved_content)
-        end
-      end
-      if history_select then
-        editor:set_content(result_history:peek(history_select).input)
-      end
-    else
-      history_select = nil
-      saved_content = ""
+if seamstress then
+  function screen.key(code, modifiers, is_repeat, value)
+    local modifier
+    if #modifiers == 1 then
+      modifier = modifiers[1]
+    elseif #modifiers == 0 then
+      modifier = "none"
     end
 
-    if code == "BACKSPACE" then
-      editor:backspace()
-    elseif code == "DELETE" then
-      editor:delete()
-    elseif code == "LEFT" then
-      editor:move_cursor_left()
-    elseif code == "RIGHT" then
-      editor:move_cursor_right()
-    elseif code == "HOME" then
-      editor:move_cursor_to_start()
-    elseif code == "END" then
-      editor:move_cursor_to_end()
-    elseif code == "ENTER" or code == "RETURN" then
-      if modifier == "shift" then
-        editor:insert("\n")
-      else
-        if editor.content == "" then
-          -- If there is no new input, send the most recent history entry
-          editor:set_content(result_history:peek_back().input)
-        end
-        client_live_event(editor.content)
-        editor:clear()
-      end
-    elseif code == "TAB" then
-      local comps = comp.complete(editor.content)
-      editor:set_content(helper.longestPrefix(comps))
-      if #comps > 1 then
-        for i, v in ipairs(comps) do
-          result_history:push_back({
-            input = v,
-            output = "..."
-          })
-        end
-      end
-    elseif
-         code == "LSHIFT"
-      or code == "RSHIFT"
-      or code == "LCTRL"
-      or code == "RCTRL"
-      or code == "UP"
-      or code == "DOWN"
-      or code == "LSUPER"
-      or code == "RSUPER" then
-      -- Then nothing
-    elseif code == "SPACE" then
-      editor:insert(" ")
+    if code.name ~= nil then
+      code = code.name
     else
-      -- print("Got a keypress: [" .. code .. "]")
-      history_select = nil
-      if modifier == "shift" then
-        if code == "-" then code = "_" end
-        if code == "=" then code = "+" end
-        if code == ";" then code = ":" end
-        if code == "'" then code = '"' end
-        if code == "," then code = "<" end
-        if code == "." then code = ">" end
-        if code == "/" then code = "?" end
-
-        if not FLIP_SYMBOLS then
-          if code == "1" then code = "!" end
-          if code == "2" then code = "@" end
-          if code == "3" then code = "#" end
-          if code == "4" then code = "$" end
-          if code == "5" then code = "%" end
-          if code == "6" then code = "^" end
-          if code == "7" then code = "&" end
-          if code == "8" then code = "*" end
-          if code == "9" then code = "(" end
-          if code == "0" then code = ")" end
-          if code == "[" then code = "{" end
-          if code == "]" then code = "}" end
-        end
-
-
-        editor:insert(string.upper(code))
-      else
-        -- I like reverse shift for numbers
-        if FLIP_SYMBOLS then
-          if code == "1" then code = "!" end
-          if code == "2" then code = "@" end
-          if code == "3" then code = "#" end
-          if code == "4" then code = "$" end
-          if code == "5" then code = "%" end
-          if code == "6" then code = "^" end
-          if code == "7" then code = "&" end
-          if code == "8" then code = "*" end
-          if code == "9" then code = "(" end
-          if code == "0" then code = ")" end
-          if code == "[" then code = "{" end
-          if code == "]" then code = "}" end
-        end
-        editor:insert(string.lower(code))
-      end
+      code = code == " " and "space" or code
     end
-    redraw()
+
+    code = string.upper(code)
+
+    -- The grid logo is fun, but let's hide it once we have a keypress
+    if showing_grid_logo then
+      showing_grid_logo = false
+      grid_device:all(0)
+      grid_device:refresh()
+    end
+
+    if value == 1 or value == 2 then -- 1 is down, 2 is held, 0 is release
+      -- History selection
+      if code == "UP" then
+        if not history_select then
+          saved_content = editor.content
+          history_select = result_history:count()
+        else
+          history_select = history_select - 1
+          if history_select == 0 then
+            history_select = nil
+            editor:set_content(saved_content)
+          end
+        end
+        if history_select then
+          editor:set_content(result_history:peek(history_select).input)
+        end
+      elseif code == "DOWN" then
+        if not history_select then
+          saved_content = editor.content
+          history_select = 1
+        else
+          history_select = history_select + 1
+          if history_select > result_history:count() then
+            history_select = nil
+            editor:set_content(saved_content)
+          end
+        end
+        if history_select then
+          editor:set_content(result_history:peek(history_select).input)
+        end
+      else
+        history_select = nil
+        saved_content = ""
+      end
+
+      if code == "BACKSPACE" then
+        editor:backspace()
+      elseif code == "DELETE" then
+        editor:delete()
+      elseif code == "LEFT" then
+        editor:move_cursor_left()
+      elseif code == "RIGHT" then
+        editor:move_cursor_right()
+      elseif code == "HOME" then
+        editor:move_cursor_to_start()
+      elseif code == "END" then
+        editor:move_cursor_to_end()
+      elseif code == "ENTER" or code == "RETURN" then
+        if modifier == "shift" then
+          editor:insert("\n")
+        else
+          if editor.content == "" then
+            -- If there is no new input, send the most recent history entry
+            editor:set_content(result_history:peek_back().input)
+          end
+          client_live_event(editor.content)
+          editor:clear()
+        end
+      elseif code == "TAB" then
+        local comps = comp.complete(editor.content)
+        editor:set_content(helper.longestPrefix(comps))
+        if #comps > 1 then
+          for i, v in ipairs(comps) do
+            result_history:push_back({
+              input = v,
+              output = "..."
+            })
+          end
+        end
+      elseif
+           code == "LSHIFT"
+        or code == "RSHIFT"
+        or code == "LCTRL"
+        or code == "RCTRL"
+        or code == "UP"
+        or code == "DOWN"
+        or code == "LSUPER"
+        or code == "RSUPER" then
+        -- Then nothing
+      elseif code == "SPACE" then
+        editor:insert(" ")
+      else
+        -- print("Got a keypress: [" .. code .. "]")
+        history_select = nil
+        if modifier == "shift" then
+          if code == "-" then code = "_" end
+          if code == "=" then code = "+" end
+          if code == ";" then code = ":" end
+          if code == "'" then code = '"' end
+          if code == "," then code = "<" end
+          if code == "." then code = ">" end
+          if code == "/" then code = "?" end
+
+          if not FLIP_SYMBOLS then
+            if code == "1" then code = "!" end
+            if code == "2" then code = "@" end
+            if code == "3" then code = "#" end
+            if code == "4" then code = "$" end
+  if code == "5" then code = "%" end
+            if code == "6" then code = "^" end
+            if code == "7" then code = "&" end
+            if code == "8" then code = "*" end
+            if code == "9" then code = "(" end
+            if code == "0" then code = ")" end
+            if code == "[" then code = "{" end
+            if code == "]" then code = "}" end
+          end
+
+
+          editor:insert(string.upper(code))
+        else
+          -- I like reverse shift for numbers
+          if FLIP_SYMBOLS then
+            if code == "1" then code = "!" end
+            if code == "2" then code = "@" end
+            if code == "3" then code = "#" end
+            if code == "4" then code = "$" end
+            if code == "5" then code = "%" end
+            if code == "6" then code = "^" end
+            if code == "7" then code = "&" end
+            if code == "8" then code = "*" end
+            if code == "9" then code = "(" end
+            if code == "0" then code = ")" end
+            if code == "[" then code = "{" end
+            if code == "]" then code = "}" end
+          end
+          editor:insert(string.lower(code))
+        end
+      end
+      redraw()
+    end
+  end
+end
+
+if not seamstress then
+  function keyboard.code(code, value)
+    -- The grid logo is fun, but let's hide it once we have a keypress
+    if showing_grid_logo then
+      showing_grid_logo = false
+      grid_device:all(0)
+      grid_device:refresh()
+    end
+
+    if value == 1 or value == 2 then -- 1 is down, 2 is held, 0 is release
+      -- History selection
+      if code == "UP" then
+        if not history_select then
+          saved_content = editor.content
+          history_select = result_history:count()
+        else
+          history_select = history_select - 1
+          if history_select == 0 then
+            history_select = nil
+            editor:set_content(saved_content)
+          end
+        end
+        if history_select then
+          editor:set_content(result_history:peek(history_select).input)
+        end
+      elseif code == "DOWN" then
+        if not history_select then
+          saved_content = editor.content
+          history_select = 1
+        else
+          history_select = history_select + 1
+          if history_select > result_history:count() then
+            history_select = nil
+            editor:set_content(saved_content)
+          end
+        end
+        if history_select then
+          editor:set_content(result_history:peek(history_select).input)
+        end
+      else
+        history_select = nil
+        saved_content = ""
+      end
+
+      if code == "BACKSPACE" then
+        editor:backspace()
+      elseif code == "DELETE" then
+        editor:delete()
+      elseif code == "LEFT" then
+        editor:move_cursor_left()
+      elseif code == "RIGHT" then
+        editor:move_cursor_right()
+      elseif code == "HOME" then
+        editor:move_cursor_to_start()
+      elseif code == "END" then
+        editor:move_cursor_to_end()
+      elseif code == "ENTER" or code == "RETURN" then
+        if keyboard.shift() then
+          editor:insert("\n")
+        else
+          if editor.content == "" then
+            -- If there is no new input, send the most recent history entry
+            editor:set_content(result_history:peek_back().input)
+          end
+          client_live_event(editor.content)
+          editor:clear()
+        end
+      elseif code == "TAB" then
+        local comps = comp.complete(editor.content)
+        editor:set_content(helper.longestPrefix(comps))
+        if #comps > 1 then
+          for i, v in ipairs(comps) do
+            result_history:push_back({
+              input = v,
+              output = "..."
+            })
+          end
+        end
+      end
+      redraw()
+    end
   end
 end
 
@@ -1616,20 +1724,23 @@ end
 
 function init()
   print("Init!")
-  screen.set_size(128, 64, 1)
+  if seamstress then
+    screen.set_size(128, 64, 1)
 
-  clock.run(function()
-    clock.sleep(5)
-    osc.send({SC_HOST, SC_PORT}, '/report/engines', {})
-    clock.sleep(5)
-    osc.send({SC_HOST, SC_PORT}, '/report/engines', {})
-    clock.sleep(5)
+    clock.run(function()
+      clock.sleep(5)
+      osc.send({SC_HOST, SC_PORT}, '/report/engines', {})
+      clock.sleep(5)
+      osc.send({SC_HOST, SC_PORT}, '/report/engines', {})
+      clock.sleep(5)
+      delayed_init()
+    end)
+  else
     delayed_init()
-  end)
+  end
 end
 
 function delayed_init()
-
 
   -- Global Grid
   print "Loading grid"
