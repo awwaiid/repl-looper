@@ -18,7 +18,7 @@ FLIP_SYMBOLS = false
 
 if seamstress then
   print("Seamstress mode enabled!!!")
-  seamstress_setup = require("lib/seamstress_setup")
+  seamstress_setup = require("repl-looper/lib/seamstress_setup")
   PROJECT_PATH = os.getenv("PWD")
   SCREEN_WIDTH = 128
   SCREEN_HEIGHT = 64
@@ -28,18 +28,18 @@ else
   SCREEN_HEIGHT = 64
 end
 
-JSON = require("lib/json")
-Deque = require("lib/container/deque")
+JSON = require("repl-looper/lib/json")
+Deque = require("repl-looper/lib/container/deque")
 UI = require("ui")
-comp = require("lib/completion")
+comp = require("repl-looper/lib/completion")
 
 -- Locally augmented libraries
-Lattice = require("lib/lattice")
-musicutil = require("lib/musicutil_extended")
-sequins = require("lib/sequins_extended")
+Lattice = require("repl-looper/lib/lattice")
+musicutil = require("repl-looper/lib/musicutil_extended")
+sequins = require("repl-looper/lib/sequins_extended")
 
 -- Local helpers
-local helper = require("lib/helper")
+local helper = require("repl-looper/lib/helper")
 ls = helper.ls
 eval = helper.eval
 keys = helper.tabkeys
@@ -47,7 +47,7 @@ keys = helper.tabkeys
 -- ALL helper
 -- Use like all{a,b,c}:stop()
 -- Which is equivalent to a:stop();b:stop();c:stop()
-all = require("lib/all")
+all = require("repl-looper/lib/all")
 
 -- Enable/Disable global debugging
 function bug(...)
@@ -60,14 +60,14 @@ end
 -- Grid Wrapper -----------------------------------------------------
 ---------------------------------------------------------------------
 
-local Grid = require("lib/grid")
+local Grid = require("repl-looper/lib/grid")
 
 ---------------------------------------------------------------------
 -- Editor -----------------------------------------------------------
 ---------------------------------------------------------------------
 
 -- Single global editor for all to use
-local Editor = require("lib/editor")
+local Editor = require("repl-looper/lib/editor")
 local editor
 if seamstress then
   editor = Editor.new({
@@ -1477,15 +1477,15 @@ end
 -- Tiiiimmmmmbbbbeeerrrrr!!!!! PLUS MOLLY THE POLY!!!
 -- .... PLUS GOLDENEYE!!!
 
-ReplLooper = require("lib/repllooper_engine")
+ReplLooper = require("repl-looper/lib/repllooper_engine")
 
 -- engine.load('ReplLooper')
 engine.name = "ReplLooper"
 
-Timber = require("lib/timber")
-Molly = require("lib/molly")
-Sample = require("lib/sample")
-Granchild = require("lib/granchild")
+Timber = require("repl-looper/lib/timber")
+Molly = require("repl-looper/lib/molly")
+Sample = require("repl-looper/lib/sample")
+Granchild = require("repl-looper/lib/granchild")
 
 -- Play a note or a chord
 -- The note can be either a midi number OR a note-string like "C3"

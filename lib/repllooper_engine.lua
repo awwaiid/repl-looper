@@ -9,7 +9,7 @@ local ControlSpec = require "controlspec"
 local Formatters = require "formatters"
 local musicutil = require "musicutil"
 local UI = require "ui"
-local Granchild = require "lib/granchild"
+local Granchild = require "repl-looper/lib/granchild"
 
 local ReplLooper = {}
 
