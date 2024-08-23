@@ -39,7 +39,7 @@ function Editor:text_width(text)
     _cached_text_width[text] = width
     return width
   else
-    return screen.text_extents(char)
+    return screen.text_extents(text)
   end
 end
 
