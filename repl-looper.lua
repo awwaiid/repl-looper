@@ -1755,7 +1755,9 @@ function delayed_init()
   pedal_device.event = handle_pedal_event
 
   -- Get our file storage set up for live-recording
-  -- os.execute("mkdir -p ".._path.audio.."repl-looper")
+  if not seamstress then
+    os.execute("mkdir -p ".._path.audio.."repl-looper")
+  end
 
   -- Set up params
   -- MollyThePoly.add_params()
