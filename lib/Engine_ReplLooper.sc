@@ -265,8 +265,8 @@ Engine_ReplLooper : CroneEngine {
     players = Array.newClear(4);
 
     loadQueue = Array.new(maxSamples);
-    // scriptAddress = NetAddr("localhost", 10111);
-    scriptAddress = NetAddr("localhost", 8888);
+    scriptAddress = NetAddr("localhost", 10111);
+    // scriptAddress = NetAddr("localhost", 8888);
     waveformQueue = Array.new(maxSamples);
 
     // Receive messages from server
