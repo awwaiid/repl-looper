@@ -10,7 +10,7 @@ function Editor.new(options)
     y_offset = options.y_offset or 0,
     line_y_adjustment = options.line_y_adjustment or 0,
     max_x = options.max_x or 127,
-    max_y = options.max_y or 63
+    max_y = options.max_y or 62
   }
   setmetatable(self, Editor)
   return self
@@ -84,20 +84,20 @@ function Editor:draw_wrapped_content(start_x, start_y, do_draw)
 end
 
 function Editor:invert_rect(x, y, width, height)
-  screen.move(x, y)
-  screen.rect_fill(width, height)
-  -- local rect = screen.peek(x, y, width, height)
-  -- local out = {}
-  -- for i = 1, #rect do
-  --   out[i] = string.char(15 - string.byte(rect, i))
-  -- end
-  -- screen.poke(x, y, width, height, table.concat(out))
+  -- screen.move(x, y)
+  -- screen.rect_fill(width, height)
+  local rect = screen.peek(x, y, width, height)
+  local out = {}
+  for i = 1, #rect do
+    out[i] = string.char(15 - string.byte(rect, i))
+  end
+  screen.poke(x, y, width, height, table.concat(out))
 end
 
 
 function Editor:insert(char)
-  -- self.content = self.content:sub(1, self.cursor - 1) .. char .. self.content:sub(self.cursor)
-  self.content = self.content .. char
+  self.content = self.content:sub(1, self.cursor - 1) .. char .. self.content:sub(self.cursor)
+  -- self.content = self.content .. char
   self.cursor = self.cursor + 1
 end
 
