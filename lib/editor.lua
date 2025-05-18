@@ -9,6 +9,7 @@ function Editor.new(options)
     x_offset = options.x_offset or 0,
     y_offset = options.y_offset or 0,
     line_y_adjustment = options.line_y_adjustment or 0,
+    line_height = options.line_height or 8,
     max_x = options.max_x or 127,
     max_y = options.max_y or 62
   }
@@ -31,6 +32,7 @@ end
 
 local _cached_text_width = {}
 function Editor:text_width(text)
+  print("Editor:text_width", text)
   if seamstress then
     if _cached_text_width[text] then
       return _cached_text_width[text]
@@ -44,6 +46,7 @@ function Editor:text_width(text)
 end
 
 function Editor:draw_wrapped_content(start_x, start_y, do_draw)
+  print("Editor:draw_wrapped_content", start_x, start_y, do_draw)
   -- Draw characters one at a time based on width
   -- And then reverse the currect character if it is where the cursor is
   -- screen.text draws from the lower-left corner for some weird reason, that's
@@ -59,7 +62,7 @@ function Editor:draw_wrapped_content(start_x, start_y, do_draw)
     end
     if x + char_width > self.max_x  or char == "\n" then
       x = self.x_offset
-      y = y + 8
+      y = y + self.line_height
     end
     if do_draw and char ~= "\n" then
       screen.move(x, y)
@@ -68,9 +71,9 @@ function Editor:draw_wrapped_content(start_x, start_y, do_draw)
         -- screen.text(char)
         -- self:invert_rect(x, y, char_width, 9)
         screen.level(15)
-        self:invert_rect(x, y, char_width, 9)
-        screen.level(0)
         screen.text(char)
+        self:invert_rect(x, y-7, char_width, 9)
+        screen.level(0)
       else
         screen.level(15)
         screen.text(char)

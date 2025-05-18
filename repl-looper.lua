@@ -13,12 +13,17 @@
 --     █         █
 --     ███████████
 --
+-- *********
+-- *       *
+-- *       *
+-- *       *
+-- *********
 
 FLIP_SYMBOLS = false
 
 if seamstress then
   print("Seamstress mode enabled!!!")
-  seamstress_setup = require("repl-looper/lib/seamstress_setup")
+  seamstress_setup = include("lib/seamstress_setup")
   PROJECT_PATH = os.getenv("PWD")
   SCREEN_WIDTH = 128
   SCREEN_HEIGHT = 64
@@ -28,18 +33,18 @@ else
   SCREEN_HEIGHT = 64
 end
 
-JSON = require("repl-looper/lib/json")
-Deque = require("repl-looper/lib/container/deque")
-UI = require("ui")
-comp = require("repl-looper/lib/completion")
+JSON = include("lib/json")
+Deque = include("lib/container/deque")
+UI = include("ui")
+comp = include("lib/completion")
 
 -- Locally augmented libraries
-Lattice = require("repl-looper/lib/lattice")
-musicutil = require("repl-looper/lib/musicutil_extended")
-sequins = require("repl-looper/lib/sequins_extended")
+Lattice = include("lib/lattice")
+musicutil = include("lib/musicutil_extended")
+sequins = include("lib/sequins_extended")
 
 -- Local helpers
-local helper = require("repl-looper/lib/helper")
+local helper = include("lib/helper")
 ls = helper.ls
 eval = helper.eval
 keys = helper.tabkeys
@@ -47,7 +52,7 @@ keys = helper.tabkeys
 -- ALL helper
 -- Use like all{a,b,c}:stop()
 -- Which is equivalent to a:stop();b:stop();c:stop()
-all = require("repl-looper/lib/all")
+all = include("lib/all")
 
 -- Enable/Disable global debugging
 function bug(...)
@@ -60,14 +65,14 @@ end
 -- Grid Wrapper -----------------------------------------------------
 ---------------------------------------------------------------------
 
-local Grid = require("repl-looper/lib/grid")
+local Grid = include("lib/grid")
 
 ---------------------------------------------------------------------
 -- Editor -----------------------------------------------------------
 ---------------------------------------------------------------------
 
 -- Single global editor for all to use
-local Editor = require("repl-looper/lib/editor")
+local Editor = include("lib/editor")
 local editor
 if seamstress then
   editor = Editor.new({
@@ -620,6 +625,7 @@ function expand_code_string(code_string, n)
       "`([^`]+)`",
       function (snippet)
         local injected_snippet = "local n = dynamic('n'); local m = n - 1; return " .. snippet
+        print("Evaluating", injected_snippet)
         return eval(injected_snippet)
       end
     )
@@ -1585,15 +1591,15 @@ end
 -- Tiiiimmmmmbbbbeeerrrrr!!!!! PLUS MOLLY THE POLY!!!
 -- .... PLUS GOLDENEYE!!!
 
-ReplLooper = require("repl-looper/lib/repllooper_engine")
+ReplLooper = include("lib/repllooper_engine")
 
 -- engine.load('ReplLooper')
 engine.name = "ReplLooper"
 
-Timber = require("repl-looper/lib/timber")
-Molly = require("repl-looper/lib/molly")
-Sample = require("repl-looper/lib/sample")
-Granchild = require("repl-looper/lib/granchild")
+Timber = include("lib/timber")
+Molly = include("lib/molly")
+Sample = include("lib/sample")
+Granchild = include("lib/granchild")
 
 -- Play a note or a chord
 -- The note can be either a midi number OR a note-string like "C3"

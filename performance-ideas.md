@@ -8,6 +8,8 @@ a:gen("CH", 1/2)
 
 a:gen("BS", {4/4, 11/4, 14/4, 17/4, 19/4})
 
+a:gen("BS", {4/4, 11/4, 14/4, 17/4, 19/4})
+
 
 -- Let's try some sample slicing
 s4 = Sample.new("/home/we/dust/code/repl-looper/audio/mfa/The-Call-of-the-Polar-Star_fma-115766_001_00-00-01.ogg")

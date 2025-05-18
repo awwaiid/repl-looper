@@ -3,8 +3,8 @@
 -- Molly The Poly objectized! ---------------------------------------
 ---------------------------------------------------------------------
 
-local ControlSpec = require "controlspec"
-local musicutil = require("repl-looper/lib/musicutil_extended")
+local ControlSpec = include "controlspec"
+local musicutil = include "lib/musicutil_extended"
 
 local specs = {}
 local options = {}

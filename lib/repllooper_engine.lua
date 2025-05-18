@@ -5,11 +5,11 @@
 -- @release v1.0.0 Beta 7
 -- @author Mark Eats, Brock Wilcox, others
 
-local ControlSpec = require "controlspec"
-local Formatters = require "formatters"
-local musicutil = require "musicutil"
-local UI = require "ui"
-local Granchild = require "repl-looper/lib/granchild"
+local ControlSpec = include "controlspec"
+local Formatters = include "formatters"
+local musicutil = include "musicutil"
+local UI = include "ui"
+local Granchild = include "lib/granchild"
 
 local ReplLooper = {}
 

@@ -1,7 +1,7 @@
 --- Engine class
 -- @module engine
 
-local tab = require 'tabutil'
+local tab = include 'tabutil'
 
 local Engine = {}
 -- ------------------------
