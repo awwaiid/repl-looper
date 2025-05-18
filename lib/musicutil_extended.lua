@@ -1,5 +1,5 @@
 
-local musicutil = include "musicutil"
+local musicutil = require "musicutil"
 
 -- Reverse note name -> num lookup
 local note_name_num = {}

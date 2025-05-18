@@ -3,7 +3,7 @@
 -- Molly The Poly objectized! ---------------------------------------
 ---------------------------------------------------------------------
 
-local ControlSpec = include "controlspec"
+local ControlSpec = require "controlspec"
 local musicutil = include "lib/musicutil_extended"
 
 local specs = {}

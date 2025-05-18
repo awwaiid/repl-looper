@@ -35,7 +35,7 @@ end
 
 JSON = include("lib/json")
 Deque = include("lib/container/deque")
-UI = include("ui")
+UI = require("ui")
 comp = include("lib/completion")
 
 -- Locally augmented libraries

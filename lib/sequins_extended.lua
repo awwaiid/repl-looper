@@ -1,5 +1,5 @@
 
-local sequins = include "sequins"
+local sequins = require "sequins"
 
 sequins.metaix["again"] =
   function(self)
