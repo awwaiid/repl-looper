@@ -4,7 +4,7 @@
 ---------------------------------------------------------------------
 
 local ControlSpec = require "controlspec"
-local musicutil = include("repl-looper/lib/musicutil_extended")
+local musicutil = include "lib/musicutil_extended"
 
 local specs = {}
 local options = {}
@@ -53,9 +53,9 @@ local Molly = {}
 Molly.__index = Molly
 Molly.next_id = 0
 
-function Molly.new(filename, play_mode)
+function Molly.new(play_mode)
   local self = {
-    mode = "single", -- single note at a time or multi (deal with note-off)
+    mode = play_mode or "single", -- single note at a time or multi (deal with note-off)
     track_id = 0,
     params = {
       pitchBendRatio = 1,
@@ -118,7 +118,8 @@ local mollyVoiceFunctions = {
   pitchBend = "mollyPitchBend",
   noteKill = "mollyNoteKill",
   pressure = "mollyPressure",
-  timbre = "mollyTimbre"
+  timbre = "mollyTimbre",
+  trace = "mollyTrace"
 }
 
 for funcName, engineFuncName in pairs(mollyVoiceFunctions) do
@@ -195,8 +196,10 @@ local mollyFunctions = {
 
 for funcName, engineFuncName in pairs(mollyFunctions) do
   Molly[funcName] = function(self, ...)
-    -- print("calling", funcName, engineFuncName, self.id, ...)
-    engine[engineFuncName](self.id, ...)
+    print("calling", funcName, engineFuncName, self.id, ...)
+    if engine[engineFuncName] then
+      engine[engineFuncName](self.id, ...)
+    end
     self:setParam(funcName, ...)
   end
 end
@@ -272,7 +275,11 @@ function Molly:ringModFade(value)
   self:setParam("ringModFade", value)
 end
 
-function Molly:randomize(sound_type)
+function Molly:randomize(seed, sound_type)
+  if not seed then seed = math.random(100000) end
+  math.randomseed(seed)
+  math.random() -- Seems unecessary :shrug:
+
   sound_type = sound_type or "lead"
 
   self:oscWaveShape(math.random(#options.OSC_WAVE_SHAPE) - 1)
@@ -296,14 +303,14 @@ function Molly:randomize(sound_type)
 
   if sound_type == "lead" then
 
-    self:freqModLfo(util.linexp(0, 1, 0.0000001, 0.1, math.pow(math.random(), 2)))
+    self:freqModLfo(util.linexp(0, 1, 0.0000001, 0.1, (math.random() ^ 2)))
     if math.random() > 0.95 then
       self:freqModEnv(util.linlin(0, 1, -0.06, 0.06, math.random()))
     else
       self:freqModEnv(0)
     end
 
-    self:glide(util.linexp(0, 1, 0.0000001, 1, math.pow(math.random(), 2)))
+    self:glide(util.linexp(0, 1, 0.0000001, 1, (math.random() ^ 2)))
 
     if math.random() > 0.8 then
       self:mainOscLevel(1)
@@ -324,7 +331,7 @@ function Molly:randomize(sound_type)
       self:mainOscLevel(self.params.subOscLevel + 0.2)
     end
 
-    self:lpFilterCutoff(util.linexp(0, 1, 100, specs.LP_FILTER_CUTOFF.maxval, math.pow(math.random(), 2)))
+    self:lpFilterCutoff(util.linexp(0, 1, 100, specs.LP_FILTER_CUTOFF.maxval, (math.random() ^ 2)))
     self:lpFilterResonance(math.random() * 0.9)
     self:lpFilterCutoffModEnv(util.linlin(0, 1, math.random(-1, 0), 1, math.random()))
     self:lpFilterCutoffModLfo(math.random() * 0.2)
@@ -351,7 +358,7 @@ function Molly:randomize(sound_type)
 
     self:ringModFade(util.linlin(0, 1, specs.RING_MOD_FADE.minval * 0.8, specs.RING_MOD_FADE.maxval * 0.3, math.random()))
     if(math.random() > 0.8) then
-      self:ringModMix(math.pow(math.random(), 2))
+      self:ringModMix((math.random() ^ 2))
     else
       self:ringModMix(0)
     end
@@ -359,14 +366,14 @@ function Molly:randomize(sound_type)
 
   elseif sound_type == "pad" then
 
-    self:freqModLfo(util.linexp(0, 1, 0.0000001, 0.2, math.pow(math.random(), 4)))
+    self:freqModLfo(util.linexp(0, 1, 0.0000001, 0.2, (math.random() ^ 4)))
     if math.random() > 0.8 then
-      self:freqModEnv(util.linlin(0, 1, -0.1, 0.2, math.pow(math.random(), 4)))
+      self:freqModEnv(util.linlin(0, 1, -0.1, 0.2, (math.random() ^ 4)))
     else
       self:freqModEnv(0)
     end
 
-    self:glide(util.linexp(0, 1, 0.0000001, specs.GLIDE.maxval, math.pow(math.random(), 2)))
+    self:glide(util.linexp(0, 1, 0.0000001, specs.GLIDE.maxval, (math.random() ^ 2)))
 
     self:mainOscLevel(math.random())
     self:subOscLevel(math.random())
@@ -405,10 +412,10 @@ function Molly:randomize(sound_type)
 
   else -- Perc
 
-    self:freqModLfo(util.linexp(0, 1, 0.0000001, 1, math.pow(math.random(), 2)))
-    self:freqModEnv(util.linlin(0, 1, specs.FREQ_MOD_ENV.minval, specs.FREQ_MOD_ENV.maxval, math.pow(math.random(), 4)))
+    self:freqModLfo(util.linexp(0, 1, 0.0000001, 1, (math.random() ^ 2)))
+    self:freqModEnv(util.linlin(0, 1, specs.FREQ_MOD_ENV.minval, specs.FREQ_MOD_ENV.maxval, (math.random() ^ 4)))
 
-    self:glide(util.linexp(0, 1, 0.0000001, specs.GLIDE.maxval, math.pow(math.random(), 2)))
+    self:glide(util.linexp(0, 1, 0.0000001, specs.GLIDE.maxval, (math.random() ^ 2)))
 
     self:mainOscLevel(math.random())
     self:subOscLevel(math.random())
@@ -427,7 +434,7 @@ function Molly:randomize(sound_type)
     self:env1Attack(util.linlin(0, 1, specs.ENV_ATTACK.minval, specs.ENV_ATTACK.maxval, math.random()))
 
     self:env2Attack(specs.ENV_ATTACK.minval)
-    self:env2Decay(util.linlin(0, 1, 0.008, 1.8, math.pow(math.random(), 4)))
+    self:env2Decay(util.linlin(0, 1, 0.008, 1.8, (math.random() ^ 4)))
     self:env2Sustain(0)
     self:env2Release(self.params.env2Decay)
 
@@ -463,6 +470,7 @@ function Molly:randomize(sound_type)
     self:lpFilterCutoffModEnv(math.abs(self.params.lpFilterCutoffModEnv))
   end
 
+  return seed
 end
 
 return Molly

@@ -9,6 +9,7 @@
 // GPL 3.0! See LICENSE.md
 
 Engine_ReplLooper : CroneEngine {
+	classvar zglut_nvoices = 4;
 
   var maxVoices = 7;
   var maxSamples = 256;
@@ -109,6 +110,17 @@ Engine_ReplLooper : CroneEngine {
 
   // </Goldeneye>
 
+  // <zglut>
+	var zglut_pg;
+	var zglut_effect;
+	var <zglut_buffers;
+	var <zglut_voices;
+	var zglut_effectBus;
+	var <zglut_phases;
+	var <zglut_levels;
+	var <zglut_seek_tasks;
+  // </zglut>
+
   var trackMixer;
   var trackBus;
 
@@ -117,8 +129,6 @@ Engine_ReplLooper : CroneEngine {
   }
 
   alloc {
-
-
 
     /////////////////// TRACKS //////////////////////
 
@@ -256,6 +266,7 @@ Engine_ReplLooper : CroneEngine {
 
     loadQueue = Array.new(maxSamples);
     scriptAddress = NetAddr("localhost", 10111);
+    // scriptAddress = NetAddr("localhost", 8888);
     waveformQueue = Array.new(maxSamples);
 
     // Receive messages from server
@@ -696,7 +707,7 @@ Engine_ReplLooper : CroneEngine {
 
       // Compression etc
       signal = LPF.ar(in: signal, freq: 14000);
-      signal = CompanderD.ar(in: signal, thresh: 0.4, slopeBelow: 1, slopeAbove: 0.25, clAmpTime: 0.002, relaxTime: 0.01);
+      signal = CompanderD.ar(in: signal, thresh: 0.4, slopeBelow: 1, slopeAbove: 0.25, clampTime: 0.002, relaxTime: 0.01);
       signal = tanh(signal).softclip;
 
       // Chorus
@@ -801,6 +812,7 @@ Engine_ReplLooper : CroneEngine {
       var inst_id = msg[1];
       var voice = this.getInstMollyVoiceList(inst_id).detect{arg v; v.id == msg[2]};
       if(voice.notNil, {
+        voice.trace;
         voice.theSynth.set(\gate, 0);
         voice.gate = 0;
       });
@@ -833,6 +845,14 @@ Engine_ReplLooper : CroneEngine {
       this.getInstMollyVoiceList(inst_id).clear;
     });
 
+    this.addCommand(\mollyTrace, "ii", { arg msg;
+      var inst_id = msg[1];
+      var voice = this.getInstMollyVoiceList(inst_id).detect{arg v; v.id == msg[2]};
+      if(voice.notNil, {
+        voice.theSynth.trace;
+      });
+    });
+
     // mollyPitchBend(id, ratio)
     this.addCommand(\mollyPitchBend, "iif", { arg msg;
       var inst_id = msg[1];
@@ -840,6 +860,11 @@ Engine_ReplLooper : CroneEngine {
       if(voice.notNil, {
         voice.theSynth.set(\mollyPitchBendRatio, msg[3]);
       });
+    });
+
+    this.addCommand(\echo, "s", { arg msg;
+      var text = msg[1];
+      text.postln;
     });
 
     // mollyPitchBendAll(ratio)
@@ -1440,6 +1465,412 @@ Engine_ReplLooper : CroneEngine {
     // </Goldeneye>
 
 
+
+    /////////////////////////
+    // ZGlut ////////////////
+    /////////////////////////
+
+    "Building ZGlut buffers for each voice".postln;
+		zglut_buffers = Array.fill(zglut_nvoices*2, { arg i;
+			Buffer.alloc(
+				context.server,
+				context.server.sampleRate * 1,
+			);
+		});
+
+		SynthDef(\zglut_synth, {
+			arg out, zglut_effectBus, phase_out, level_out, buf, buf2,
+			gate=0, pos=0, speed=1, jitter=0, voice_pan=0,
+			size=0.1, density=20, pitch=1, spread=0, gain=1, envscale=1,
+			freeze=0, t_reset_pos=0, cutoff=20000, q=1, mode=0, send=0,
+			subharmonics=0,overtones=0;
+
+			var grain_trig;
+			var trig_rnd;
+			var jitter_sig, jitter_sig2, jitter_sig3, jitter_sig4;
+			var buf_dur;
+			var pan_sig;
+			var pan_sig2;
+			var buf_pos;
+			var pos_sig;
+			var sig;
+
+			var env;
+			var level;
+			var main_vol=1.0/(1.0+subharmonics+overtones);
+			var subharmonic_vol=subharmonics/(1.0+subharmonics+overtones);
+			var overtone_vol=overtones/(1.0+subharmonics+overtones);
+
+			density = Lag.kr(density);
+			spread = Lag.kr(spread);
+			size = Lag.kr(size);
+			cutoff = Lag.kr(cutoff);
+			q = Lag.kr(q);
+			send = Lag.kr(send);
+			pitch = Lag.kr(pitch,0.25);
+
+			grain_trig = Impulse.kr(density);
+			buf_dur = BufDur.kr(buf);
+
+			pan_sig = TRand.kr(trig: grain_trig,
+				lo: -1,
+				hi: (2*spread)-1);
+
+			pan_sig2 = TRand.kr(trig: grain_trig,
+				lo: 1-(2*spread),
+				hi: 1);
+
+			jitter_sig = TRand.kr(trig: grain_trig,
+				lo: buf_dur.reciprocal.neg * jitter,
+				hi: buf_dur.reciprocal * jitter);
+			jitter_sig2 = TRand.kr(trig: grain_trig,
+				lo: buf_dur.reciprocal.neg * jitter,
+				hi: buf_dur.reciprocal * jitter);
+			jitter_sig3 = TRand.kr(trig: grain_trig,
+				lo: buf_dur.reciprocal.neg * jitter,
+				hi: buf_dur.reciprocal * jitter);
+			jitter_sig4 = TRand.kr(trig: grain_trig,
+				lo: buf_dur.reciprocal.neg * jitter,
+				hi: buf_dur.reciprocal * jitter);
+
+			buf_pos = Phasor.kr(trig: t_reset_pos,
+				rate: buf_dur.reciprocal / ControlRate.ir * speed,
+				resetPos: pos);
+      // buf_pos.poll(1, "buf_pos");
+
+			pos_sig = Wrap.kr(Select.kr(freeze, [buf_pos, pos]));
+      // pos_sig.poll(1, "pos_sig");
+
+			sig = GrainBuf.ar(
+						numChannels: 2,
+						trigger:grain_trig,
+						dur:size,
+						sndbuf:buf,
+						pos: pos_sig + jitter_sig,
+						interp: 2,
+						pan: pan_sig,
+						rate:pitch,
+						maxGrains:96,
+						mul:main_vol,
+					)+
+				  GrainBuf.ar(
+						numChannels: 2,
+						trigger:grain_trig,
+						dur:size,
+						sndbuf:buf2,
+						pos: pos_sig + jitter_sig,
+						interp: 2,
+						pan: pan_sig2,
+						rate:pitch,
+						maxGrains:96,
+						mul:main_vol,
+					)+
+				GrainBuf.ar(
+						numChannels: 2,
+						trigger:grain_trig,
+						dur:size,
+						sndbuf:buf,
+						pos: pos_sig + jitter_sig2,
+						interp: 2,
+						pan: pan_sig,
+						rate:pitch/2,
+						maxGrains:72,
+						mul:subharmonic_vol,
+					)+
+				  GrainBuf.ar(
+						numChannels: 2,
+						trigger:grain_trig,
+						dur:size,
+						sndbuf:buf2,
+						pos: pos_sig + jitter_sig2,
+						interp: 2,
+						pan: pan_sig2,
+						rate:pitch/2,
+						maxGrains:72,
+						mul:subharmonic_vol,
+					)+
+				GrainBuf.ar(
+						numChannels: 2,
+						trigger:grain_trig,
+						dur:size,
+						sndbuf:buf,
+						pos: pos_sig + jitter_sig3,
+						interp: 2,
+						pan: pan_sig,
+						rate:pitch*2,
+						maxGrains:32,
+						mul:overtone_vol*0.7,
+					)+
+				  GrainBuf.ar(
+						numChannels: 2,
+						trigger:grain_trig,
+						dur:size,
+						sndbuf:buf2,
+						pos: pos_sig + jitter_sig3,
+						interp: 2,
+						pan: pan_sig2,
+						rate:pitch*2,
+						maxGrains:32,
+						mul:overtone_vol*0.7,
+					)+
+				GrainBuf.ar(
+						numChannels: 2,
+						trigger:grain_trig,
+						dur:size,
+						sndbuf:buf,
+						pos: pos_sig + jitter_sig4,
+						interp: 2,
+						pan: pan_sig,
+						rate:pitch*4,
+						maxGrains:24,
+						mul:overtone_vol*0.3,
+					)+
+				  GrainBuf.ar(
+						numChannels: 2,
+						trigger:grain_trig,
+						dur:size,
+						sndbuf:buf2,
+						pos: pos_sig + jitter_sig4,
+						interp: 2,
+						pan: pan_sig2,
+						rate:pitch*4,
+						maxGrains:24,
+						mul:overtone_vol*0.3,
+					)
+				  ;
+						// maxGrains:[128,256,64,128,64]/2,
+						// mul:[0.125,0.625,0.05,0.15,0.05]/2,
+			// sig = GrainBuf.ar(
+			// 	numChannels: 2,
+			// 	trigger:grain_trig,
+			// 	dur:size,
+			// 	sndbuf: [buf,buf2],
+			// 	pos: pos_sig + jitter_sig,
+			// 	interp: 2,
+			// 	pan: pan_sig,
+			// 	rate: pitch,
+			// 	);
+      // sig.poll(1, "zglut sig after grainbuf");
+			sig = BLowPass4.ar(sig, cutoff, q);
+      // sig.poll(1, "zglut sig after lowpass");
+			sig = Compander.ar(sig,sig,0.25)/2;
+      // sig.poll(1, "zglut sig after compander");
+			sig = Balance2.ar(sig[0],sig[1],voice_pan);
+      // sig.poll(1, "zglut sig after balance");
+			env = EnvGen.kr(Env.asr(1, 1, 1), gate: gate, timeScale: envscale);
+
+			level = env;
+
+      // level.poll(1, "zglut level");
+      // gain.poll(1, "zglut gain");
+      // (sig * level * gain).poll(1, "zglut");
+			Out.ar(out, sig * level * gain);
+			Out.ar(zglut_effectBus, sig * level * send );
+			Out.kr(phase_out, pos_sig);
+			// ignore gain for level out
+			Out.kr(level_out, level);
+		}).add;
+
+		SynthDef(\zglut_effect, {
+			arg in, out, delayTime=2.0, damp=0.1, size=4.0, diff=0.7, feedback=0.2, modDepth=0.1, modFreq=0.1, delayVol=1.0;
+      var signal;
+			var sig = In.ar(in, 2);
+			sig = Greyhole.ar(sig, delayTime, damp, size, diff, feedback, modDepth, modFreq);
+      signal = sig * delayVol;
+      // signal.poll(1, "zglut effect out");
+			Out.ar(out, signal)
+		}).add;
+
+		context.server.sync;
+
+		// delay bus
+    zglut_effectBus = Bus.audio(context.server, 2);
+
+		// zglut_effect = Synth.new(\zglut_effect, [\in, zglut_effectBus.index, \out, context.out_b.index], target: context.xg);
+		zglut_effect = Synth.new(\zglut_effect, [\in, zglut_effectBus.index, \out, 0], target: context.xg);
+
+		zglut_phases = Array.fill(zglut_nvoices, { arg i; Bus.control(context.server); });
+		zglut_levels = Array.fill(zglut_nvoices, { arg i; Bus.control(context.server); });
+
+		zglut_pg = ParGroup.head(context.xg);
+
+		zglut_voices = Array.fill(zglut_nvoices, { arg i;
+			Synth.new(\zglut_synth, [
+				\out, context.out_b.index,
+				\zglut_effectBus, zglut_effectBus.index,
+				\phase_out, zglut_phases[i].index,
+				\level_out, zglut_levels[i].index,
+				\buf, zglut_buffers[i],
+				\buf2, zglut_buffers[i+zglut_nvoices],
+			], target: zglut_pg);
+		});
+
+		context.server.sync;
+
+		this.addCommand("zglut_delay_time", "f", { arg msg; zglut_effect.set(\delayTime, msg[1]); });
+		this.addCommand("zglut_delay_damp", "f", { arg msg; zglut_effect.set(\damp, msg[1]); });
+		this.addCommand("zglut_delay_size", "f", { arg msg; zglut_effect.set(\size, msg[1]); });
+		this.addCommand("zglut_delay_diff", "f", { arg msg; zglut_effect.set(\diff, msg[1]); });
+		this.addCommand("zglut_delay_fdbk", "f", { arg msg; zglut_effect.set(\feedback, msg[1]); });
+		this.addCommand("zglut_delay_mod_depth", "f", { arg msg; zglut_effect.set(\modDepth, msg[1]); });
+		this.addCommand("zglut_delay_mod_freq", "f", { arg msg; zglut_effect.set(\modFreq, msg[1]); });
+		this.addCommand("zglut_delay_volume", "f", { arg msg; zglut_effect.set(\delayVol, msg[1]); });
+
+		this.addCommand("zglut_read", "is", { arg msg;
+      ("loading file " ++ msg[2]).postln;
+			this.zglut_readBuf(msg[1] - 1, msg[2]);
+		});
+
+		this.addCommand("zglut_seek", "if", { arg msg;
+			var voice = msg[1] - 1;
+			var lvl, pos;
+			var seek_rate = 1 / 750;
+
+			zglut_seek_tasks[voice].stop;
+
+			// TODO: async get
+			lvl = zglut_levels[voice].getSynchronous();
+
+			if (false, { // disable seeking until fully implemented
+				var step;
+				var target_pos;
+
+				// TODO: async get
+				pos = zglut_phases[voice].getSynchronous();
+				zglut_voices[voice].set(\freeze, 1);
+
+				target_pos = msg[2];
+				step = (target_pos - pos) * seek_rate;
+
+				zglut_seek_tasks[voice] = Routine {
+					while({ abs(target_pos - pos) > abs(step) }, {
+						pos = pos + step;
+						zglut_voices[voice].set(\pos, pos);
+						seek_rate.wait;
+					});
+
+					zglut_voices[voice].set(\pos, target_pos);
+					zglut_voices[voice].set(\freeze, 0);
+					zglut_voices[voice].set(\t_reset_pos, 1);
+				};
+
+				zglut_seek_tasks[voice].play();
+			}, {
+				pos = msg[2];
+
+				zglut_voices[voice].set(\pos, pos);
+				zglut_voices[voice].set(\t_reset_pos, 1);
+				zglut_voices[voice].set(\freeze, 0);
+			});
+		});
+
+		this.addCommand("zglut_gate", "ii", { arg msg;
+			var voice = msg[1] - 1;
+			zglut_voices[voice].set(\gate, msg[2]);
+		});
+
+		this.addCommand("zglut_speed", "if", { arg msg;
+			var voice = msg[1] - 1;
+			zglut_voices[voice].set(\speed, msg[2]);
+		});
+
+		this.addCommand("zglut_jitter", "if", { arg msg;
+			var voice = msg[1] - 1;
+			zglut_voices[voice].set(\jitter, msg[2]);
+		});
+
+		this.addCommand("zglut_size", "if", { arg msg;
+			var voice = msg[1] - 1;
+			zglut_voices[voice].set(\size, msg[2]);
+		});
+
+		this.addCommand("zglut_density", "if", { arg msg;
+			var voice = msg[1] - 1;
+			zglut_voices[voice].set(\density, msg[2]);
+		});
+
+		this.addCommand("zglut_pan", "if", { arg msg;
+			var voice = msg[1] - 1;
+			zglut_voices[voice].set(\voice_pan, msg[2]);
+		});
+
+		this.addCommand("zglut_pitch", "if", { arg msg;
+			var voice = msg[1] - 1;
+			zglut_voices[voice].set(\pitch, msg[2]);
+		});
+
+		this.addCommand("zglut_spread", "if", { arg msg;
+			var voice = msg[1] - 1;
+			zglut_voices[voice].set(\spread, msg[2]);
+		});
+
+		this.addCommand("zglut_gain", "if", { arg msg;
+			var voice = msg[1] - 1;
+			zglut_voices[voice].set(\gain, msg[2]);
+		});
+
+		this.addCommand("zglut_envscale", "if", { arg msg;
+			var voice = msg[1] - 1;
+			zglut_voices[voice].set(\envscale, msg[2]);
+		});
+
+		this.addCommand("zglut_cutoff", "if", { arg msg;
+		var voice = msg[1] -1;
+		zglut_voices[voice].set(\cutoff, msg[2]);
+		});
+
+		this.addCommand("zglut_q", "if", { arg msg;
+		var voice = msg[1] -1;
+		zglut_voices[voice].set(\q, msg[2]);
+		});
+
+		this.addCommand("zglut_send", "if", { arg msg;
+		var voice = msg[1] -1;
+		zglut_voices[voice].set(\send, msg[2]);
+		});
+
+		this.addCommand("zglut_volume", "if", { arg msg;
+			var voice = msg[1] - 1;
+			zglut_voices[voice].set(\gain, msg[2]);
+		});
+
+		this.addCommand("zglut_overtones", "if", { arg msg;
+			var voice = msg[1] - 1;
+			zglut_voices[voice].set(\overtones, msg[2]);
+		});
+
+		this.addCommand("zglut_subharmonics", "if", { arg msg;
+			var voice = msg[1] - 1;
+			zglut_voices[voice].set(\subharmonics, msg[2]);
+		});
+
+    this.addCommand("zglut_track", "ii", { arg msg;
+      var voice = msg[1] - 1;
+      var track = msg[2];
+      zglut_voices[voice].set(\out, this.getTrackBus(track));
+    });
+
+		// zglut_nvoices.do({ arg i;
+		// 	this.addPoll(("phase_" ++ (i+1)).asSymbol, {
+		// 		var val = zglut_phases[i].getSynchronous;
+		// 		val
+		// 	});
+   // //
+		// // 	this.addPoll(("level_" ++ (i+1)).asSymbol, {
+		// // 		var val = zglut_levels[i].getSynchronous;
+		// // 		val
+		// // 	});
+	 // });
+   //
+		zglut_seek_tasks = Array.fill(zglut_nvoices, { arg i;
+			Routine {}
+		});
+
+    /////////////////////////
+    // END ZGlut ////////////////
+    /////////////////////////
+
+
   }
 
 
@@ -1552,13 +1983,17 @@ Engine_ReplLooper : CroneEngine {
         ("Sending instMollyMixer -> " ++ this.getTrackBus(track_id)).postln;
       }, {
 
-        ("Updating existing molly inst bus+mixer " ++ inst_id ++ " to track " ++ track_id).postln;
 
+        ("Updating existing molly inst bus+mixer " ++ inst_id ++ " to track " ++ track_id).postln;
+        ("Current in: " ++ instMollyMixerSynth.at(inst_id).get(\in) ++ " out " ++ instMollyMixerSynth.at(inst_id).get(\out)).postln;
+
+        // TODO: Maybe we should only do this if we have to?
         instMollyMixerSynth.at(inst_id).set(
           \in, instMollyMixerBus.at(inst_id),
           \out, this.getTrackBus(track_id),
         );
         ("Re-setting instMollyMixerSynth in: " ++ instMollyMixerBus.at(inst_id) ++ " out " ++ this.getTrackBus(track_id)).postln;
+        ("Resetted in: " ++ instMollyMixerSynth.at(inst_id).get(\in) ++ " out " ++ instMollyMixerSynth.at(inst_id).get(\out)).postln;
       });
     });
 
@@ -1844,8 +2279,6 @@ Engine_ReplLooper : CroneEngine {
   clearSamples {
     arg firstId, lastId = firstId;
 
-    this.stopWaveformGeneration(firstId, lastId);
-
     firstId.for(lastId, {
       arg i;
       var removeQueueIndex;
@@ -1867,184 +2300,6 @@ Engine_ReplLooper : CroneEngine {
       });
 
     });
-  }
-
-  queueWaveformGeneration {
-    arg sampleId;
-    var item;
-
-    this.stopWaveformGeneration(sampleId);
-
-    if(samples[sampleId].filePath.notNil, {
-
-      item = (
-        sampleId: sampleId,
-        filePath: samples[sampleId].filePath
-      );
-
-      waveformQueue = waveformQueue.addFirst(item);
-
-      if(generatingWaveform == -1, {
-        this.generateWaveforms();
-      });
-    });
-  }
-
-  stopWaveformGeneration {
-    arg firstId, lastId = firstId;
-
-    // Clear from queue
-    firstId.for(lastId, {
-      arg i;
-      var removeQueueIndex;
-
-      // Remove any existing with same ID
-      removeQueueIndex = waveformQueue.detectIndex({
-        arg item;
-        item.sampleId == i;
-      });
-      if(removeQueueIndex.notNil, {
-        waveformQueue.removeAt(removeQueueIndex);
-      });
-    });
-
-    // Stop currently in progress
-    if((generatingWaveform >= firstId).and(generatingWaveform <= lastId), {
-      abandonCurrentWaveform = true;
-    });
-  }
-
-  generateWaveforms {
-
-    var samplesPerSlice = 1000; // Changes the fidelity of each 'slice' of the waveform (number of samples it checks peaks of)
-    var sendEvery = 3;
-    var totalStartSecs = Date.getDate.rawSeconds;
-    var waveformRoutine;
-
-    generatingWaveform = waveformQueue.last.sampleId;
-    "Started generating waveforms".postln;
-
-    waveformRoutine = Routine.new({
-
-      while({ waveformQueue.notEmpty }, {
-        var startSecs = Date.getDate.rawSeconds;
-        var file, rawData, waveform, numFramesRemaining, numChannels, chunkSize, numSlices, sliceSize, stride, framesInSliceRemaining;
-        var frame = 0, slice = 0, offset = 0;
-        var item = waveformQueue.pop;
-        var sampleId = item.sampleId;
-
-        generatingWaveform = sampleId;
-
-        // Pause if we're loading samples
-        while({ loadQueue.notEmpty }, {
-          0.2.yield;
-        });
-
-        file = SoundFile.openRead(item.filePath);
-        if(file.isNil, {
-          ("File could not be opened for waveform generation:" + item.filePath).postln;
-        }, {
-
-          // ("Waveform" + sampleId + "started").postln;
-
-          numFramesRemaining = file.numFrames;
-          numChannels = file.numChannels;
-          chunkSize = (1048576 / numChannels).floor * numChannels;
-          numSlices = waveformDisplayRes.min(file.numFrames);
-          sliceSize = file.numFrames / waveformDisplayRes;
-          framesInSliceRemaining = sliceSize;
-          stride = (sliceSize / samplesPerSlice).max(1);
-
-          waveform = Int8Array.new((numSlices * 2) + (numSlices % 4));
-
-          // Process in chunks
-          while({
-            (numFramesRemaining > 0).and({
-              rawData = FloatArray.newClear(min(numFramesRemaining * numChannels, chunkSize));
-              file.readData(rawData);
-              rawData.size > 0;
-            }).and(abandonCurrentWaveform == false)
-          }, {
-
-            var min = 0, max = 0;
-
-            while({ (frame.round * numChannels + numChannels - 1 < rawData.size).and(abandonCurrentWaveform == false) }, {
-              for(0, numChannels.min(2) - 1, {
-                arg c;
-                var sample = rawData[frame.round.asInt * numChannels + c];
-                min = sample.min(min);
-                max = sample.max(max);
-              });
-
-              frame = frame + stride;
-              framesInSliceRemaining = framesInSliceRemaining - stride;
-
-              // Slice done
-              if(framesInSliceRemaining < 1, {
-
-                framesInSliceRemaining = framesInSliceRemaining + sliceSize;
-
-                // 0-126, 63 is center (zero)
-                min = min.linlin(-1, 0, 0, 63).round.asInt;
-                max = max.linlin(0, 1, 63, 126).round.asInt;
-                waveform = waveform.add(min);
-                waveform = waveform.add(max);
-                min = 0;
-                max = 0;
-
-                if(((slice + 1) % sendEvery == 0).and(abandonCurrentWaveform == false), {
-                  this.sendWaveform(sampleId, offset, waveform);
-                  offset = offset + sendEvery;
-                  waveform = Int8Array.new(((numSlices - offset) * 2) + (numSlices % 4));
-                });
-                slice = slice + 1;
-              });
-
-              // Let other sclang work happen if it's a long file
-              if(file.numFrames > 1000000, {
-                0.00004.yield;
-              });
-            });
-
-            frame = frame - (rawData.size / numChannels);
-            numFramesRemaining = numFramesRemaining - (rawData.size / numChannels);
-          });
-
-          file.close;
-
-          if(abandonCurrentWaveform, {
-            abandonCurrentWaveform = false;
-            // ("Waveform" + sampleId + "abandoned after" + (Date.getDate.rawSeconds - startSecs).round(0.001) + "s").postln;
-          }, {
-            if(waveform.size > 0, {
-              this.sendWaveform(sampleId, offset, waveform);
-            });
-            // ("Waveform" + sampleId + "generated in" + (Date.getDate.rawSeconds - startSecs).round(0.001) + "s").postln;
-          });
-        });
-
-        // Let other sclang work happen
-        0.002.yield;
-      });
-
-      ("Finished generating waveforms in" + (Date.getDate.rawSeconds - totalStartSecs).round(0.001) + "s").postln;
-      generatingWaveform = -1;
-
-    }).play;
-  }
-
-  sendWaveform {
-    arg sampleId, offset, waveform;
-    var padding = 0;
-
-    // Pad to work around https://github.com/supercollider/supercollider/issues/2125
-    while({ waveform.size % 4 > 0 }, {
-      waveform = waveform.add(0);
-      padding = padding + 1;
-    });
-
-    // ("Send waveform for" + sampleId + "offset" + offset + "size" + waveform.size).postln;
-    scriptAddress.sendBundle(0, ['/engineWaveform', sampleId, offset, padding, waveform]);
   }
 
   assignVoice {
@@ -2238,13 +2493,32 @@ Engine_ReplLooper : CroneEngine {
     });
   }
 
-  addCommands {
+	// zglut disk read
+	zglut_readBuf { arg i, path;
+    "in zglut_readBuf".postln;
+		if(zglut_buffers[i].notNil, {
+      "zglut_buffers[i] not nil".postln;
+			if (File.exists(path), {
+				// load stereo files and duplicate GrainBuf for stereo granulation
+				var newbuf = Buffer.readChannel(context.server, path, 0, -1, [0], {
+					zglut_voices[i].set(\buf, newbuf);
+					zglut_buffers[i].free;
+					zglut_buffers[i] = newbuf;
+          ("zglut_buffers[i] loaded:" + newbuf.numFrames + "frames." + newbuf.duration.round(0.01) + "secs." + newbuf.numChannels + "channels.").postln;
+          scriptAddress.sendBundle(0, ['/engineZglutLoad', i, newbuf.numFrames]);
+				});
+				var newbuf2 = Buffer.readChannel(context.server, path, 0, -1, [1], {
+					zglut_voices[i].set(\buf2, newbuf2);
+					zglut_buffers[i+zglut_nvoices].free;
+					zglut_buffers[i+zglut_nvoices] = newbuf2;
+          ("zglut_buffers[i+zglut_nvoices] loaded:" + newbuf2.numFrames + "frames." + newbuf2.duration.round(0.01) + "secs." + newbuf2.numChannels + "channels.").postln;
+				});
+			});
+		});
+	}
 
-    // generateWaveform(id)
-    this.addCommand(\generateWaveform, "i", {
-      arg msg;
-      this.queueWaveformGeneration(msg[1]);
-    });
+
+  addCommands {
 
     // noteOn(id, freq, vel, sampleId)
     this.addCommand(\noteOn, "iiffi", {
@@ -2613,8 +2887,6 @@ Engine_ReplLooper : CroneEngine {
     });
 
 
-
-
   }
 
   free {
@@ -2668,6 +2940,15 @@ Engine_ReplLooper : CroneEngine {
     synGoldeneye.keysValuesDo({ arg key, value; value.free; });
     bufGoldeneye.keysValuesDo({ arg key, value; value.free; });
     // </Goldeneye>
+
+    // <ZGlut>
+		zglut_voices.do({ arg voice; voice.free; });
+		zglut_phases.do({ arg bus; bus.free; });
+		zglut_levels.do({ arg bus; bus.free; });
+		zglut_buffers.do({ arg b; b.free; });
+		zglut_effect.free;
+		zglut_effectBus.free;
+    // </ZGlut>
 
     trackMixer.keysValuesDo({ arg key, value; value.free; });
     trackBus.keysValuesDo({ arg key, value; value.free; });

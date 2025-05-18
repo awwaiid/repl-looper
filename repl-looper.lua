@@ -1,4 +1,4 @@
--- repl-looper v0.5.1
+-- repl-looper v0.7.0
 -- Record/play code loops!
 --
 -- llllllll.co/t/repl-looper
@@ -13,25 +13,42 @@
 --     █         █
 --     ███████████
 --
+--     ■■■■■■■■■■■
+--     ■         ■
+--    ■■■   ■
+--     ■     ■   ■
+--          ■   ■■■
+--     ■         ■
+--     ■■■■■■■■■■■
+--
+-- At the prompt, type some lua!
 
--- Add repl-looper lib dir in to load .so files like cjson.so
-if not string.find(package.cpath, "/home/we/dust/code/repl-looper/lib/", 1, true) then
-  package.cpath = package.cpath .. ";/home/we/dust/code/repl-looper/lib/?.so"
-  package.path = package.path .. ";/home/we/dust/code/repl-looper/lib/?.lua"
+FLIP_SYMBOLS = false
+
+if seamstress then
+  print("Seamstress mode enabled!!!")
+  seamstress_setup = include("lib/seamstress_setup")
+  PROJECT_PATH = os.getenv("PWD")
+  SCREEN_WIDTH = 128
+  SCREEN_HEIGHT = 64
+else
+  PROJECT_PATH = "/home/we/dust/code/repl-looper"
+  SCREEN_WIDTH = 128
+  SCREEN_HEIGHT = 64
 end
 
-JSON = require("cjson")
-Deque = require("container.deque")
+JSON = include("lib/json")
+Deque = include("lib/container/deque")
 UI = require("ui")
-comp = require("completion")
+comp = include("lib/completion")
 
 -- Locally augmented libraries
-Lattice = require("repl-looper/lib/lattice") -- system one is broken
-musicutil = include("repl-looper/lib/musicutil_extended")
-sequins = include("repl-looper/lib/sequins_extended")
+Lattice = include("lib/lattice")
+musicutil = include("lib/musicutil_extended")
+sequins = include("lib/sequins_extended")
 
 -- Local helpers
-local helper = include("repl-looper/lib/helper")
+local helper = include("lib/helper")
 ls = helper.ls
 eval = helper.eval
 keys = helper.tabkeys
@@ -39,7 +56,7 @@ keys = helper.tabkeys
 -- ALL helper
 -- Use like all{a,b,c}:stop()
 -- Which is equivalent to a:stop();b:stop();c:stop()
-all = include("repl-looper/lib/all")
+all = include("lib/all")
 
 -- Enable/Disable global debugging
 function bug(...)
@@ -52,189 +69,38 @@ end
 -- Grid Wrapper -----------------------------------------------------
 ---------------------------------------------------------------------
 
-local Grid = {}
-Grid.__index = Grid
-
-function Grid.new(key_handler)
-  local self = {
-    device = grid.connect(),
-    data = {}
-  }
-
-  self.device.key = key_handler
-
-  -- Initialize data based on grid cols/rows
-  for x = 1, 16 do
-    self.data[x] = {}
-    for y = 1, 8 do
-      self.data[x][y] = 0
-    end
-  end
-
-  setmetatable(self, Grid)
-  return self
-end
-
-function Grid:refresh()
-  self.device:refresh()
-  redraw()
-end
-
-function Grid:led(x, y, brightness)
-  self.device:led(x, y, brightness)
-  self.data[x] = self.data[x] or {}
-  self.data[x][y] = brightness
-end
-
-function Grid:all(brightness)
-  self.device:all(brightness)
-  self.data = {}
-  for x = 1, 16 do
-    self.data[x] = {}
-    for y = 1, 8 do
-      self.data[x][y] = 0
-    end
-  end
-end
+local Grid = include("lib/grid")
 
 ---------------------------------------------------------------------
 -- Editor -----------------------------------------------------------
 ---------------------------------------------------------------------
 
-local Editor = {}
-Editor.__index = Editor
-
-function Editor.new()
-  local self = {
-    content = "",
-    draw_at_x = 0,
-    draw_at_y = 62,
-    cursor = 1
-  }
-  setmetatable(self, Editor)
-  return self
-end
-
-function Editor:redraw()
-  -- This allows us to have a bottom-aligned editor
-  local height = self:draw_wrapped_content(0, 0, false)
-  self:draw_wrapped_content(0, self.draw_at_y - height, true)
-  return height
-end
-
-function Editor:draw_wrapped_content(start_x, start_y, do_draw)
-  -- Draw characters one at a time based on width
-  -- And then reverse the currect character if it is where the cursor is
-  -- screen.text draws from the lower-left corner for some weird reason, that's
-  -- weird. I guess we'll call this method twice, first to get the height and the second to draw the content
-  local content = self.content .. " " -- Add a space so we can see the cursor
-  local x = start_x
-  local y = start_y
-  for i = 1, #content do
-    local char = content:sub(i, i)
-    local char_width = screen.text_extents(char)
-    if char_width == 0 then
-      char_width = 4
-    end
-    if x + char_width > 127 then
-      x = 0
-      y = y + 8
-    end
-    if do_draw then
-      screen.move(x, y)
-      if i == self.cursor then
-        screen.level(15)
-        screen.text(char)
-        self:invert_rect(x, y-7, char_width, 9)
-      else
-        screen.level(15)
-        screen.text(char)
-      end
-    end
-    x = x + char_width + 1
-  end
-  return y
-end
-
-function Editor:invert_rect(x, y, width, height)
-  local rect = screen.peek(x, y, width, height)
-  local out = {}
-  for i = 1, #rect do
-    out[i] = string.char(15 - string.byte(rect, i))
-  end
-  screen.poke(x, y, width, height, table.concat(out))
-end
-
-function Editor:wrap_text(text, max_len)
-  local lines = {}
-  local remaining_text = text
-  local current_line = ""
-  local character_number = 1
-  while #remaining_text > 0 do
-    local next_character = remaining_text:sub(1, 1)
-    local current_line_size = screen.text_extents(current_line .. next_character)
-    if current_line_size > max_len then
-      table.insert(lines, current_line)
-      current_line = ""
-    end
-    current_line = current_line .. next_character
-    remaining_text = remaining_text:sub(2)
-    character_number = character_number + 1
-  end
-  table.insert(lines, current_line)
-  return lines
-end
-
-function Editor:insert(char)
-  self.content = self.content:sub(1, self.cursor - 1) .. char .. self.content:sub(self.cursor)
-  self.cursor = self.cursor + 1
-end
-
-function Editor:backspace()
-  if self.cursor > 1 then
-    self.content = self.content:sub(1, self.cursor - 2) .. self.content:sub(self.cursor)
-    self.cursor = self.cursor - 1
-  end
-end
-
-function Editor:delete()
-  if self.cursor <= #self.content then
-    self.content = self.content:sub(1, self.cursor - 1) .. self.content:sub(self.cursor + 1)
-  end
-end
-
-function Editor:move_cursor_left()
-  self.cursor = math.max(1, self.cursor - 1)
-end
-
-function Editor:move_cursor_right()
-  self.cursor = math.min(#self.content + 1, self.cursor + 1)
-end
-
-function Editor:move_cursor_to_start()
-  self.cursor = 1
-end
-
-function Editor:move_cursor_to_end()
-  self.cursor = #self.content + 1
-end
-
-function Editor:clear()
-  self.content = ""
-  self.cursor = 1
-end
-
-function Editor:set_content(new_content)
-  self.content = new_content
-  self.cursor = #new_content + 1
-end
-
 -- Single global editor for all to use
-editor = Editor.new()
+local Editor = include("lib/editor")
+local editor
+if seamstress then
+  editor = Editor.new({
+    x_offset = 1,
+    y_offset = 1,
+    line_y_adjustment = 7,
+    max_x = 127,
+    max_y = 63
+  })
+else
+  editor = Editor.new()
+end
 
 ---------------------------------------------------------------------
 -- Loop-related objects ---------------------------------------------
 ---------------------------------------------------------------------
+
+local superLattice = Lattice:new{}
+superLattice.children = {}
+superLattice.pulse = function(self)
+  for _, child in ipairs(self.children) do
+    child:pulse()
+  end
+end
 
 local Event = {}
 Event.__index = Event
@@ -266,8 +132,10 @@ function Event:lua()
 end
 
 current_context_loop_id = 0
+loop = nil -- shortcut for "current eval loop"
 function Event:eval(context_loop_id, from_playing_loop)
   current_context_loop_id = context_loop_id
+  loop = loops[context_loop_id]
   -- print("Set context loop id to", current_context_loop_id)
   local result = live_event(self.command, from_playing_loop)
   -- print("Reset context loop id to 0")
@@ -293,14 +161,16 @@ Loop.__index = Loop
 Loop.last_id = 0
 
 function Loop.new(init)
-  local self = init or {
+  local self = {
     events = {},
     off_events = {},
     loop_length_qn = 16,
-    current_step = 1,
+    visual_length = 16,
+    visual_offset = 0,
+    step = 1,
     current_substep = 1.0,
     duration = 10212,
-    lattice = Lattice:new{},
+    lattice = Lattice:new{auto = false},
     record_feedback = false,
     auto_quantize = false,
     send_feedback = false,
@@ -314,20 +184,21 @@ function Loop.new(init)
     mode = "stop"
   }
 
-  setmetatable(self, Loop)
-
   Loop.last_id = Loop.last_id + 1
   self.id = Loop.last_id
 
+  self.visual_row = (self.id - 1) % 8 + 1
+
+  if init then
+    for k, v in pairs(init) do
+      self[k] = v
+    end
+  end
+
+  setmetatable(self, Loop)
+
   -- Register with global list of loops
   loops[self.id] = self
-
-  -- Kinda evil shortcut!
-  -- for loops 1..8 make global var 'a' .. 'h'
-  if self.id < 9 then
-    self.loop_letter = string.char(string.byte("a") + self.id - 1)
-    _G[self.loop_letter] = self
-  end
 
   -- Basically a quarter-note metronome
   -- This is used to update the grid and client
@@ -337,6 +208,9 @@ function Loop.new(init)
     end,
     division = 1/4
   }
+
+  -- Hook this up as a child to the superLattice
+  superLattice.children[self.id] = self.lattice
 
   return self
 end
@@ -366,18 +240,8 @@ function Loop:send_status(t)
 
   clock.sleep(0.001) -- Allow other things to run
 
-  self.current_step = self:get_current_step(t)
+  self.step = self:get_current_step(t)
   self:draw_grid_row()
-
-  messageFromServer {
-    action = "playback_step",
-    step = self.current_step,
-    stepCount = self.loop_length_qn,
-    loop_id = self.id,
-    command = self.recent_command,
-    mode = self.mode,
-    loop_letter = self.loop_letter
-  }
 end
 
 function Loop:qn_per_ms()
@@ -460,7 +324,7 @@ function Loop:setStep(step)
   step = step - 1
   step = step % self.loop_length_qn
   self.lattice.transport = step * self.lattice.ppqn
-  self.current_step = self:get_current_step()
+  self.step = self:get_current_step()
   self:update_lattice()
   self:draw_grid_row()
 end
@@ -485,10 +349,10 @@ end
 
 -- Let's get some GRID!!
 function Loop:draw_grid_row()
-  clear_grid_row(self.id)
+  -- clear_grid_row(self.id)
 
   local row = self:to_grid_row()
-  for n = 1, 16 do
+  for n = 1, self.visual_length do
 
     -- Highlight currently selected row
     local val = row[n] or 0
@@ -497,7 +361,7 @@ function Loop:draw_grid_row()
     end
 
     -- Mod-16 so we can show long sequences overlaid; maybe confusing
-    grid_device:led((((n-1) % 16)+1), self.id, val)
+    grid_device:led((((n-1) % self.visual_length)+1+self.visual_offset), self.visual_row, val)
   end
 
   grid_device:refresh()
@@ -505,7 +369,7 @@ end
 
 function Loop:lua()
   local output = {}
-  output.current_step = self.current_step
+  output.step = self.step
   output.loop_length_qn = self.loop_length_qn
   output.transport = self.lattice.transport
   output.stop_next = self.stop_next
@@ -529,12 +393,12 @@ function Loop:to_grid_row()
   local row = {}
   -- Basically zoom-out for longer loops, but still in increments of 16
   -- This is might be weird for non-powers-of-2
-  local div = math.floor((self.loop_length_qn - 1) / 16) + 1
+  local div = math.floor((self.loop_length_qn - 1) / self.visual_length) + 1
 
   -- Highlight the current step even if we're not
   -- on an event; all the rest are dark by default
   for n = 1, self.loop_length_qn do
-    if math.ceil(n/div) == math.ceil(self.current_step/div) then
+    if math.ceil(n/div) == math.ceil(self.step/div) then
       row[math.ceil(n/div)] = 10
     else
       row[math.ceil(n/div)] = 0
@@ -544,7 +408,7 @@ function Loop:to_grid_row()
   -- Entries with events glow. Event+current glow a lot
   for _, event in ipairs(self.events) do
     local visual_step = math.ceil(math.floor(event.step)/div)
-    if visual_step == math.ceil(self.current_step/div) then
+    if visual_step == math.ceil(self.step/div) then
       row[visual_step] = 15
     else
       row[visual_step] = 5
@@ -673,13 +537,37 @@ function Loop:sampleRec()
   start_record_sample()
 end
 
-function Loop:add_event_command(cmd)
+function Loop:add_event_command(cmd, step)
+  local pulse
+  if step then
+    pulse = (step - 1) * self.lattice.ppqn
+  else
+    pulse = self.lattice.transport
+  end
+
   local event = Event.new({
-    pulse = self.lattice.transport,
+    pulse = pulse,
     command = cmd
   })
   self:update_event(event)
   table.insert(self.events, event)
+  return event
+end
+
+function Loop:add_off_event_command(cmd, step)
+  local pulse
+  if step then
+    pulse = (step - 1) * self.lattice.ppqn
+  else
+    pulse = self.lattice.transport
+  end
+
+  local event = Event.new({
+    pulse = pulse,
+    command = cmd
+  })
+  self:update_event(event)
+  table.insert(self.off_events, event)
   return event
 end
 
@@ -711,7 +599,7 @@ function Loop:shift(transport_diff)
     event.pulse = event.pulse - transport_diff
   end
 
-  self.current_step = self:get_current_step()
+  self.step = self:get_current_step()
   self:update_lattice()
   self:draw_grid_row()
 end
@@ -723,6 +611,41 @@ function Loop:clone(other_loop)
     other_loop:add_event(event:clone())
   end
   self:draw_grid_row()
+  other:draw_grid_row()
+end
+
+function Loop:gsub(pattern, replacement)
+  for _, event in ipairs(self.events) do
+    event.command = string.gsub(event.command, pattern, replacement)
+  end
+end
+
+-- Helper for expanding generated code
+-- Injects both a macro eval and replaces step-number (M is zero-based, N is one-based)
+function expand_code_string(code_string, n)
+  local expanded_code_string =
+    string.gsub(
+      code_string,
+      "`([^`]+)`",
+      function (snippet)
+        local injected_snippet = "local n = dynamic('n'); local m = n - 1; return " .. snippet
+        print("Evaluating", injected_snippet)
+        return eval(injected_snippet)
+      end
+    )
+  local expanded_code_string =
+    string.gsub(
+      expanded_code_string,
+      "([^%w_])N([^%w_])",
+      "%1" .. n .. "%2"
+    )
+  local expanded_code_string =
+    string.gsub(
+      expanded_code_string,
+      "([^%w_])M([^%w_])",
+      "%1" .. (n-1) .. "%2"
+    )
+  return expanded_code_string
 end
 
 -- a:gen("CH") puts the "CH" function on every step
@@ -734,88 +657,30 @@ end
 function Loop:gen(code_string, modification, offset)
   if type(code_string) == "table" then
     for n, cmd in ipairs(code_string) do
-      local event = Event.new({
-        pulse = (n - 1) * self.lattice.ppqn,
-        command = cmd
-      })
-      self:update_event(event)
-      table.insert(self.events, event)
+      self:add_event_command(cmd, n)
     end
   elseif type(modification) == "table" then
     for _, n in ipairs(modification) do
-      local expanded_code_string =
-        string.gsub(
-          code_string,
-          "`([^`]+)`",
-          function (snippet)
-            local injected_snippet = "local n = dynamic('n'); local m = n - 1; return " .. snippet
-            return eval(injected_snippet)
-          end
-        )
-      local event = Event.new({
-        pulse = (n - 1) * self.lattice.ppqn,
-        command = expanded_code_string
-      })
-      self:update_event(event)
-      table.insert(self.events, event)
+      local expanded_code_string = expand_code_string(code_string, n)
+      self:add_event_command(expanded_code_string, n)
     end
   elseif type(modification) == "number" then
     offset = offset or 1
     for step = 1, (self.loop_length_qn / modification) do
       local n = (step - 1) * modification + offset
-      local expanded_code_string =
-        string.gsub(
-          code_string,
-          "`([^`]+)`",
-          function (snippet)
-            local injected_snippet = "local step = dynamic('step'); local n = dynamic('n'); local m = n - 1; return " .. snippet
-            return eval(injected_snippet)
-          end
-        )
-      local event = Event.new({
-        pulse = (n - 1) * self.lattice.ppqn,
-        command = expanded_code_string
-      })
-      self:update_event(event)
-      table.insert(self.events, event)
+      local expanded_code_string = expand_code_string(code_string, n)
+      self:add_event_command(expanded_code_string, n)
     end
   else
     for n = 1, self.loop_length_qn do
-      local expanded_code_string =
-        string.gsub(
-          code_string,
-          "`([^`]+)`",
-          function (snippet)
-            local injected_snippet = "local n = dynamic('n'); local m = n - 1; return " .. snippet
-            return eval(injected_snippet)
-          end
-        )
-      local event = Event.new({
-        pulse = (n - 1) * self.lattice.ppqn,
-        command = expanded_code_string
-      })
-      self:update_event(event)
-      table.insert(self.events, event)
+      local expanded_code_string = expand_code_string(code_string, n)
+      self:add_event_command(expanded_code_string, n)
 
       -- Look for key-off modification
       if modification then
-        local expanded_code_string =
-          string.gsub(
-            modification,
-            "`([^`]+)`",
-            function (snippet)
-              local injected_snippet = "local n = dynamic('n'); local m = n - 1; return " .. snippet
-              return eval(injected_snippet)
-            end
-          )
-        local event = Event.new({
-          pulse = (n - 1) * self.lattice.ppqn,
-          command = expanded_code_string
-        })
-        self:update_event(event, true)
-        table.insert(self.off_events, event)
+        local expanded_code_string = expand_code_string(modification, n)
+        self:add_off_event_command(expanded_code_string, n)
       end
-
     end
   end
   self:draw_grid_row()
@@ -887,8 +752,14 @@ function Loop:clear()
   for _, event in ipairs(self.events) do
     event:destroy()
   end
+
   self.events = {}
   self.off_events = {}
+  self.step = 1
+  self.current_substep = 1.0
+  self.mods = { amp = 1, ampLag = 0, pan = 0 }
+  self.mode = "stop"
+
   self:draw_grid_row()
 end
 
@@ -932,7 +803,7 @@ function Loop:split(other_loop, base_command)
   print "Copying settings"
   other_loop.loop_length_qn = self.loop_length_qn
   other_loop.lattice.transport = self.lattice.transport
-  other_loop.current_step = self.current_step
+  other_loop.step = self.step
 
   print "Calculating event distances"
   base_command = base_command or events[1].command
@@ -1022,22 +893,23 @@ grid_mode = "one-shot"
 local grid_data = {}
 
 function handle_grid_key(col, row, state)
-  local loop_id = row
   local step = col
-  local loop = loops[loop_id]
-
-  if state == 0 then
-    loop:play_off_events_at_step(col)
-  else
-    if grid_mode == "one-shot" then
-      loop:play_events_at_step(col)
-    elseif grid_mode == "sequence" then
-      if not grid_data.commands then
-        grid_data.commands = loop:commands_at_step(step)
-        loop:draw_grid_row()
+  for _, loop in pairs(loops) do
+    if loop.visual_row == row then
+      if state == 0 then
+        loop:play_off_events_at_step(col - loop.visual_offset)
       else
-        loop:toggle_commands_at_step(step, grid_data.commands)
-        loop:draw_grid_row()
+        if grid_mode == "one-shot" then
+          loop:play_events_at_step(col - loop.visual_offset)
+        elseif grid_mode == "sequence" then
+          if not grid_data.commands then
+            grid_data.commands = loop:commands_at_step(step - loop.visual_offset)
+            loop:draw_grid_row()
+          else
+            loop:toggle_commands_at_step(step - loop.visual_offset, grid_data.commands)
+            loop:draw_grid_row()
+          end
+        end
       end
     end
   end
@@ -1056,7 +928,7 @@ function UI.ScrollingList:redraw()
 
   for i = 1, self.num_visible do
     if self.active and self.index == i + scroll_offset then screen.level(15)
-    else screen.level(3) end
+    else screen.level(10) end
     screen.move(self.x, self.y + 5 + (i - 1) * 11)
     local entry = self.entries[i + scroll_offset] or ""
     if self.text_align == "center" then
@@ -1067,7 +939,7 @@ function UI.ScrollingList:redraw()
       screen.text(entry)
     end
   end
-  screen.fill()
+  -- screen.fill()
 end
 
 function draw_logo(x, y)
@@ -1114,26 +986,53 @@ function draw_mini_grid_mirror(x, y)
         val = 1
       end
       screen.level(val)
-      screen.rect(x + (col - 1) * scale, y + (row - 1) * scale, scale, scale)
-      screen.fill()
+      if seamstress then
+        screen.move(x + (col - 1) * scale, y + (row - 1) * scale)
+        screen.rect_fill(scale, scale)
+      else
+        screen.rect(x + (col - 1) * scale, y + (row - 1) * scale, scale, scale)
+        screen.fill()
+      end
     end
   end
 end
 
+currently_redrawing = false
 function redraw()
+  if currently_redrawing then
+    return
+  end
+  currently_redrawing = true
+  clock.run(function()
+    _redraw()
+  end)
+end
 
-  screen.ping()
+function _redraw()
+  -- print("Redraw!")
+
+  if not seamstress then
+    screen.ping()
+  end
   screen.clear()
+  clock.sleep(0.01)
 
   local editor_height = editor:redraw()
+  clock.sleep(0.01)
 
   -- Nice horizontal line between history and prompt
   local divider_y = 64 - editor_height - 10
   screen.level(2)
-  screen.move(0, divider_y)
-  screen.line_width(1)
-  screen.line(128, divider_y)
-  screen.stroke()
+  if seamstress then
+    screen.move(1, divider_y)
+    screen.line(128, divider_y)
+    clock.sleep(0.01)
+  else
+    screen.move(0, divider_y)
+    screen.line_width(1)
+    screen.line(128, divider_y)
+    screen.stroke()
+  end
 
   local history_line_height = math.floor((divider_y - 2) / 9)
   if history_line_height > 0 then
@@ -1146,7 +1045,12 @@ function redraw()
     end
 
     screen.level(15)
-    local lst = UI.ScrollingList.new(0, 0, (history_select or #history_viz), history_viz)
+    local lst;
+    if seamstress then
+      lst = UI.ScrollingList.new(1, -4, (history_select or #history_viz), history_viz)
+    else
+      lst = UI.ScrollingList.new(0, 0, (history_select or #history_viz), history_viz)
+    end
     if not history_select then
       lst.active = false
     end
@@ -1154,100 +1058,270 @@ function redraw()
     lst.num_visible = history_line_height
     lst:redraw()
   end
+  clock.sleep(0.01)
 
   -- Informational / cool displays
-  screen.level(15)
-  -- draw_logo(118, 1)
-  draw_mini_grid_mirror(112, 1)
+  if not seamstress then
+    screen.level(15)
+    -- draw_logo(118, 1)
+    draw_mini_grid_mirror(112, 1)
+  end
 
   screen.update()
+  -- screen.peek(0, 0, 128, 64) -- try to help out some ndi-mod thing
+
+  currently_redrawing = false
 end
 
-function keyboard.char(character)
-  history_select = nil
-  editor:insert(character)
-  redraw()
+if not seamstress then
+  function keyboard.char(character)
+    history_select = nil
+    editor:insert(character)
+    redraw()
+  end
 end
 
 saved_content = ""
 
-function keyboard.code(code, value)
-  -- The grid logo is fun, but let's hide it once we have a keypress
-  if showing_grid_logo then
-    showing_grid_logo = false
-    grid_device:all(0)
-    grid_device:refresh()
-  end
+if seamstress then
+  function screen.key(code, modifiers, is_repeat, value)
+    local modifier
+    if #modifiers == 1 then
+      modifier = modifiers[1]
+    elseif #modifiers == 0 then
+      modifier = "none"
+    end
 
-  if value == 1 or value == 2 then -- 1 is down, 2 is held, 0 is release
-    print("keyboard code and value", code, value)
-
-    -- History selection
-    if code == "UP" then
-      if not history_select then
-        saved_content = editor.content
-        history_select = result_history:count()
-      else
-        history_select = history_select - 1
-        if history_select == 0 then
-          history_select = nil
-          editor:set_content(saved_content)
-        end
-      end
-      if history_select then
-        editor:set_content(result_history:peek(history_select).input)
-      end
-    elseif code == "DOWN" then
-      if not history_select then
-        saved_content = editor.content
-        history_select = 1
-      else
-        history_select = history_select + 1
-        if history_select > result_history:count() then
-          history_select = nil
-          editor:set_content(saved_content)
-        end
-      end
-      if history_select then
-        editor:set_content(result_history:peek(history_select).input)
-      end
+    if code.name ~= nil then
+      code = code.name
     else
-      history_select = nil
-      saved_content = ""
+      code = code == " " and "space" or code
     end
 
-    if code == "BACKSPACE" then
-      editor:backspace()
-    elseif code == "DELETE" then
-      editor:delete()
-    elseif code == "LEFT" then
-      editor:move_cursor_left()
-    elseif code == "RIGHT" then
-      editor:move_cursor_right()
-    elseif code == "HOME" then
-      editor:move_cursor_to_start()
-    elseif code == "END" then
-      editor:move_cursor_to_end()
-    elseif code == "ENTER" then
-      if editor.content == "" then
-        -- If there is no new input, send the most recent history entry
-        editor:set_content(result_history:peek_back().input)
+    code = string.upper(code)
+
+    -- The grid logo is fun, but let's hide it once we have a keypress
+    if showing_grid_logo then
+      showing_grid_logo = false
+      grid_device:all(0)
+      grid_device:refresh()
+    end
+
+    if value == 1 or value == 2 then -- 1 is down, 2 is held, 0 is release
+      -- History selection
+      if code == "UP" then
+        if not history_select then
+          saved_content = editor.content
+          history_select = result_history:count()
+        else
+          history_select = history_select - 1
+          if history_select == 0 then
+            history_select = nil
+            editor:set_content(saved_content)
+          end
+        end
+        if history_select then
+          editor:set_content(result_history:peek(history_select).input)
+        end
+      elseif code == "DOWN" then
+        if not history_select then
+          saved_content = editor.content
+          history_select = 1
+        else
+          history_select = history_select + 1
+          if history_select > result_history:count() then
+            history_select = nil
+            editor:set_content(saved_content)
+          end
+        end
+        if history_select then
+          editor:set_content(result_history:peek(history_select).input)
+        end
+      else
+        history_select = nil
+        saved_content = ""
       end
-      client_live_event(editor.content)
-      editor:clear()
-    elseif code == "TAB" then
-      local comps = comp.complete(editor.content)
-      editor:set_content(helper.longestPrefix(comps))
-      if #comps > 1 then
-        for i, v in ipairs(comps) do
-          result_history:push_back({
-            input = v,
-            output = "..."
-          })
+
+      if code == "BACKSPACE" then
+        editor:backspace()
+      elseif code == "DELETE" then
+        editor:delete()
+      elseif code == "LEFT" then
+        editor:move_cursor_left()
+      elseif code == "RIGHT" then
+        editor:move_cursor_right()
+      elseif code == "HOME" then
+        editor:move_cursor_to_start()
+      elseif code == "END" then
+        editor:move_cursor_to_end()
+      elseif code == "ENTER" or code == "RETURN" then
+        if modifier == "shift" then
+          editor:insert("\n")
+        else
+          if editor.content == "" then
+            -- If there is no new input, send the most recent history entry
+            editor:set_content(result_history:peek_back().input)
+          end
+          client_live_event(editor.content)
+          editor:clear()
+        end
+      elseif code == "TAB" then
+        local comps = comp.complete(editor.content)
+        editor:set_content(helper.longestPrefix(comps))
+        if #comps > 1 then
+          for i, v in ipairs(comps) do
+            result_history:push_back({
+              input = v,
+              output = "..."
+            })
+          end
+        end
+      elseif
+           code == "LSHIFT"
+        or code == "RSHIFT"
+        or code == "LCTRL"
+        or code == "RCTRL"
+        or code == "UP"
+        or code == "DOWN"
+        or code == "LSUPER"
+        or code == "RSUPER" then
+        -- Then nothing
+      elseif code == "SPACE" then
+        editor:insert(" ")
+      else
+        -- print("Got a keypress: [" .. code .. "]")
+        history_select = nil
+        if modifier == "shift" then
+          if code == "-" then code = "_" end
+          if code == "=" then code = "+" end
+          if code == ";" then code = ":" end
+          if code == "'" then code = '"' end
+          if code == "," then code = "<" end
+          if code == "." then code = ">" end
+          if code == "/" then code = "?" end
+
+          if not FLIP_SYMBOLS then
+            if code == "1" then code = "!" end
+            if code == "2" then code = "@" end
+            if code == "3" then code = "#" end
+            if code == "4" then code = "$" end
+  if code == "5" then code = "%" end
+            if code == "6" then code = "^" end
+            if code == "7" then code = "&" end
+            if code == "8" then code = "*" end
+            if code == "9" then code = "(" end
+            if code == "0" then code = ")" end
+            if code == "[" then code = "{" end
+            if code == "]" then code = "}" end
+          end
+
+
+          editor:insert(string.upper(code))
+        else
+          -- I like reverse shift for numbers
+          if FLIP_SYMBOLS then
+            if code == "1" then code = "!" end
+            if code == "2" then code = "@" end
+            if code == "3" then code = "#" end
+            if code == "4" then code = "$" end
+            if code == "5" then code = "%" end
+            if code == "6" then code = "^" end
+            if code == "7" then code = "&" end
+            if code == "8" then code = "*" end
+            if code == "9" then code = "(" end
+            if code == "0" then code = ")" end
+            if code == "[" then code = "{" end
+            if code == "]" then code = "}" end
+          end
+          editor:insert(string.lower(code))
         end
       end
+      redraw()
     end
-    redraw()
+  end
+end
+
+if not seamstress then
+  function keyboard.code(code, value)
+    -- The grid logo is fun, but let's hide it once we have a keypress
+    if showing_grid_logo then
+      showing_grid_logo = false
+      grid_device:all(0)
+      grid_device:refresh()
+    end
+
+    if value == 1 or value == 2 then -- 1 is down, 2 is held, 0 is release
+      -- History selection
+      if code == "UP" then
+        if not history_select then
+          saved_content = editor.content
+          history_select = result_history:count()
+        else
+          history_select = history_select - 1
+          if history_select == 0 then
+            history_select = nil
+            editor:set_content(saved_content)
+          end
+        end
+        if history_select then
+          editor:set_content(result_history:peek(history_select).input)
+        end
+      elseif code == "DOWN" then
+        if not history_select then
+          saved_content = editor.content
+          history_select = 1
+        else
+          history_select = history_select + 1
+          if history_select > result_history:count() then
+            history_select = nil
+            editor:set_content(saved_content)
+          end
+        end
+        if history_select then
+          editor:set_content(result_history:peek(history_select).input)
+        end
+      else
+        history_select = nil
+        saved_content = ""
+      end
+
+      if code == "BACKSPACE" then
+        editor:backspace()
+      elseif code == "DELETE" then
+        editor:delete()
+      elseif code == "LEFT" then
+        editor:move_cursor_left()
+      elseif code == "RIGHT" then
+        editor:move_cursor_right()
+      elseif code == "HOME" then
+        editor:move_cursor_to_start()
+      elseif code == "END" then
+        editor:move_cursor_to_end()
+      elseif code == "ENTER" or code == "RETURN" then
+        if keyboard.shift() then
+          editor:insert("\n")
+        else
+          if editor.content == "" then
+            -- If there is no new input, send the most recent history entry
+            editor:set_content(result_history:peek_back().input)
+          end
+          client_live_event(editor.content)
+          editor:clear()
+        end
+      elseif code == "TAB" then
+        local comps = comp.complete(editor.content)
+        editor:set_content(helper.longestPrefix(comps))
+        if #comps > 1 then
+          for i, v in ipairs(comps) do
+            result_history:push_back({
+              input = v,
+              output = "..."
+            })
+          end
+        end
+      end
+      redraw()
+    end
   end
 end
 
@@ -1386,20 +1460,6 @@ end
 -- REPL communication ------------------------------------------------
 ----------------------------------------------------------------------
 
-function messageToServer(json_msg)
-  local msg = JSON.decode(json_msg)
-  if msg.command == "save_loop" then
-    loops[msg.loop_num] = Loop.new(msg.loop)
-  else
-    print "UNKNOWN COMMAND\n"
-  end
-end
-
-function messageFromServer(msg)
-  local msg_json = JSON.encode(msg)
-  print("SERVER MESSAGE: " .. msg_json .. "\n")
-end
-
 -- Look up a variable via dynamic scope
 -- Code from https://leafo.net/guides/dynamic-scoping-in-lua.html
 function dynamic(name)
@@ -1419,7 +1479,6 @@ function dynamic(name)
     level = level + 1
   end
 end
-
 
 result_history = Deque.new()
 
@@ -1520,14 +1579,14 @@ function live_event(command, from_playing_loop)
   end
 end
 
-function completions(command)
-  local comps = comp.complete(command)
-  return "RESPONSE:" .. JSON.encode({
-    action = "completions",
-    command = command,
-    result = comps
-  })
-end
+-- function completions(command)
+--   local comps = comp.complete(command)
+--   return "RESPONSE:" .. JSON.encode({
+--     action = "completions",
+--     command = command,
+--     result = comps
+--   })
+-- end
 
 ------------------------------------------------------------------
 -- Music utilities -----------------------------------------------
@@ -1535,15 +1594,17 @@ end
 
 -- Tiiiimmmmmbbbbeeerrrrr!!!!! PLUS MOLLY THE POLY!!!
 -- .... PLUS GOLDENEYE!!!
+-- ........ PLUS GRANCHILD!!!!!!
 
-ReplLooper = include("repl-looper/lib/repllooper_engine")
+ReplLooper = include("lib/repllooper_engine")
 
 -- engine.load('ReplLooper')
 engine.name = "ReplLooper"
 
-Timber = include("repl-looper/lib/timber")
-Molly = include("repl-looper/lib/molly")
-Sample = include("repl-looper/lib/sample")
+Timber = include("lib/timber")
+Molly = include("lib/molly")
+Sample = include("lib/sample")
+Granchild = include("lib/granchild")
 
 -- Play a note or a chord
 -- The note can be either a midi number OR a note-string like "C3"
@@ -1633,13 +1694,71 @@ function draw_grid_logo()
   grid_device:refresh()
 end
 
+function animate_grid_logo()
+  showing_grid_logo = true
+
+  local pixels = {
+    { { 12, 2 }, { 5,  6 } },
+    { { 12, 1 }, { 5,  7 } },
+    { { 11, 1 }, { 6,  7 } },
+    { { 10, 1 }, { 7,  7 } },
+    { { 9,  1 }, { 8,  7 } },
+    { { 8,  1 }, { 9,  7 } },
+    { { 7,  1 }, { 10, 7 } },
+    { { 6,  1 }, { 11, 7 } },
+    { { 5,  1 }, { 12, 7 } },
+    { { 5,  2 }, { 12, 6 } },
+    { { 4, 3 }, { 5,  3 }, { 6, 3 },
+      { 11, 5 }, { 12, 5 }, { 13, 5}
+    },
+    { { 5,  4 }, { 12, 4 } },
+    -- { { 8, 3 }, { 9, 4 }, { 8, 5 } }
+    { { 8, 3, 3 }, { 9, 4, 3 }, { 8, 5, 3 } },
+    { { 8, 3, 5 }, { 9, 4, 5 }, { 8, 5, 5 } },
+    { { 8, 3, 7 }, { 9, 4, 7 }, { 8, 5, 7 } },
+    { { 8, 3, 9 }, { 9, 4, 9 }, { 8, 5, 9 } },
+    { { 8, 3, 11}, { 9, 4, 11}, { 8, 5, 11} },
+    { { 8, 3, 13}, { 9, 4, 13}, { 8, 5, 13} },
+    { { 8, 3, 15}, { 9, 4, 15}, { 8, 5, 15} },
+  }
+
+  clock.run(function()
+    for _, frame in ipairs(pixels) do
+      for _, pixel in ipairs(frame) do
+        grid_device:led(pixel[1], pixel[2], (pixel[3] or 15))
+      end
+      grid_device:refresh()
+      clock.sleep(0.1)
+    end
+  end)
+end
+
 function init()
+  print("Init!")
+  if seamstress then
+    screen.set_size(128, 64, 1)
+
+    clock.run(function()
+      clock.sleep(5)
+      osc.send({SC_HOST, SC_PORT}, '/report/engines', {})
+      clock.sleep(5)
+      osc.send({SC_HOST, SC_PORT}, '/report/engines', {})
+      clock.sleep(5)
+      delayed_init()
+    end)
+  else
+    delayed_init()
+  end
+end
+
+function delayed_init()
 
   -- Global Grid
   print "Loading grid"
   grid_device = Grid.new(handle_grid_key)
 
-  draw_grid_logo()
+  -- draw_grid_logo()
+  animate_grid_logo()
 
   -- Global midi pedal
   print "Loading midi looper pedal"
@@ -1647,18 +1766,38 @@ function init()
   pedal_device.event = handle_pedal_event
 
   -- Get our file storage set up for live-recording
-  os.execute("mkdir -p ".._path.audio.."repl-looper")
-
-  -- Set up params
-  -- MollyThePoly.add_params()
-  -- params:add_separator()
-  ReplLooper.add_params()
-
-  -- Pre-create 8 loops
-  -- Implicitly end up in `loops` with names `a`..`h`
-  for n = 1, 8 do
-    Loop.new()
+  if not seamstress then
+    os.execute("mkdir -p ".._path.audio.."repl-looper")
   end
+
+  -- Turn on our superLattice
+  superLattice:start()
+
+  -- Pre-create loops
+  a  = Loop.new({ visual_length = 16, visual_offset = 0, loop_length_qn = 16, visual_row = 1 })
+  b  = Loop.new({ visual_length = 16, visual_offset = 0, loop_length_qn = 16, visual_row = 2 })
+  c  = Loop.new({ visual_length = 16, visual_offset = 0, loop_length_qn = 16, visual_row = 3 })
+  d  = Loop.new({ visual_length = 16, visual_offset = 0, loop_length_qn = 16, visual_row = 4 })
+  e  = Loop.new({ visual_length = 16, visual_offset = 0, loop_length_qn = 16, visual_row = 5 })
+  f  = Loop.new({ visual_length = 16, visual_offset = 0, loop_length_qn = 16, visual_row = 6 })
+  g  = Loop.new({ visual_length = 16, visual_offset = 0, loop_length_qn = 16, visual_row = 7 })
+  h  = Loop.new({ visual_length = 16, visual_offset = 0, loop_length_qn = 16, visual_row = 8 })
+  -- a1 = Loop.new({ visual_length = 8,  visual_offset = 0, loop_length_qn = 8,  visual_row = 1 })
+  -- a2 = Loop.new({ visual_length = 8,  visual_offset = 8, loop_length_qn = 8,  visual_row = 1 })
+  -- b1 = Loop.new({ visual_length = 8,  visual_offset = 0, loop_length_qn = 8,  visual_row = 2 })
+  -- b2 = Loop.new({ visual_length = 8,  visual_offset = 8, loop_length_qn = 8,  visual_row = 2 })
+  -- c1 = Loop.new({ visual_length = 8,  visual_offset = 0, loop_length_qn = 8,  visual_row = 3 })
+  -- c2 = Loop.new({ visual_length = 8,  visual_offset = 8, loop_length_qn = 8,  visual_row = 3 })
+  -- d1 = Loop.new({ visual_length = 8,  visual_offset = 0, loop_length_qn = 8,  visual_row = 4 })
+  -- d2 = Loop.new({ visual_length = 8,  visual_offset = 8, loop_length_qn = 8,  visual_row = 4 })
+  -- e1 = Loop.new({ visual_length = 8,  visual_offset = 0, loop_length_qn = 8,  visual_row = 5 })
+  -- e2 = Loop.new({ visual_length = 8,  visual_offset = 8, loop_length_qn = 8,  visual_row = 5 })
+  -- f1 = Loop.new({ visual_length = 8,  visual_offset = 0, loop_length_qn = 8,  visual_row = 6 })
+  -- f2 = Loop.new({ visual_length = 8,  visual_offset = 8, loop_length_qn = 8,  visual_row = 6 })
+  -- g1 = Loop.new({ visual_length = 8,  visual_offset = 0, loop_length_qn = 8,  visual_row = 7 })
+  -- g2 = Loop.new({ visual_length = 8,  visual_offset = 8, loop_length_qn = 8,  visual_row = 7 })
+  -- h1 = Loop.new({ visual_length = 8,  visual_offset = 0, loop_length_qn = 8,  visual_row = 8 })
+  -- h2 = Loop.new({ visual_length = 8,  visual_offset = 8, loop_length_qn = 8,  visual_row = 8 })
 
   -- Global mollys to start with
   molly = Molly.new()
@@ -1673,47 +1812,52 @@ function init()
   mollies = { molly, molly2, molly3, molly4, molly5, molly6, molly7, molly8 }
 
   -- A lovely piano via timber
-  piano = Timber.new("/home/we/dust/code/timber/audio/piano-c.wav")
+  piano = Timber.new(PROJECT_PATH .. "/audio/piano-c.wav")
 
   -- Kick out the jams
   s808 = {}
 
   -- Bass
-  s808.BD = Sample.new("/home/we/dust/audio/common/808/808-BD.wav", "one-shot")
-  s808.BS = Sample.new("/home/we/dust/audio/common/808/808-BS.wav", "one-shot")
+  s808.BD = Sample.new(PROJECT_PATH .. "/audio/common/808/808-BD.wav", "one-shot")
+  s808.BS = Sample.new(PROJECT_PATH .. "/audio/common/808/808-BS.wav", "one-shot")
 
   -- cowbell
-  s808.CB = Sample.new("/home/we/dust/audio/common/808/808-CB.wav", "one-shot")
+  s808.CB = Sample.new(PROJECT_PATH .. "/audio/common/808/808-CB.wav", "one-shot")
 
   -- closed/open hat
-  s808.CH = Sample.new("/home/we/dust/audio/common/808/808-CH.wav", "one-shot")
-  s808.OH = Sample.new("/home/we/dust/audio/common/808/808-OH.wav", "one-shot")
+  s808.CH = Sample.new(PROJECT_PATH .. "/audio/common/808/808-CH.wav", "one-shot")
+  s808.OH = Sample.new(PROJECT_PATH .. "/audio/common/808/808-OH.wav", "one-shot")
 
   -- Claves
-  s808.CL = Sample.new("/home/we/dust/audio/common/808/808-CL.wav", "one-shot")
+  s808.CL = Sample.new(PROJECT_PATH .. "/audio/common/808/808-CL.wav", "one-shot")
 
   -- Clap
-  s808.CP = Sample.new("/home/we/dust/audio/common/808/808-CP.wav", "one-shot")
+  s808.CP = Sample.new(PROJECT_PATH .. "/audio/common/808/808-CP.wav", "one-shot")
 
   -- Cymbols
-  s808.CY = Sample.new("/home/we/dust/audio/common/808/808-CY.wav", "one-shot")
+  s808.CY = Sample.new(PROJECT_PATH .. "/audio/common/808/808-CY.wav", "one-shot")
 
   -- Conga high, mid, low
-  s808.HC = Sample.new("/home/we/dust/audio/common/808/808-HC.wav", "one-shot")
-  s808.MC = Sample.new("/home/we/dust/audio/common/808/808-MC.wav", "one-shot")
-  s808.LC = Sample.new("/home/we/dust/audio/common/808/808-LC.wav", "one-shot")
+  s808.HC = Sample.new(PROJECT_PATH .. "/audio/common/808/808-HC.wav", "one-shot")
+  s808.MC = Sample.new(PROJECT_PATH .. "/audio/common/808/808-MC.wav", "one-shot")
+  s808.LC = Sample.new(PROJECT_PATH .. "/audio/common/808/808-LC.wav", "one-shot")
 
   -- Tom drum high, mid, low
-  s808.HT = Sample.new("/home/we/dust/audio/common/808/808-HT.wav", "one-shot")
-  s808.MT = Sample.new("/home/we/dust/audio/common/808/808-MT.wav", "one-shot")
-  s808.LT = Sample.new("/home/we/dust/audio/common/808/808-LT.wav", "one-shot")
+  s808.HT = Sample.new(PROJECT_PATH .. "/audio/common/808/808-HT.wav", "one-shot")
+  s808.MT = Sample.new(PROJECT_PATH .. "/audio/common/808/808-MT.wav", "one-shot")
+  s808.LT = Sample.new(PROJECT_PATH .. "/audio/common/808/808-LT.wav", "one-shot")
 
   -- Maracas
-  s808.MA = Sample.new("/home/we/dust/audio/common/808/808-MA.wav", "one-shot")
+  s808.MA = Sample.new(PROJECT_PATH .. "/audio/common/808/808-MA.wav", "one-shot")
 
   -- Rimshot and Snare
-  s808.RS = Sample.new("/home/we/dust/audio/common/808/808-RS.wav", "one-shot")
-  s808.SD = Sample.new("/home/we/dust/audio/common/808/808-SD.wav", "one-shot")
+  s808.RS = Sample.new(PROJECT_PATH .. "/audio/common/808/808-RS.wav", "one-shot")
+  s808.SD = Sample.new(PROJECT_PATH .. "/audio/common/808/808-SD.wav", "one-shot")
+
+  -- Slow down NDI refresh
+  if ndi_mod then
+    ndi_mod.set_frame_rate_divisor(2)
+  end
 end
 
 -- Handy 808 drum shortcuts
@@ -1738,10 +1882,21 @@ function OH() s808.OH:play() end
 
 function random_sample(subdir)
   subdir = subdir or "folk"
-  dir = '/home/we/dust/code/repl-looper/audio/' .. subdir .. "/"
+  dir = PROJECT_PATH .. '/audio/' .. subdir .. "/"
   files = util.scandir(dir)
   random_file = dir .. files[math.random(#files)]
   return Sample.new(random_file, "one-shot")
 end
 
+function bpm(bpm)
+  if bpm then
+    clock.internal.set_tempo(bpm)
+    return bpm
+  end
+  return clock.get_tempo()
+end
+
+function chord(note)
+  return musicutil.generate_chord(note)
+end
 

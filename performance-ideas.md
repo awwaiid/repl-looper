@@ -6,6 +6,9 @@ a:gen("BS", {1, 2.75, 3.5, 4.25, 4.75})
 a:gen("SD", {2, 4})
 a:gen("CH", 1/2)
 
+a:gen("BS", {4/4, 11/4, 14/4, 17/4, 19/4})
+
+a:gen("BS", {4/4, 11/4, 14/4, 17/4, 19/4})
 
 
 -- Let's try some sample slicing
@@ -159,5 +162,50 @@ s1 = Sample.new("/home/we/dust/code/repl-looper/audio/folk/Roll-on-silver-moon_j
 -- 64, 65, 66
 h:gen("molly2:note(musicutil.generate_chord(`60+m`))", "molly2:offNote(musicutil.generate_chord(`60+m`))")
 
+work = Granchild.new()
+work:load("/tmp/work.ogg") -- load up a lil' sample
+a:gen("work:seek(M/16)") -- generate a seek on each of the 16 steps on loop/row a (M=col num)
+b:gen("work:pitch(N/8)") -- generate pitch shift on each button from 1/8 to 16/8 on loop/row b (N=col num - 1)
+c:gen("work:speed((M-4)/4)") -- speed from -1 to 2.75
+
+
 
 ```
+
+| Song              | BPM | Key | Mode  |
+| Sinnerman         | 147 | B   | Minor |
+| Seven Nation Army | 124 | C   |       |
+| Halcyon On And On | 127 | B   | Minor |
+
+
+* molly:notRandom(66745)
+
+CG, CGE, CG, CGED
+
+piano:reverse()
+piano:startFrame(20000)
+piano:endFrame(1000)
+piano:transpose(-10)
+piano:bitDepth(4)
+piano:filterFreq(800)
+
+molly:notRandom(66745)
+molly:notRandom(6311) -- Drone
+
+h:gen("molly:note(60+M)", "molly:offNote(60+M)")
+
+molly:notRandom(20970)
+molly:notRandom(56207) -- Horn synth
+molly:notRandom(74172) -- Nice pad thing
+molly:notRandom(87713) -- Funky sorty of like a record slow/speed
+
+* Fado music at IV Seasons, Lowell, Massachusetts, part 2
+  * https://www.loc.gov/item/afc1987042_bf_r002/
+  * guitar
+  * 9:35 -- guitar
+  * 10:00 -- outro
+  * 11:00 -- intro
+  * 
+
+
+
