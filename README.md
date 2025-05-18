@@ -11,9 +11,9 @@ Experimental performance and creative tool, mashing together several things that
 Check out the [dev branch](https://github.com/awwaiid/repl-looper/tree/dev) and [dev branch development journal](https://github.com/awwaiid/repl-looper/tree/dev/journal.md) for ongoing development work. The `main` branch is the current "stable" (haha) version.
 
 # Recent Releases
-* v0.1 (2022-01-08) - Initial release, generally working!
-* v0.2 (2022-01-17) - Multiple Mollies, per-loop amp/fade, `all` helper
-* v0.3 (2022-02-06) - More loop utils, timing fixes, bug fixes
+* v0.1.0 (2022-01-08) - Initial release, generally working!
+* v0.2.0 (2022-01-17) - Multiple Mollies, per-loop amp/fade, `all` helper
+* v0.3.0 (2022-02-06) - More loop utils, timing fixes, bug fixes
   * Generate key-off events
   * Fix Timber slicing
   * `loop:pan(-0.5)` to pan the whole loop
@@ -26,20 +26,22 @@ Check out the [dev branch](https://github.com/awwaiid/repl-looper/tree/dev) and 
   * Embedded Goldeneye - add pan, lowpass; fix rate
   * Lay out long loops on the grid by zooming-out (more steps-per-button)
   * Rename `ALL` to `all`
-* v0.4 (2023-03-18) - On-norns UI, live sample recording, midi-pedal
+* v0.4.0 (2023-03-18) - On-norns UI, live sample recording, midi-pedal
   * New on-norns UI
   * New on-norns keyboard input
   * Using softcut, live record a sample and then slice it into a loop
   * Add the ability to select a current-loop and record via midi-pedal
   * If the current loop is loop-1, then stretch the BPM to match the sample at 16 steps
-* v0.5 (2023-11-06) - Editor
+* v0.5.0 (2023-11-06) - Editor
   * Add cursor, arrow keys, home/end, and dynamic height to input editor
   * On-screen grid mirror
   * Abandon web UI
 * v0.5.1 (2023-11-07) - Fix grid keypress
-* v0.6 - Granchild and Seamstress
+* v0.6.0 - Granchild and Seamstress
   * Incorporate Granchild (or something like it)
   * Make compatible with Seamstress; can use in both Norns and Seamstress
+* v0.7.0 (2025-05-18) - Merge things together
+  * Catching up after some dormancy
 
 # Installation
 
@@ -211,18 +213,27 @@ Here we use loop `a` as the example, but you could run these commands on any loo
     * Example: `a:amp(0, 10)` will fade out the whole loop over 10 seconds
   * `a:pan(amount)` -- Pan the whole loop. Panning goes from -1 (left) to 1 (right), and 0 is center
 
-## Engine wrappers
+## Engine wrappers / mashups
 
-* `t1 = Timber.new("path/to/file.wav")` -- Timber wrapper (works with .ogg too!)
-* `s1 = Sample.new("path/to/file.wav")` -- Goldeneye wrapper (works with .ogg too!)
-* `m1 = Molly.new()` -- Molly the Poly wrapper (you can have several!)
-  * Tip: `molly:randomize()` -- Randomize the synth params!
+REPL-LOOPER mashes up several engines, squishing them into a sort of super-engine. Each of the engines has a wrapper, slowly moving toward unifying their interfaces and making them friendly for live REPL usage.
+
+* Timber
+  * `t1 = Timber.new("path/to/file.wav")` -- Timber wrapper (works with .ogg too!)
+* Goldeneye (Sample)
+  * `s1 = Sample.new("path/to/file.wav")` -- Goldeneye wrapper (works with .ogg too!)
+* Molly The Poly
+  * `m1 = Molly.new()` -- Molly the Poly wrapper (you can have several!)
   * `molly` and `molly2..molly8` are pre-created for convenience
-* Once you have an instance, use tab (ex `t1:<tab>`) to explore! There are wrapper methods that generally do what the engine does
+  * `molly:randomize()` -- Randomize the synth params!
+* Granchild
+  * `g1 = Granchild.new("path/to/file.wav")` -- Granchild wrapper
+* For all engine instances, use tab (ex `t1:<tab>`) to explore! There are wrapper methods that generally do what the engine does
   * Try this with the built-in `molly` sample by typing `molly:<tab>`
 * You could of course use any engine you like! Only a few commands like `Loop:slice(...)` method depend on these wrappers. Otherwise this is arbitrary lua code getting sequenced
 
-## BONUS: `all` object wrapper
+## BONUS TOOLS
+
+The `all` object wrapper:
 * This function can be used on a table of objects and then call a given method on each of them
 * `all(mollies):stop()` -- All the pre-created mollies are stored in `mollies`, this stops them all!
 * `all(loops):amp(0, 10)` -- All the pre-created loops are stored in `loops`, this fades them all out!

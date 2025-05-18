@@ -1,4 +1,4 @@
--- repl-looper v0.6.0
+-- repl-looper v0.7.0
 -- Record/play code loops!
 --
 -- llllllll.co/t/repl-looper
@@ -13,11 +13,15 @@
 --     █         █
 --     ███████████
 --
--- *********
--- *       *
--- *       *
--- *       *
--- *********
+--     ■■■■■■■■■■■
+--     ■         ■
+--    ■■■   ■
+--     ■     ■   ■
+--          ■   ■■■
+--     ■         ■
+--     ■■■■■■■■■■■
+--
+-- At the prompt, type some lua!
 
 FLIP_SYMBOLS = false
 
@@ -1590,6 +1594,7 @@ end
 
 -- Tiiiimmmmmbbbbeeerrrrr!!!!! PLUS MOLLY THE POLY!!!
 -- .... PLUS GOLDENEYE!!!
+-- ........ PLUS GRANCHILD!!!!!!
 
 ReplLooper = include("lib/repllooper_engine")
 
@@ -1764,11 +1769,6 @@ function delayed_init()
   if not seamstress then
     os.execute("mkdir -p ".._path.audio.."repl-looper")
   end
-
-  -- Set up params
-  -- MollyThePoly.add_params()
-  -- params:add_separator()
-  -- ReplLooper.add_params()
 
   -- Turn on our superLattice
   superLattice:start()
