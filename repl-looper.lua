@@ -1,4 +1,4 @@
--- repl-looper v0.5.1
+-- repl-looper v0.6.0
 -- Record/play code loops!
 --
 -- llllllll.co/t/repl-looper
@@ -13,6 +13,15 @@
 --     █         █
 --     ███████████
 --
+--     ■■■■■■■■■■■
+--     ■         ■
+--    ■■■   ■
+--     ■     ■   ■
+--          ■   ■■■
+--     ■         ■
+--     ■■■■■■■■■■■
+--
+-- At the prompt, type some lua!
 
 -- Add repl-looper lib dir in to load .so files like cjson.so
 if not string.find(package.cpath, "/home/we/dust/code/repl-looper/lib/", 1, true) then
@@ -1540,6 +1549,7 @@ end
 
 -- Tiiiimmmmmbbbbeeerrrrr!!!!! PLUS MOLLY THE POLY!!!
 -- .... PLUS GOLDENEYE!!!
+-- ........ PLUS GRANCHILD!!!!!!
 
 ReplLooper = include("repl-looper/lib/repllooper_engine")
 
@@ -1654,11 +1664,6 @@ function init()
 
   -- Get our file storage set up for live-recording
   os.execute("mkdir -p ".._path.audio.."repl-looper")
-
-  -- Set up params
-  -- MollyThePoly.add_params()
-  -- params:add_separator()
-  ReplLooper.add_params()
 
   -- Turn on our superLattice
   superLattice:start()
