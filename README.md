@@ -42,6 +42,7 @@ Check out the [dev branch](https://github.com/awwaiid/repl-looper/tree/dev) and 
   * Make compatible with Seamstress; can use in both Norns and Seamstress
 * v0.7.0 (2025-05-18) - Merge things together
   * Catching up after some dormancy
+  * Fix Timber/piano
 
 # Installation
 
@@ -59,7 +60,7 @@ BONUS interface: A USB/Midi foot pedal! You can use this to select the current l
 
 # Basic Usage
 
-The workflow is similar to maiden's REPL - you run Lua commands and see the results. Besides being on the norns directly, the other big thing you get is a tiny DSL, Domain Specific Language, which are some nice built in shortcuts for doing some loop manipulation.
+The workflow is similar to maiden's REPL - you run Lua commands and see the results. Besides being on the norns directly, the other big thing you get is a tiny DSL, Domain Specific Language, which are some nice built in shortcuts for doing some loop manipulation and noise making.
 
 Let's get started! First, verify that everything is running with some simple math, type in:
 
@@ -150,6 +151,7 @@ The Grid visualizes the loops, their content, and their current status.
 * `<left>`, `<right>`, `<home>`, `<end>`, and `<backspace>` to do some light editing
 * Use `<up>` and `<down>` arrows to select commands and output from history
 * Press `<enter>` to execute the most recent item from history (re-run command)
+  * Press `<shift+enter>` to get multi-line input
 * Use `<tab>` to see what functions/methods are available (tab-complete)
 * Simple functions with no parameters are automatically evaluated, so you use `p` instead of `p()`
 * Common 808 samples are loaded under `s808.<tab>` and have shortcuts like `CP`
