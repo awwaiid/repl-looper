@@ -98,7 +98,7 @@ function Timber:noteOff() engine.noteOff(self.id) end
 function Timber:noteKill() engine.noteKill(self.id) end
 
 function Timber:load_sample(filename)
-  -- ReplLooper.add_sample_params(self.id)
+  ReplLooper.add_sample_params(self.id)
   ReplLooper.load_sample(self.id, filename)
   self.sample_filename = filename
 end

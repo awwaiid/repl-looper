@@ -1770,6 +1770,8 @@ function delayed_init()
     os.execute("mkdir -p ".._path.audio.."repl-looper")
   end
 
+  ReplLooper.add_params()
+
   -- Turn on our superLattice
   superLattice:start()
 
